@@ -1,0 +1,23 @@
+[Unit]
+Description=OmniTask MCP Todo Service
+After=network.target
+
+[Container]
+Image=ghcr.io/jandoer0/mcp-todo:latest
+ContainerName=mcp-todo
+AutoUpdate=registry
+
+# Port 8000 for API and MCP SSE
+PublishPort=8000:8000
+
+# Volumes for persistence
+Volume=/mnt/library/config/mcp-todo/data:/app/data:U
+
+# Environment
+Environment=DATABASE_URL=sqlite:///./data/tasks.db
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

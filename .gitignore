@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.db
+.env
+dist/
+build/
+*.log
+restart.sh
+PROMT.md
