@@ -11,11 +11,11 @@ import TaskForm from './components/TaskForm'
 import AdminPanel from './components/AdminPanel'
 
 export default function App() {
-  const { token, isAdmin, view, login, register, logout, checkAdmin, allowRegistration } =
+  const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration } =
     useAuth()
   const { theme, setTheme } = useTheme()
   const { tasks, summary, filterStatus, setFilterStatus, sortBy, setSortBy, create, update, remove } =
-    useTasks()
+    useTasks(ready)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)

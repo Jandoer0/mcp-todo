@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { tasksApi, summaryApi } from '../api/client'
 
-export function useTasks() {
+export function useTasks(ready) {
   const [tasks, setTasks] = useState([])
   const [summary, setSummary] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
@@ -30,8 +30,8 @@ export function useTasks() {
   }, [filterStatus, sortBy])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (ready) load()
+  }, [ready, load])
 
   const create = useCallback(
     async (data) => {

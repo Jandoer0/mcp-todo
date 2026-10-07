@@ -10,14 +10,14 @@ export default function Dashboard({ summary }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-6">
       {cards.map((c) => (
         <div
           key={c.label}
-          className="bg-white dark:bg-gray-800 p-4 rounded shadow text-center"
+          className="bg-white dark:bg-gray-800 p-3 sm:p-2 rounded shadow text-center"
         >
-          <div className={`text-2xl font-bold ${c.color}`}>{c.value}</div>
-          <div className="text-xs text-gray-500">{c.label}</div>
+          <div className={`text-xl sm:text-2xl font-bold ${c.color}`}>{c.value}</div>
+          <div className="text-[11px] sm:text-xs text-gray-500">{c.label}</div>
         </div>
       ))}
     </div>
