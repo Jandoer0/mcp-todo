@@ -36,10 +36,10 @@ function App() {
     }
   }, [token])
 
-  const fetchSummary = async () => {
+  const fetchSummary = async (tokenToUse = token) => {
     try {
       const res = await axios.get(`${API_URL}/summary`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${tokenToUse}` }
       })
       setSummary(res.data)
     } catch (err) {
@@ -47,7 +47,7 @@ function App() {
     }
   }
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (tokenToUse = token) => {
     try {
       let url = `${API_URL}/tasks`
       const params = []
@@ -55,7 +55,7 @@ function App() {
       if (params.length) url += `?${params.join('&')}`
       
       const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${tokenToUse}` }
       })
       let data = res.data
       
@@ -69,7 +69,9 @@ function App() {
       setTasks(data)
     } catch (err) {
       console.error(err)
-      logout()
+      if (tokenToUse === token) {
+        logout()
+      }
     }
   }
 
@@ -77,10 +79,12 @@ function App() {
     e.preventDefault()
     try {
       const res = await axios.post(`${API_URL}/auth/login`, { username, password })
-      localStorage.setItem('token', res.data.access_token)
-      setToken(res.data.access_token)
+      const newToken = res.data.access_token
+      localStorage.setItem('token', newToken)
+      setToken(newToken)
       setView('tasks')
-      fetchTasks()
+      await fetchTasks(newToken)
+      await fetchSummary(newToken)
     } catch (err) {
       alert('Login failed')
     }
