@@ -7,3 +7,4 @@ build/
 *.log
 restart.sh
 PROMT.md
+.AGENTS.md.swp
