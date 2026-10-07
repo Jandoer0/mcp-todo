@@ -18,6 +18,8 @@ Volume=/mnt/library/config/mcp-todo/data:/app/data:U
 # Environment
 Environment=DATABASE_URL=sqlite:///./data/tasks.db
 Environment=SECRET_KEY=change-this-to-a-random-secure-string-in-production
+# Bootstrap: this account is promoted to admin on startup if no admin exists yet.
+Environment=ADMIN_USERNAME=Veggie
 
 [Service]
 Restart=always
