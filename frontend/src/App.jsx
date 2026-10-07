@@ -7,7 +7,7 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
-  const [view, setView] = useState('login') // login, register, tasks
+  const [view, setView] = useState('login') // login, register, tasks, admin
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 1, deadline: '', tag: '' })
@@ -15,6 +15,62 @@ function App() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [sortBy, setSortBy] = useState('deadline') // deadline, priority
   const [summary, setSummary] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [users, setUsers] = useState([])
+
+  useEffect(() => {
+    if (token) {
+      checkAdminStatus()
+      fetchTasks()
+      fetchSummary()
+      setView('tasks')
+    }
+  }, [token])
+
+  const checkAdminStatus = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/admin/users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setIsAdmin(true)
+      setUsers(res.data)
+    } catch (err) {
+      setIsAdmin(false)
+    }
+  }
+
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/admin/users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setUsers(res.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const updateRole = async (userId, role) => {
+    try {
+      await axios.put(`${API_URL}/admin/users/${userId}?role=${role}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      fetchUsers()
+    } catch (err) {
+      alert('Failed to update role')
+    }
+  }
+
+  const deleteUser = async (userId) => {
+    try {
+      await axios.delete(`${API_URL}/admin/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      fetchUsers()
+    } catch (err) {
+      alert('Failed to delete user')
+    }
+  }
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -134,34 +190,6 @@ function App() {
     }
   }
 
-  if (view === 'login') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <form onSubmit={login} className="bg-white dark:bg-gray-800 p-8 rounded shadow-md w-full max-w-md">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Login</h2>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full p-2 mb-4 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 mb-4 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          />
-          <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Login</button>
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-400">
-            No account? <span onClick={() => setView('register')} className="text-blue-500 cursor-pointer">Register</span>
-          </p>
-        </form>
-      </div>
-    )
-  }
-
   if (view === 'register') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -190,11 +218,66 @@ function App() {
     )
   }
 
+  if (view === 'admin') {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+        <header className="bg-white dark:bg-gray-800 shadow p-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setView('tasks')} className="text-blue-500 hover:underline">← Back to Dashboard</button>
+            <h1 className="text-xl font-bold">Admin Panel</h1>
+          </div>
+          <button onClick={logout} className="text-red-500">Logout</button>
+        </header>
+        <main className="p-4 max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded shadow overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="p-4">Username</th>
+                  <th className="p-4">Role</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id} className="border-t dark:border-gray-700">
+                    <td className="p-4">{u.username}</td>
+                    <td className="p-4">
+                      <select 
+                        value={u.role} 
+                        onChange={(e) => updateRole(u.id, e.target.value)}
+                        className="bg-gray-100 dark:bg-gray-700 border-none rounded text-xs p-1"
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button onClick={() => deleteUser(u.id)} className="text-red-500 text-xs hover:underline">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <header className="bg-white dark:bg-gray-800 shadow p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold">OmniTask</h1>
+          {isAdmin && (
+            <button 
+              onClick={() => setView('admin')} 
+              className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 px-2 py-1 rounded hover:bg-purple-200"
+            >
+              Admin
+            </button>
+          )}
           <select 
             value={theme} 
             onChange={(e) => setTheme(e.target.value)}
