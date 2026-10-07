@@ -58,7 +58,7 @@ def run_migrations() -> None:
 
 def seed_lists(db) -> None:
     """Create the protected default board lists on first run."""
-    from .board import DEFAULT_LISTS
+    from .board import DEFAULT_LISTS, status_for_list
     from .models import Task, TaskList
 
     existing = {l.name for l in db.query(TaskList.name).all()}
@@ -74,11 +74,13 @@ def seed_lists(db) -> None:
                 )
             )
     db.commit()
-    # Backfill tasks whose list does not reference an existing list.
+    # Backfill tasks whose list does not reference an existing list, and
+    # keep status consistent with the (new) list.
     valid = {l.name for l in db.query(TaskList.name).all()}
     for task in db.query(Task).all():
         if task.list not in valid:
             task.list = "Не начато"
+        task.status = status_for_list(task.list)
     db.commit()
 
 
