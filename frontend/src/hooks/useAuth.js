@@ -5,6 +5,7 @@ export function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [isAdmin, setIsAdmin] = useState(false)
   const [allowRegistration, setAllowRegistration] = useState(true)
+  const [ready, setReady] = useState(false)
   const [view, setView] = useState(token ? 'tasks' : 'login')
 
   // Architecture-level cache busting: if the backend build version differs from
@@ -33,15 +34,20 @@ export function useAuth() {
   useEffect(() => {
     if (!token) {
       setView('login')
+      setReady(true)
       return
     }
     summaryApi
       .get()
-      .then(() => setView('tasks'))
+      .then(() => {
+        setView('tasks')
+        setReady(true)
+      })
       .catch(() => {
         localStorage.removeItem('token')
         setToken(null)
         setView('login')
+        setReady(true)
       })
   }, [token])
 
@@ -82,5 +88,5 @@ export function useAuth() {
     if (token) checkAdmin()
   }, [token, checkAdmin])
 
-  return { token, isAdmin, view, setView, login, register, logout, checkAdmin, allowRegistration }
+  return { token, isAdmin, view, ready, setView, login, register, logout, checkAdmin, allowRegistration }
 }
