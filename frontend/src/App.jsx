@@ -133,6 +133,7 @@ export default function App() {
   if (adminView) {
     return (
       <AdminPanel
+        open={adminView}
         users={users}
         settings={settings}
         onUpdateRole={changeRole}
@@ -190,6 +191,16 @@ export default function App() {
         onClose={() => setListsOpen(false)}
         lists={lists}
         onChanged={() => load()}
+      />
+
+      <AdminPanel
+        open={adminView}
+        users={users}
+        settings={settings}
+        onUpdateRole={changeRole}
+        onDeleteUser={delUser}
+        onToggleRegistration={toggleRegistration}
+        onBack={() => setAdminView(false)}
       />
     </Layout>
   )
