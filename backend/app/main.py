@@ -48,8 +48,45 @@ def run_migrations() -> None:
     db = SessionLocal()
     try:
         ensure_setting(db, "allow_registration", "true")
+        ensure_admin(db)
     finally:
         db.close()
+
+
+def ensure_admin(db) -> None:
+    """Guarantee at least one admin exists.
+
+    - If ADMIN_USERNAME is provided, that account is created (if missing) and
+      promoted to admin.
+    - Otherwise the first registered user is promoted when no admin exists yet.
+    This lets the admin panel be reachable even on a fresh or pre-existing DB
+    that has no admin (registration only ever creates 'user' accounts).
+    """
+    from .auth import get_password_hash
+    from .models import User
+
+    if db.query(User).filter(User.role == "admin").first():
+        return
+
+    admin_name = os.getenv("ADMIN_USERNAME")
+    if admin_name:
+        user = db.query(User).filter(User.username == admin_name).first()
+        if not user:
+            user = User(
+                username=admin_name,
+                hashed_password=get_password_hash(os.getenv("ADMIN_PASSWORD", "admin")),
+                role="admin",
+            )
+            db.add(user)
+        else:
+            user.role = "admin"
+        db.commit()
+        return
+
+    first = db.query(User).order_by(User.id).first()
+    if first:
+        first.role = "admin"
+        db.commit()
 
 
 run_migrations()
