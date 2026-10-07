@@ -259,21 +259,35 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               Эти задачи должны быть выполнены до того, как данную можно будет отметить «Готово».
             </p>
           </div>
-          <div className="md:col-span-2 flex justify-end gap-2 mt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400"
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
-            >
-              {task ? 'Сохранить' : 'Создать задачу'}
-            </button>
-          </div>
+      <div className="md:col-span-2 flex justify-between items-center mt-4">
+        <button
+          type="button"
+          onClick={() => {
+            if (task && confirm(`Вы уверены, что хотите удалить задачу «${task.title}»?`)) {
+              onSubmit({ _action: 'delete' })
+            }
+          }}
+          disabled={!task}
+          className="px-4 py-2 text-red-500 hover:text-red-700 font-medium transition-colors"
+        >
+          Удалить
+        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+          >
+            {task ? 'Сохранить' : 'Создать задачу'}
+          </button>
+        </div>
+      </div>
         </form>
       </div>
     </div>
