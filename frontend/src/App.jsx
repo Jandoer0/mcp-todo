@@ -183,7 +183,8 @@ function App() {
     setToken(null)
     setUser(null)
     setView('login')
-    window.location.reload() // Force reload to clear all state and effects
+    console.log('Logging out...')
+    window.location.reload()
   }
 
   const createTask = async (e) => {
