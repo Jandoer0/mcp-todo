@@ -31,9 +31,22 @@ function App() {
   }, [token])
 
   const checkAdminStatus = async () => {
+    if (!token) return
     try {
       const res = await axios.get(`${API_URL}/admin/users`, {
         headers: { Authorization: `Bearer ${token}` }
+      })
+      setIsAdmin(true)
+      setUsers(res.data)
+    } catch (err) {
+      setIsAdmin(false)
+    }
+  }
+
+  const checkAdminStatusWithToken = async (tokenToUse) => {
+    try {
+      const res = await axios.get(`${API_URL}/admin/users`, {
+        headers: { Authorization: `Bearer ${tokenToUse}` }
       })
       setIsAdmin(true)
       setUsers(res.data)
@@ -142,9 +155,13 @@ function App() {
       const newToken = res.data.access_token
       localStorage.setItem('token', newToken)
       setToken(newToken)
-      // setView('tasks') // Removed to let useEffect handle it
+      
+      // Immediate fetch to avoid waiting for useEffect cycle
       await fetchTasks(newToken)
       await fetchSummary(newToken)
+      await checkAdminStatusWithToken(newToken)
+      
+      setView('tasks')
     } catch (err) {
       alert('Login failed')
     }
