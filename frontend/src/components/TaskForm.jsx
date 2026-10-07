@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import TagInput from './TagInput'
+import TaskLinkInput from './TaskLinkInput'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
@@ -25,6 +26,7 @@ function toDatetimeLocal(value) {
 export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [] }) {
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
+  const [selectedBlockers, setSelectedBlockers] = useState([])
 
   const listOptions = useMemo(() => 
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
@@ -44,9 +46,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
         blocked_by: task.blocked_by || [],
       })
       setSelectedTags((task.tags || []).map((t) => t.name))
+      setSelectedBlockers(task.blocked_by || [])
     } else {
       setForm({ ...EMPTY, list: listOptions[0]?.name || '' })
       setSelectedTags([])
+      setSelectedBlockers([])
     }
   }, [open, task, listOptions])
 
@@ -54,12 +58,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const update = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
-
-  const updateBlockers = (e) =>
-    setForm((f) => ({
-      ...f,
-      blocked_by: Array.from(e.target.selectedOptions).map((o) => Number(o.value)),
-    }))
 
   const submit = async (e) => {
     e.preventDefault()
@@ -71,8 +69,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     if (!task || form.deadline !== toDatetimeLocal(task.deadline)) payload.deadline = form.deadline || null
     if (!task || Number(form.priority) !== task.priority) payload.priority = Number(form.priority)
     if (!task || form.list !== (task.list || '')) payload.list = form.list || listOptions[0]?.name || 'Не начато'
-    if (!task || JSON.stringify(form.blocked_by) !== JSON.stringify(task.blocked_by || [])) {
-      payload.blocked_by = form.blocked_by || []
+    if (!task || JSON.stringify(selectedBlockers) !== JSON.stringify(task.blocked_by || [])) {
+      payload.blocked_by = selectedBlockers
     }
 
     const origTags = (task?.tags || []).map((t) => t.name).sort()
@@ -92,8 +90,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     onSubmit(payload)
     onClose()
   }
-
-  const editableTasks = tasks.filter((t) => !task || t.id !== task.id)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -193,20 +189,12 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Блокирующие задачи</label>
-            <select
-              multiple
-              id="task-blocked-by"
-              name="blocked_by"
-              value={form.blocked_by.map(String)}
-              onChange={updateBlockers}
-              className="w-full p-2 border rounded dark:bg-gray-700 h-28"
-            >
-              {editableTasks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </select>
+            <TaskLinkInput
+              value={selectedBlockers}
+              tasks={tasks}
+              excludeId={task?.id}
+              onChange={setSelectedBlockers}
+            />
             <p className="text-xs text-gray-500 mt-1">
               Эти задачи должны быть выполнены до того, как данную можно будет отметить «Готово».
             </p>

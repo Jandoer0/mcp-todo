@@ -139,6 +139,12 @@ def create_task(
     list_name = _resolve_list(db, data.get("list"))
     data["list"] = list_name
     data["status"] = status_for_list(list_name)
+    # A task cannot be created already "Готово" while still blocked.
+    if data["status"] == "done" and compute_is_blocked(db, blocked_by or []):
+        raise HTTPException(
+            status_code=400,
+            detail="Невозможно выполнить задачу: есть незавершённые блокирующие задачи",
+        )
     db_task = Task(user_id=current_user.id, **data)
     if tag_names is not None:
         db_task.tags = ensure_tags(db, tag_names)
@@ -187,8 +193,8 @@ def update_task(
 
     # A task cannot be marked done (moved to "Готово") while still blocked.
     if db_task.status == "done":
-        ids = get_blocker_ids(db, db_task.id)
-        if compute_is_blocked(db, ids):
+        ids = blocked_by if has_blocked_by else get_blocker_ids(db, db_task.id)
+        if compute_is_blocked(db, ids or []):
             raise HTTPException(
                 status_code=400,
                 detail="Невозможно выполнить задачу: есть незавершённые блокирующие задачи",
