@@ -5,5 +5,5 @@ python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 pydantic-settings
-mcp
+mcp<2
 sse-starlette

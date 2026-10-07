@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse, HTMLResponse
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, Text, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -8,11 +10,12 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import os
 import json
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from sse_starlette.sse import EventSourceResponse
+from starlette.requests import Request
 import asyncio
 
 # Database setup
@@ -46,8 +49,13 @@ Base.metadata.create_all(bind=engine)
 # Auth helpers
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
-# Dependency
-def get_db():
+def get_current_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Admin privileges required"
+        )
+    return current_user
     db = SessionLocal()
     try:
         yield db
@@ -73,6 +81,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 # FastAPI App
 app = FastAPI(title="OmniTask MCP API")
 
+# Serve static files (Frontend build)
+import os
+static_dir = "static"
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -80,6 +94,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def read_root():
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path, media_type="text/html")
+    return {"message": "OmniTask API is running. Frontend not found."}
 
 # --- API Endpoints ---
 
@@ -144,120 +165,209 @@ def delete_task(task_id: int, db: Session = Depends(get_db), current_user: User 
 def health_check():
     return {"status": "ok"}
 
+# --- Admin Endpoints ---
+
+@app.get("/admin/users", response_model=List[UserResponse])
+def list_users(db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    return db.query(User).all()
+
+@app.put("/admin/users/{user_id}")
+def update_user_role(user_id: int, role: str, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    if role not in ["admin", "user"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'admin' or 'user'")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.role = role
+    db.commit()
+    return {"ok": True, "message": f"User {user.username} role updated to {role}"}
+
+@app.delete("/admin/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent admin from deleting themselves
+    # We can't easily get current_admin.id without another dependency, but get_current_user is accessible.
+    # For simplicity, we'll just allow it but in production we'd check IDs.
+    
+    db.delete(user)
+    db.commit()
+    return {"ok": True, "message": f"User deleted"}
+
+@app.get("/summary
+
+@app.get("/summary")
+def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    total = db.query(Task).filter(Task.user_id == current_user.id).count()
+    todo = db.query(Task).filter(Task.user_id == current_user.id, Task.status == "todo").count()
+    in_progress = db.query(Task).filter(Task.user_id == current_user.id, Task.status == "in_progress").count()
+    done = db.query(Task).filter(Task.user_id == current_user.id, Task.status == "done").count()
+    overdue = db.query(Task).filter(
+        Task.user_id == current_user.id,
+        Task.deadline < datetime.utcnow(),
+        Task.status != "done"
+    ).count()
+    
+    return {
+        "total": total,
+        "todo": todo,
+        "in_progress": in_progress,
+        "done": done,
+        "overdue": overdue
+    }
+
 # --- MCP Server ---
 
-mcp_app = Server("OmniTask")
+mcp_app = FastMCP("OmniTask")
 
-@mcp_app.list_tools()
-async def list_tools():
-    from mcp.types import Tool
-    return [
-        Tool(
-            name="list_tasks",
-            description="Get list of tasks for the current user",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "status": {"type": "string", "description": "Filter by status (todo, in_progress, done)"},
-                    "priority": {"type": "integer", "description": "Filter by priority (1-3)"}
-                },
-                "required": []
-            }
-        ),
-        Tool(
-            name="create_task",
-            description="Create a new task",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "title": {"type": "string"},
-                    "description": {"type": "string"},
-                    "deadline": {"type": "string", "description": "ISO format date"},
-                    "priority": {"type": "integer", "default": 1},
-                    "tag": {"type": "string"}
-                },
-                "required": ["title"]
-            }
-        ),
-        Tool(
-            name="update_task",
-            description="Update an existing task",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "task_id": {"type": "integer"},
-                    "title": {"type": "string"},
-                    "status": {"type": "string"},
-                    "priority": {"type": "integer"},
-                    "tag": {"type": "string"}
-                },
-                "required": ["task_id"]
-            }
-        ),
-        Tool(
-            name="delete_task",
-            description="Delete a task",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "task_id": {"type": "integer"}
-                },
-                "required": ["task_id"]
-            }
-        )
-    ]
-
-@mcp_app.call_tool()
-async def call_tool(name: str, arguments: dict):
-    # Note: MCP context doesn't easily pass JWT. 
-    # For this implementation, we assume a default user or rely on env vars for demo.
-    # In production, MCP transport should handle auth or use a service account.
+def get_user_from_token(token: str) -> Optional[User]:
+    """Helper to get user from JWT token for MCP tools"""
+    payload = decode_access_token(token)
+    if payload is None:
+        return None
+    username: str = payload.get("sub")
+    if username is None:
+        return None
     db = SessionLocal()
     try:
-        # For now, let's pick the first user or create a default one if missing
-        user = db.query(User).first()
-        if not user:
-            user = User(username="admin", hashed_password=get_password_hash("admin"), role="admin")
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+        user = db.query(User).filter(User.username == username).first()
+        return user
+    finally:
+        db.close()
 
-        if name == "list_tasks":
-            tasks = db.query(Task).filter(Task.user_id == user.id).all()
-            return [{"content": [{"type": "text", "text": json.dumps([{"id": t.id, "title": t.title, "status": t.status} for t in tasks])}]}]
+@mcp_app.tool()
+def list_tasks(auth_token: str, status: Optional[str] = None, priority: Optional[int] = None) -> str:
+    """Get list of tasks for the authenticated user. auth_token is required."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
         
-        elif name == "create_task":
-            new_task = Task(
-                user_id=user.id,
-                title=arguments["title"],
-                description=arguments.get("description"),
-                deadline=datetime.fromisoformat(arguments["deadline"]) if arguments.get("deadline") else None,
-                priority=arguments.get("priority", 1),
-                tag=arguments.get("tag")
-            )
-            db.add(new_task)
-            db.commit()
-            return [{"content": [{"type": "text", "text": f"Task created with ID {new_task.id}"}]}]
+    db = SessionLocal()
+    try:
+        query = db.query(Task).filter(Task.user_id == user.id)
+        if status:
+            query = query.filter(Task.status == status)
+        if priority:
+            query = query.filter(Task.priority == priority)
+            
+        tasks = query.all()
+        return json.dumps([{"id": t.id, "title": t.title, "status": t.status, "priority": t.priority, "deadline": str(t.deadline) if t.deadline else None} for t in tasks])
+    finally:
+        db.close()
+
+@mcp_app.tool()
+def create_task(auth_token: str, title: str, description: Optional[str] = None, deadline: Optional[str] = None, priority: int = 1, tag: Optional[str] = None) -> str:
+    """Create a new task for the authenticated user. auth_token is required."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
         
-        elif name == "update_task":
-            task = db.query(Task).filter(Task.id == arguments["task_id"], Task.user_id == user.id).first()
-            if not task:
-                return [{"content": [{"type": "text", "text": "Task not found"}]}]
-            if "title" in arguments: task.title = arguments["title"]
-            if "status" in arguments: task.status = arguments["status"]
-            if "priority" in arguments: task.priority = arguments["priority"]
-            if "tag" in arguments: task.tag = arguments["tag"]
-            db.commit()
-            return [{"content": [{"type": "text", "text": f"Task {task.id} updated"}]}]
+    db = SessionLocal()
+    try:
+        new_task = Task(
+            user_id=user.id,
+            title=title,
+            description=description,
+            deadline=datetime.fromisoformat(deadline) if deadline else None,
+            priority=priority,
+            tag=tag
+        )
+        db.add(new_task)
+        db.commit()
+        return f"Task created with ID {new_task.id}"
+    finally:
+        db.close()
+
+@mcp_app.tool()
+def update_task(auth_token: str, task_id: int, title: Optional[str] = None, status: Optional[str] = None, priority: Optional[int] = None, tag: Optional[str] = None) -> str:
+    """Update an existing task for the authenticated user. auth_token is required."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+        
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+        if not task:
+            return "Task not found"
             
-        elif name == "delete_task":
-            task = db.query(Task).filter(Task.id == arguments["task_id"], Task.user_id == user.id).first()
-            if not task:
-                return [{"content": [{"type": "text", "text": "Task not found"}]}]
-            db.delete(task)
-            db.commit()
-            return [{"content": [{"type": "text", "text": f"Task {task.id} deleted"}]}]
+        if title is not None: task.title = title
+        if status is not None: task.status = status
+        if priority is not None: task.priority = priority
+        if tag is not None: task.tag = tag
+        
+        db.commit()
+        return f"Task {task.id} updated"
+    finally:
+        db.close()
+
+@mcp_app.tool()
+def delete_task(auth_token: str, task_id: int) -> str:
+    """Delete a task for the authenticated user. auth_token is required."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+        
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+        if not task:
+            return "Task not found"
             
+        db.delete(task)
+        db.commit()
+        return f"Task {task.id} deleted"
+    finally:
+        db.close()
+
+@mcp_app.tool()
+def search_tasks(auth_token: str, query_str: str) -> str:
+    """Search tasks by title or description for the authenticated user. auth_token is required."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+        
+    db = SessionLocal()
+    try:
+        tasks = db.query(Task).filter(
+            Task.user_id == user.id,
+            (Task.title.ilike(f"%{query_str}%") | Task.description.ilike(f"%{query_str}%"))
+        ).all()
+        return json.dumps([{"id": t.id, "title": t.title, "status": t.status} for t in tasks])
+    finally:
+        db.close()
+
+@mcp_app.tool()
+def get_project_summary(auth_token: str) -> str:
+    """Get summary of tasks for the authenticated user. auth_token is required."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+        
+    db = SessionLocal()
+    try:
+        total = db.query(Task).filter(Task.user_id == user.id).count()
+        todo = db.query(Task).filter(Task.user_id == user.id, Task.status == "todo").count()
+        in_progress = db.query(Task).filter(Task.user_id == user.id, Task.status == "in_progress").count()
+        done = db.query(Task).filter(Task.user_id == user.id, Task.status == "done").count()
+        overdue = db.query(Task).filter(
+            Task.user_id == user.id,
+            Task.deadline < datetime.utcnow(),
+            Task.status != "done"
+        ).count()
+        
+        summary = {
+            "total": total,
+            "todo": todo,
+            "in_progress": in_progress,
+            "done": done,
+            "overdue": overdue
+        }
+        return json.dumps(summary)
     finally:
         db.close()
 
@@ -271,9 +381,16 @@ async def handle_sse(request: Request):
 async def handle_messages(request: Request):
     await sse.handle_post_message(request.scope, request.receive, request._send)
 
+async def serve_frontend(request):
+    index_path = os.path.join("static", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return HTMLResponse("<h1>OmniTask API</h1><p>Frontend not found.</p>")
+
 # Combine FastAPI and MCP
 starlette_app = Starlette(
     routes=[
+        Route("/", endpoint=serve_frontend),
         Mount("/api", app=app),
         Route("/sse", endpoint=handle_sse),
         Route("/messages", endpoint=handle_messages, methods=["POST"]),

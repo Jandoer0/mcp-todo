@@ -5,7 +5,7 @@ After=network.target
 [Container]
 Image=ghcr.io/jandoer0/mcp-todo:latest
 ContainerName=mcp-todo
-AutoUpdate=registry
+# AutoUpdate=registry
 
 # Port 8000 for API and MCP SSE
 PublishPort=8000:8000
@@ -15,6 +15,7 @@ Volume=/mnt/library/config/mcp-todo/data:/app/data:U
 
 # Environment
 Environment=DATABASE_URL=sqlite:///./data/tasks.db
+Environment=SECRET_KEY=change-this-to-a-random-secure-string-in-production
 
 [Service]
 Restart=always

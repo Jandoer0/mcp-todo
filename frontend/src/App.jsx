@@ -10,21 +10,63 @@ function App() {
   const [view, setView] = useState('login') // login, register, tasks
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 1 })
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 1, deadline: '', tag: '' })
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [sortBy, setSortBy] = useState('deadline') // deadline, priority
+  const [summary, setSummary] = useState(null)
+
+  useEffect(() => {
+    const root = window.document.documentElement
+    root.classList.remove('light', 'dark')
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      root.classList.add(systemTheme)
+    } else {
+      root.classList.add(theme)
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   useEffect(() => {
     if (token) {
       fetchTasks()
+      fetchSummary()
       setView('tasks')
     }
   }, [token])
 
-  const fetchTasks = async () => {
+  const fetchSummary = async () => {
     try {
-      const res = await axios.get(`${API_URL}/tasks`, {
+      const res = await axios.get(`${API_URL}/summary`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setTasks(res.data)
+      setSummary(res.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const fetchTasks = async () => {
+    try {
+      let url = `${API_URL}/tasks`
+      const params = []
+      if (filterStatus !== 'all') params.push(`status=${filterStatus}`)
+      if (params.length) url += `?${params.join('&')}`
+      
+      const res = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      let data = res.data
+      
+      // Client-side sorting for now
+      if (sortBy === 'deadline') {
+        data.sort((a, b) => new Date(a.deadline || '9999-12-31') - new Date(b.deadline || '9999-12-31'))
+      } else if (sortBy === 'priority') {
+        data.sort((a, b) => b.priority - a.priority)
+      }
+      
+      setTasks(data)
     } catch (err) {
       console.error(err)
       logout()
@@ -68,8 +110,9 @@ function App() {
       await axios.post(`${API_URL}/tasks`, newTask, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setNewTask({ title: '', description: '', priority: 1 })
+      setNewTask({ title: '', description: '', priority: 1, deadline: '', tag: '' })
       fetchTasks()
+      fetchSummary()
     } catch (err) {
       alert('Failed to create task')
     }
@@ -81,6 +124,7 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       })
       fetchTasks()
+      fetchSummary()
     } catch (err) {
       alert('Failed to delete task')
     }
@@ -145,49 +189,128 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <header className="bg-white dark:bg-gray-800 shadow p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">OmniTask</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold">OmniTask</h1>
+          <select 
+            value={theme} 
+            onChange={(e) => setTheme(e.target.value)}
+            className="bg-gray-100 dark:bg-gray-700 border-none rounded text-sm p-1"
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
         <button onClick={logout} className="text-red-500">Logout</button>
       </header>
       <main className="p-4 max-w-4xl mx-auto">
-        <form onSubmit={createTask} className="mb-8 bg-white dark:bg-gray-800 p-4 rounded shadow">
-          <h3 className="text-lg font-semibold mb-2">New Task</h3>
+        {/* Dashboard */}
+        {summary && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded shadow text-center">
+              <div className="text-2xl font-bold text-blue-500">{summary.total}</div>
+              <div className="text-xs text-gray-500">Total</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded shadow text-center">
+              <div className="text-2xl font-bold text-yellow-500">{summary.todo}</div>
+              <div className="text-xs text-gray-500">To Do</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded shadow text-center">
+              <div className="text-2xl font-bold text-purple-500">{summary.in_progress}</div>
+              <div className="text-xs text-gray-500">In Progress</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded shadow text-center">
+              <div className="text-2xl font-bold text-red-500">{summary.overdue}</div>
+              <div className="text-xs text-gray-500">Overdue</div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={createTask} className="mb-8 bg-white dark:bg-gray-800 p-4 rounded shadow grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <h3 className="text-lg font-semibold mb-2">New Task</h3>
+          </div>
           <input
             type="text"
             placeholder="Title"
             value={newTask.title}
             onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-            className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
             required
+          />
+          <input
+            type="datetime-local"
+            value={newTask.deadline}
+            onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
           />
           <textarea
             placeholder="Description"
             value={newTask.description}
             onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-            className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 md:col-span-2"
           />
           <select
             value={newTask.priority}
             onChange={(e) => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
-            className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
           >
             <option value={1}>Low Priority</option>
             <option value={2}>Medium Priority</option>
             <option value={3}>High Priority</option>
           </select>
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add Task</button>
+          <input
+            type="text"
+            placeholder="Tag (e.g. work, personal)"
+            value={newTask.tag}
+            onChange={(e) => setNewTask({ ...newTask, tag: e.target.value })}
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+          />
+          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 md:col-span-2">Add Task</button>
         </form>
+
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex gap-2">
+            <select 
+              value={filterStatus} 
+              onChange={(e) => { setFilterStatus(e.target.value); fetchTasks(); }}
+              className="bg-white dark:bg-gray-800 border rounded p-1 text-sm"
+            >
+              <option value="all">All Statuses</option>
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+            <select 
+              value={sortBy} 
+              onChange={(e) => { setSortBy(e.target.value); fetchTasks(); }}
+              className="bg-white dark:bg-gray-800 border rounded p-1 text-sm"
+            >
+              <option value="deadline">Sort by Deadline</option>
+              <option value="priority">Sort by Priority</option>
+            </select>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {tasks.map(task => (
-            <div key={task.id} className="bg-white dark:bg-gray-800 p-4 rounded shadow flex justify-between items-center">
-              <div>
-                <h4 className={`font-bold ${task.priority === 3 ? 'text-red-500' : task.priority === 2 ? 'text-yellow-500' : 'text-green-500'}`}>
-                  {task.title}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{task.description}</p>
-                <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded mt-2 inline-block">{task.status}</span>
+            <div key={task.id} className="bg-white dark:bg-gray-800 p-4 rounded shadow flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className={`font-bold ${task.priority === 3 ? 'text-red-500' : task.priority === 2 ? 'text-yellow-500' : 'text-green-500'}`}>
+                    {task.title}
+                  </h4>
+                  {task.tag && <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-0.5 rounded">{task.tag}</span>}
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{task.description}</p>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span>Status: {task.status}</span>
+                  {task.deadline && <span className={new Date(task.deadline) < new Date() && task.status !== 'done' ? 'text-red-500 font-bold' : ''}>
+                    Deadline: {new Date(task.deadline).toLocaleString()}
+                  </span>}
+                </div>
               </div>
-              <button onClick={() => deleteTask(task.id)} className="text-red-500 hover:text-red-700">Delete</button>
+              <button onClick={() => deleteTask(task.id)} className="text-red-500 hover:text-red-700 ml-4">Delete</button>
             </div>
           ))}
         </div>
