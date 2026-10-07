@@ -56,11 +56,8 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
             detail="Admin privileges required"
         )
     return current_user
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+
+def get_db():
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     auth_header = request.headers.get("Authorization")
@@ -190,15 +187,11 @@ def delete_user(user_id: int, db: Session = Depends(get_db), admin: User = Depen
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Prevent admin from deleting themselves
-    # We can't easily get current_admin.id without another dependency, but get_current_user is accessible.
-    # For simplicity, we'll just allow it but in production we'd check IDs.
-    
     db.delete(user)
     db.commit()
     return {"ok": True, "message": f"User deleted"}
 
-@app.get("/summary
+@app.get("/summary")
 
 @app.get("/summary")
 def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
