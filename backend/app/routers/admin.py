@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import get_current_admin
+from ..auth import get_current_admin, get_password_hash
 from ..db import get_db
 from ..models import User
 from ..site_settings import get_bool, set_setting
@@ -31,16 +31,53 @@ def list_users(db: Session = Depends(get_db)):
     return db.query(User).all()
 
 
+@router.post("/users", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
+def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Check if username exists
+    existing = db.query(User).filter(User.username == user_in.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    user = User(
+        username=user_in.username,
+        hashed_password=get_password_hash(user_in.password),
+        role=user_in.role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
 @router.put("/users/{user_id}")
-def update_role(user_id: int, role: str, db: Session = Depends(get_db)):
-    if role not in ("admin", "user"):
-        raise HTTPException(status_code=400, detail="Invalid role")
+def update_user(user_id: int, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.role = role
+    
+    if user_in.username and user_in.username != user.username:
+        # Check if new username is taken by someone else
+        existing = db.query(User).filter(User.username == user_in.username).first()
+        if existing and existing.id != user_id:
+            raise HTTPException(status_code=400, detail="Username already taken")
+        user.username = user_in.username
+    
+    # In a real app we'd check if password is provided and update it
+    if user_in.password:
+        user.hashed_password = get_password_hash(user_in.password)
+    
+    user.role = user_in.role
     db.commit()
-    return {"ok": True, "message": f"User {user.username} role updated to {role}"}
+    return {"ok": True, "message": f"User {user.username} updated"}
+
+@router.put("/users/{user_id}/role")
+def update_role(user_id: int, role: str, db: Session = Depends(get_db)):
+    # This is kept for compatibility with current frontend
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return update_user(user_id, schemas.UserCreate(username=user.username, password="", role=role), db)
+
 
 
 @router.delete("/users/{user_id}")

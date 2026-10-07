@@ -68,7 +68,7 @@ export default function App() {
   }
 
   const changeRole = async (id, role) => {
-    await adminApi.updateRole(id, role)
+    await adminApi.updateUser(id, { role })
     openAdmin()
   }
 
@@ -130,19 +130,8 @@ export default function App() {
     )
   }
 
-  if (adminView) {
-    return (
-      <AdminPanel
-        open={adminView}
-        users={users}
-        settings={settings}
-        onUpdateRole={changeRole}
-        onDeleteUser={delUser}
-        onToggleRegistration={toggleRegistration}
-        onBack={() => setAdminView(false)}
-      />
-    )
-  }
+  // adminView state is now used to control the AdminPanel modal rendered below
+  
 
   return (
     <Layout
