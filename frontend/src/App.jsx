@@ -12,7 +12,7 @@ import ListsManager from './components/ListsManager'
 import AdminPanel from './components/AdminPanel'
 
 export default function App() {
-  const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration } =
+  const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration, timezone, setTimezone } =
     useAuth()
   const { theme, setTheme } = useTheme()
   const {
@@ -141,6 +141,8 @@ export default function App() {
       onLogout={logout}
       theme={theme}
       onThemeChange={setTheme}
+      timezone={timezone}
+      onTimezoneChange={setTimezone}
     >
       <Dashboard summary={summary} />
 
@@ -163,6 +165,7 @@ export default function App() {
         setSortBy={setSortBy}
         onSetList={handleSetList}
         onEdit={openEdit}
+        timezone={timezone}
       />
 
       <TaskForm

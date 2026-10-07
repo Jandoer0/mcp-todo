@@ -1,12 +1,17 @@
-function formatDate(value) {
+function formatDate(value, tz) {
   if (!value) return ''
-  return new Date(value).toLocaleString('ru-RU', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  try {
+    return new Intl.DateTimeFormat('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: tz || undefined,
+    }).format(new Date(value))
+  } catch {
+    return new Date(value).toLocaleString('ru-RU')
+  }
 }
 
 function Radio({ active, color }) {
@@ -21,7 +26,7 @@ function Radio({ active, color }) {
   )
 }
 
-export default function TaskCard({ task, doneColor, progressColor, onSetList, onEdit }) {
+export default function TaskCard({ task, doneColor, progressColor, onSetList, onEdit, timezone }) {
   const isDone = task.list === 'Готово'
   const isProgress = task.list === 'В работе'
   const canDone = !task.is_blocked || isDone
@@ -72,7 +77,7 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
         )}
         <div className="flex items-center justify-between gap-2 mt-2 text-[11px] text-gray-500">
           <div className="flex-shrink-0 truncate text-sm text-gray-700 dark:text-gray-300">
-            {task.start_date && formatDate(task.start_date)}
+            {task.start_date && formatDate(task.start_date, timezone)}
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
             {(task.tags || []).map((t) => (
@@ -92,7 +97,7 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
           <div className="flex-shrink-0 text-right truncate text-sm text-gray-700 dark:text-gray-300">
             {task.deadline && (
               <span className={`truncate ${new Date(task.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000) ? 'text-red-500 font-medium' : ''}`}>
-                {formatDate(task.deadline)}
+                {formatDate(task.deadline, timezone)}
               </span>
             )}
           </div>

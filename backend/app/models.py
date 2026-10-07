@@ -23,6 +23,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     role = Column(String, default="user")  # admin | user
+    timezone = Column(String, default="Europe/Moscow")
 
 
 # Self-referential many-to-many: a row (blocker_id, blocked_id) means the task

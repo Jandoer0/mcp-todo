@@ -5,6 +5,8 @@ export default function Layout({
   onLogout,
   theme,
   onThemeChange,
+  timezone,
+  onTimezoneChange,
   children,
 }) {
   return (
@@ -35,6 +37,18 @@ export default function Layout({
             <option value="light">Светлая</option>
             <option value="dark">Тёмная</option>
           </select>
+          <select
+            value={timezone}
+            onChange={(e) => onTimezoneChange(e.target.value)}
+            title="Часовой пояс"
+            className="bg-gray-100 dark:bg-gray-700 border-none rounded text-sm p-1"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz.value} value={tz.value}>
+                {tz.label}
+              </option>
+            ))}
+          </select>
         </div>
         <button onClick={onLogout} className="text-red-500">
           Выйти
@@ -44,3 +58,23 @@ export default function Layout({
     </div>
   )
 }
+
+const TIMEZONES = [
+  { value: 'Europe/Moscow', label: 'Москва (UTC+3)' },
+  { value: 'Europe/Kiev', label: 'Киев (UTC+2)' },
+  { value: 'Europe/Minsk', label: 'Минск (UTC+3)' },
+  { value: 'Europe/Samara', label: 'Самара (UTC+4)' },
+  { value: 'Asia/Yekaterinburg', label: 'Екатеринбург (UTC+5)' },
+  { value: 'Asia/Omsk', label: 'Омск (UTC+6)' },
+  { value: 'Asia/Novosibirsk', label: 'Новосибирск (UTC+7)' },
+  { value: 'Asia/Krasnoyarsk', label: 'Красноярск (UTC+8)' },
+  { value: 'Asia/Irkutsk', label: 'Иркутск (UTC+9)' },
+  { value: 'Asia/Vladivostok', label: 'Владивосток (UTC+11)' },
+  { value: 'Europe/Berlin', label: 'Берлин (UTC+1)' },
+  { value: 'Europe/London', label: 'Лондон (UTC+0)' },
+  { value: 'America/New_York', label: 'Нью-Йорк (UTC-5)' },
+  { value: 'America/Los_Angeles', label: 'Лос-Анджелес (UTC-8)' },
+  { value: 'Asia/Tokyo', label: 'Токио (UTC+9)' },
+  { value: 'Australia/Sydney', label: 'Сидней (UTC+11)' },
+  { value: 'UTC', label: 'UTC (UTC+0)' },
+]

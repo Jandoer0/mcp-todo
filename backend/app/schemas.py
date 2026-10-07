@@ -9,12 +9,18 @@ class UserCreate(BaseModel):
     username: str
     password: str
     role: str = "user"
+    timezone: str = "Europe/Moscow"
+
+
+class UserUpdate(BaseModel):
+    timezone: Optional[str] = None
 
 
 class UserResponse(BaseModel):
     id: int
     username: str
     role: str
+    timezone: str = "Europe/Moscow"
 
     model_config = {"from_attributes": True}
 
