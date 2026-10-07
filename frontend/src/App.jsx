@@ -110,17 +110,19 @@ function App() {
   }, [token])
 
   const fetchSummary = async (tokenToUse = token) => {
+    if (!tokenToUse) return
     try {
       const res = await axios.get(`${API_URL}/summary`, {
         headers: { Authorization: `Bearer ${tokenToUse}` }
       })
       setSummary(res.data)
     } catch (err) {
-      console.error(err)
+      console.error('Summary fetch error:', err)
     }
   }
 
   const fetchTasks = async (tokenToUse = token) => {
+    if (!tokenToUse) return
     try {
       let url = `${API_URL}/tasks`
       const params = []
@@ -132,7 +134,7 @@ function App() {
       })
       let data = res.data
       
-      // Client-side sorting for now
+      // Client-side sorting
       if (sortBy === 'deadline') {
         data.sort((a, b) => new Date(a.deadline || '9999-12-31') - new Date(b.deadline || '9999-12-31'))
       } else if (sortBy === 'priority') {
@@ -141,8 +143,8 @@ function App() {
       
       setTasks(data)
     } catch (err) {
-      console.error(err)
-      if (tokenToUse === token) {
+      console.error('Tasks fetch error:', err)
+      if (tokenToUse === token && err.response?.status === 401) {
         logout()
       }
     }
