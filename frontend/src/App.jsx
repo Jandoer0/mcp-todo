@@ -4,6 +4,7 @@ import axios from 'axios'
 const API_URL = '/api'
 
 function App() {
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
@@ -75,12 +76,13 @@ function App() {
   useEffect(() => {
     const root = window.document.documentElement
     root.classList.remove('light', 'dark')
+    
+    let effectiveTheme = theme
     if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      root.classList.add(systemTheme)
-    } else {
-      root.classList.add(theme)
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     }
+    
+    root.classList.add(effectiveTheme)
     localStorage.setItem('theme', theme)
   }, [theme])
 
@@ -172,6 +174,7 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       })
       setNewTask({ title: '', description: '', priority: 1, deadline: '', tag: '' })
+      setIsModalOpen(false)
       fetchTasks()
       fetchSummary()
     } catch (err) {
@@ -314,48 +317,15 @@ function App() {
           </div>
         )}
 
-        <form onSubmit={createTask} className="mb-8 bg-white dark:bg-gray-800 p-4 rounded shadow grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <h3 className="text-lg font-semibold mb-2">New Task</h3>
-          </div>
-          <input
-            type="text"
-            placeholder="Title"
-            value={newTask.title}
-            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-            required
-          />
-          <input
-            type="datetime-local"
-            value={newTask.deadline}
-            onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-          />
-          <textarea
-            placeholder="Description"
-            value={newTask.description}
-            onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 md:col-span-2"
-          />
-          <select
-            value={newTask.priority}
-            onChange={(e) => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
-            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">My Tasks</h3>
+          <button 
+            onClick={() => setIsModalOpen(true)} 
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
           >
-            <option value={1}>Low Priority</option>
-            <option value={2}>Medium Priority</option>
-            <option value={3}>High Priority</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Tag (e.g. work, personal)"
-            value={newTask.tag}
-            onChange={(e) => setNewTask({ ...newTask, tag: e.target.value })}
-            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-          />
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 md:col-span-2">Add Task</button>
-        </form>
+            <span>+</span> New Task
+          </button>
+        </div>
 
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-2">
@@ -403,6 +373,86 @@ function App() {
           ))}
         </div>
       </main>
+
+      {/* Task Creation Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl relative">
+            <button 
+              onClick={() => setIsModalOpen(false)} 
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              ✕
+            </button>
+            <h3 className="text-xl font-bold mb-6">Create New Task</h3>
+            <form onSubmit={createTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Title</label>
+                <input
+                  type="text"
+                  placeholder="Enter task title"
+                  value={newTask.title}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Deadline</label>
+                <input
+                  type="datetime-local"
+                  value={newTask.deadline}
+                  onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Priority</label>
+                <select
+                  value={newTask.priority}
+                  onChange={(e) => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                >
+                  <option value={1}>Low</option>
+                  <option value={2}>Medium</option>
+                  <option value={3}>High</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  placeholder="Enter task description"
+                  value={newTask.description}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Tag</label>
+                <input
+                  type="text"
+                  placeholder="e.g. work, personal"
+                  value={newTask.tag}
+                  onChange={(e) => setNewTask({ ...newTask, tag: e.target.value })}
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+              <div className="md:col-span-2 flex justify-end gap-2 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                  Create Task
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
