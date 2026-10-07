@@ -43,6 +43,8 @@ def run_migrations() -> None:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN start_date DATETIME"))
         if "list" not in cols:
             conn.execute(text('ALTER TABLE tasks ADD COLUMN "list" VARCHAR'))
+        # Backfill rows that predate the "list" column (they are NULL).
+        conn.execute(text('UPDATE tasks SET "list" = \'Входящие\' WHERE "list" IS NULL'))
         conn.commit()
 
     db = SessionLocal()

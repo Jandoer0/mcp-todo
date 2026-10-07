@@ -8,24 +8,31 @@ export function useTasks(ready) {
   const [sortBy, setSortBy] = useState('deadline')
 
   const load = useCallback(async () => {
+    // Load summary and tasks independently so a failure in one request
+    // (e.g. a 500) does not blank out the other.
     try {
-      const [t, s] = await Promise.all([
-        tasksApi.list(filterStatus !== 'all' ? filterStatus : undefined),
-        summaryApi.get(),
-      ])
+      const s = await summaryApi.get()
+      setSummary(s.data)
+    } catch {
+      // auth errors are handled by useAuth; just leave summary as-is
+    }
+    try {
+      const t = await tasksApi.list(
+        filterStatus !== 'all' ? filterStatus : undefined,
+      )
       let data = t.data
       if (sortBy === 'deadline') {
         data = [...data].sort(
           (a, b) =>
-            new Date(a.deadline || '9999-12-31') - new Date(b.deadline || '9999-12-31'),
+            new Date(a.deadline || '9999-12-31') -
+            new Date(b.deadline || '9999-12-31'),
         )
       } else if (sortBy === 'priority') {
         data = [...data].sort((a, b) => b.priority - a.priority)
       }
       setTasks(data)
-      setSummary(s.data)
     } catch {
-      // auth errors are handled by useAuth; just leave state unchanged
+      // leave tasks as-is on error
     }
   }, [filterStatus, sortBy])
 
