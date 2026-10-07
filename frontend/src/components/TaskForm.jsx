@@ -82,16 +82,27 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
         return
       }
     }
-    const payload = {
-      title: form.title,
-      description: form.description || null,
-      start_date: form.start_date || null,
-      deadline: form.deadline || null,
-      priority: Number(form.priority),
-      tag: tag || null,
-      list: form.list || listOptions[0]?.name || 'Не начато',
-      blocked_by: form.blocked_by || [],
+
+    // Collect only changed fields to avoid overwriting with nulls/defaults
+    const payload = {}
+    if (!task || form.title !== task.title) payload.title = form.title
+    if (!task || form.description !== (task.description || '')) payload.description = form.description || null
+    if (!task || form.start_date !== toDatetimeLocal(task.start_date)) payload.start_date = form.start_date || null
+    if (!task || form.deadline !== toDatetimeLocal(task.deadline)) payload.deadline = form.deadline || null
+    if (!task || Number(form.priority) !== task.priority) payload.priority = Number(form.priority)
+    if (!task || tag !== (task.tag || '')) payload.tag = tag || null
+    if (!task || form.list !== (task.list || '')) payload.list = form.list || listOptions[0]?.name || 'Не начато'
+    if (!task || JSON.stringify(form.blocked_by) !== JSON.stringify(task.blocked_by || [])) {
+      payload.blocked_by = form.blocked_by || []
     }
+
+    // If it's a new task, we need all required fields
+    if (!task) {
+      payload.title = form.title
+      payload.priority = Number(form.priority)
+      payload.list = form.list || listOptions[0]?.name || 'Не начато'
+    }
+
     onSubmit(payload)
     onClose()
   }
