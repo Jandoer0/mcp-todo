@@ -98,7 +98,9 @@ app.add_middleware(
 def read_root():
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path, media_type="text/html")
+        resp = FileResponse(index_path, media_type="text/html")
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
     return {"message": "OmniTask API is running. Frontend not found."}
 
 # --- API Endpoints ---
@@ -379,11 +381,16 @@ async def serve_frontend(request):
     path = request.path_params.get("path", "index.html")
     full_path = os.path.join(static_dir, path)
     if os.path.exists(full_path) and os.path.isfile(full_path):
-        return FileResponse(full_path)
+        resp = FileResponse(full_path)
+        if path in ("index.html", "") or not os.path.splitext(path)[1]:
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
     # Fallback to index.html for SPA routing
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path, media_type="text/html")
+        resp = FileResponse(index_path, media_type="text/html")
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
     return HTMLResponse("<h1>OmniTask API</h1><p>Frontend not found.</p>")
 
 # Combine FastAPI and MCP
