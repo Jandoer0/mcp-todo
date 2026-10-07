@@ -50,6 +50,28 @@ class Task(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class TaskList(Base):
+    """A board column. The task's `list` field stores the list name."""
+
+    __tablename__ = "task_lists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    color = Column(String, default="#64748b")
+    position = Column(Integer, default=0)
+    is_default = Column(Boolean, default=False)
+    # 'done' | 'progress' | 'todo' — semantics of the protected default lists
+    kind = Column(String, nullable=True)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    color = Column(String, default="#64748b")
+
+
 class Setting(Base):
     """Key/value store for site-wide settings (e.g. allow_registration)."""
 

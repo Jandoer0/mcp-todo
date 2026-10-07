@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
-import { tasksApi, summaryApi } from '../api/client'
+import { tasksApi, summaryApi, listsApi, tagsApi } from '../api/client'
 
 export function useTasks(ready) {
   const [tasks, setTasks] = useState([])
   const [summary, setSummary] = useState(null)
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [lists, setLists] = useState([])
+  const [tags, setTags] = useState([])
+  const [filterList, setFilterList] = useState('all')
   const [sortBy, setSortBy] = useState('deadline')
 
   const load = useCallback(async () => {
-    // Load summary and tasks independently so a failure in one request
+    // Summary and tasks are loaded independently so a failure in one request
     // (e.g. a 500) does not blank out the other.
     try {
       const s = await summaryApi.get()
@@ -18,7 +20,7 @@ export function useTasks(ready) {
     }
     try {
       const t = await tasksApi.list(
-        filterStatus !== 'all' ? filterStatus : undefined,
+        filterList !== 'all' ? filterList : undefined,
       )
       let data = t.data
       if (sortBy === 'deadline') {
@@ -34,7 +36,13 @@ export function useTasks(ready) {
     } catch {
       // leave tasks as-is on error
     }
-  }, [filterStatus, sortBy])
+    try {
+      setLists((await listsApi.list()).data)
+    } catch {}
+    try {
+      setTags((await tagsApi.list()).data)
+    } catch {}
+  }, [filterList, sortBy])
 
   useEffect(() => {
     if (ready) load()
@@ -64,16 +72,26 @@ export function useTasks(ready) {
     [load],
   )
 
+  const setList = useCallback(
+    async (id, listName) => {
+      await update(id, { list: listName })
+    },
+    [update],
+  )
+
   return {
     tasks,
     summary,
-    filterStatus,
-    setFilterStatus,
+    lists,
+    tags,
+    filterList,
+    setFilterList,
     sortBy,
     setSortBy,
     load,
     create,
     update,
     remove,
+    setList,
   }
 }

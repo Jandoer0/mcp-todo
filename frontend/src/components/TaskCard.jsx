@@ -1,0 +1,113 @@
+function formatDate(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleString('ru-RU', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function Radio({ active, color }) {
+  return (
+    <span
+      className="inline-block w-4 h-4 rounded-full border-2 flex-shrink-0"
+      style={{
+        borderColor: color,
+        backgroundColor: active ? color : 'transparent',
+      }}
+    />
+  )
+}
+
+export default function TaskCard({ task, doneColor, progressColor, onSetList, onEdit }) {
+  const isDone = task.list === 'Готово'
+  const isProgress = task.list === 'В работе'
+  const canDone = !task.is_blocked || isDone
+
+  const setDone = (e) => {
+    e.stopPropagation()
+    if (!canDone) {
+      alert('Сначала выполните блокирующие задачи')
+      return
+    }
+    onSetList(task, 'Готово')
+  }
+  const setProgress = (e) => {
+    e.stopPropagation()
+    onSetList(task, 'В работе')
+  }
+
+  return (
+    <div className="flex items-stretch border border-gray-200 dark:border-gray-700 rounded shadow-sm bg-white dark:bg-gray-800 overflow-hidden">
+      {/* Left zone: "Готово" */}
+      <button
+        type="button"
+        onClick={setDone}
+        disabled={!canDone}
+        title="Готово"
+        className={`flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-r border-gray-200 dark:border-gray-700 ${
+          canDone ? 'hover:bg-gray-50 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed'
+        }`}
+      >
+        <Radio active={isDone} color={doneColor} />
+        <span className="text-[10px] leading-tight text-center text-gray-500">
+          Готово
+        </span>
+      </button>
+
+      {/* Middle: open editor */}
+      <div
+        onClick={() => onEdit(task)}
+        className="flex-1 min-w-0 p-3 cursor-pointer"
+      >
+        <div className="font-semibold truncate" title={task.title}>
+          {task.title}
+        </div>
+        {task.description && (
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 break-words">
+            {task.description}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-500">
+          {task.tag && (
+            <span
+              className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem]"
+              style={{ backgroundColor: task.tag_color || '#64748b' }}
+              title={task.tag}
+            >
+              {task.tag}
+            </span>
+          )}
+          {task.deadline && (
+            <span className="truncate">
+              Дедлайн: {formatDate(task.deadline)}
+            </span>
+          )}
+          {task.start_date && (
+            <span className="truncate">
+              Начало: {formatDate(task.start_date)}
+            </span>
+          )}
+          {task.is_blocked && (
+            <span className="text-red-500 font-medium">Заблокирована</span>
+          )}
+        </div>
+      </div>
+
+      {/* Right zone: "В работе" */}
+      <button
+        type="button"
+        onClick={setProgress}
+        title="В работе"
+        className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        <Radio active={isProgress} color={progressColor} />
+        <span className="text-[10px] leading-tight text-center text-gray-500">
+          В работе
+        </span>
+      </button>
+    </div>
+  )
+}

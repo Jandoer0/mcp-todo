@@ -42,6 +42,20 @@ export const adminApi = {
     api.put(`${API_URL}/admin/settings/allow_registration?enabled=${enabled}`),
 }
 
+export const listsApi = {
+  list: () => api.get(`${API_URL}/lists`),
+  create: (data) => api.post(`${API_URL}/lists`, data),
+  update: (id, data) => api.put(`${API_URL}/lists/${id}`, data),
+  remove: (id) => api.delete(`${API_URL}/lists/${id}`),
+}
+
+export const tagsApi = {
+  list: () => api.get(`${API_URL}/tags`),
+  create: (data) => api.post(`${API_URL}/tags`, data),
+  update: (id, data) => api.put(`${API_URL}/tags/${id}`, data),
+  remove: (id) => api.delete(`${API_URL}/tags/${id}`),
+}
+
 export const healthApi = {
   get: () => api.get(`${API_URL}/health`, { headers: { 'Cache-Control': 'no-store' } }),
 }

@@ -6,16 +6,30 @@ import { adminApi } from './api/client'
 import Login from './components/Login'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
-import TaskList from './components/TaskList'
+import Board from './components/Board'
 import TaskForm from './components/TaskForm'
+import ListsManager from './components/ListsManager'
 import AdminPanel from './components/AdminPanel'
 
 export default function App() {
   const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration } =
     useAuth()
   const { theme, setTheme } = useTheme()
-  const { tasks, summary, filterStatus, setFilterStatus, sortBy, setSortBy, create, update, remove } =
-    useTasks(ready)
+  const {
+    tasks,
+    summary,
+    lists,
+    tags,
+    filterList,
+    setFilterList,
+    sortBy,
+    setSortBy,
+    create,
+    update,
+    remove,
+    setList,
+    load,
+  } = useTasks(ready)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
@@ -23,6 +37,7 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [settings, setSettings] = useState({ allow_registration: true })
   const [authError, setAuthError] = useState('')
+  const [listsOpen, setListsOpen] = useState(false)
 
   const handleLogin = async (u, p) => {
     try {
@@ -86,9 +101,9 @@ export default function App() {
     }
   }
 
-  const setStatus = async (task, status) => {
+  const handleSetList = async (task, listName) => {
     try {
-      await update(task.id, { status })
+      await setList(task.id, listName)
     } catch (err) {
       if (err?.response?.status === 400) {
         alert(err?.response?.data?.detail || 'Действие невозможно')
@@ -124,6 +139,7 @@ export default function App() {
     <Layout
       isAdmin={isAdmin}
       onAdmin={openAdmin}
+      onManageLists={() => setListsOpen(true)}
       onLogout={logout}
       theme={theme}
       onThemeChange={setTheme}
@@ -140,15 +156,15 @@ export default function App() {
         </button>
       </div>
 
-      <TaskList
+      <Board
         tasks={tasks}
-        onDelete={remove}
-        onEdit={openEdit}
-        onSetStatus={setStatus}
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
+        lists={lists}
+        filterList={filterList}
+        setFilterList={setFilterList}
         sortBy={sortBy}
         setSortBy={setSortBy}
+        onSetList={handleSetList}
+        onEdit={openEdit}
       />
 
       <TaskForm
@@ -157,6 +173,15 @@ export default function App() {
         onSubmit={handleSubmit}
         task={editingTask}
         tasks={tasks}
+        lists={lists}
+        tags={tags}
+      />
+
+      <ListsManager
+        open={listsOpen}
+        onClose={() => setListsOpen(false)}
+        lists={lists}
+        onChanged={() => load()}
       />
     </Layout>
   )
