@@ -35,4 +35,6 @@ jobs:
         # no-cache guarantees the frontend (npm run build) is rebuilt from
         # the current source every time, so UI fixes actually reach :latest.
         no-cache: true
+        build-args: |
+          BUILD_VERSION=${{ github.sha }}
         tags: ghcr.io/jandoer0/mcp-todo:latest

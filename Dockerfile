@@ -1,13 +1,18 @@
 # Stage 1: Build Frontend
 FROM node:20-alpine AS frontend-builder
+ARG BUILD_VERSION=dev
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
+# Expose the build version to Vite so it is baked into the bundle.
+ENV VITE_APP_VERSION=$BUILD_VERSION
 RUN npm run build
 
 # Stage 2: Backend
 FROM python:3.11-slim
+ARG BUILD_VERSION=dev
+ENV BUILD_VERSION=$BUILD_VERSION
 WORKDIR /app
 
 # Install dependencies

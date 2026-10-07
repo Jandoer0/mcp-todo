@@ -19,6 +19,27 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [users, setUsers] = useState([])
 
+  // Architecture-level cache busting: the build version is baked into the
+  // bundle at build time (VITE_APP_VERSION). On every load we ask the
+  // backend for its running version. If they differ, a new deploy happened
+  // and we force a reload so the browser can't stay on a stale cached bundle
+  // (browser/proxy/CDN caches are all defeated by this JS-driven reload).
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/health`, { headers: { 'Cache-Control': 'no-store' } })
+        const serverVersion = res.data?.version
+        const clientVersion = import.meta.env.VITE_APP_VERSION
+        if (serverVersion && clientVersion && serverVersion !== clientVersion) {
+          window.location.reload()
+        }
+      } catch (e) {
+        // ignore network errors here; token validation below handles auth
+      }
+    }
+    checkVersion()
+  }, [])
+
   useEffect(() => {
     if (!token) {
       setView('login')

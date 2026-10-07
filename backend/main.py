@@ -9,7 +9,7 @@ class NoCacheStaticFiles(StaticFiles):
     async def get_response(self, *args, **kwargs):
         resp = await super().get_response(*args, **kwargs)
         if "text/html" in (resp.media_type or ""):
-            resp.headers.setdefault("Cache-Control", "no-cache")
+            resp.headers["Cache-Control"] = "no-store"
         return resp
 
 from starlette.responses import FileResponse, HTMLResponse
@@ -174,7 +174,7 @@ def delete_task(task_id: int, db: Session = Depends(get_db), current_user: User 
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "version": os.getenv("BUILD_VERSION", "unknown")}
 
 # --- Admin Endpoints ---
 
