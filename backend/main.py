@@ -2,6 +2,16 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles that disables caching for HTML so new frontend
+    bundles are always picked up by the browser after a deploy."""
+    async def get_response(self, *args, **kwargs):
+        resp = await super().get_response(*args, **kwargs)
+        if "text/html" in (resp.media_type or ""):
+            resp.headers.setdefault("Cache-Control", "no-cache")
+        return resp
+
 from starlette.responses import FileResponse, HTMLResponse
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, Text, func
 from sqlalchemy.ext.declarative import declarative_base
@@ -402,15 +412,6 @@ starlette_app = Starlette(
         Mount("/", app=NoCacheStaticFiles(directory=static_dir, html=True)),
     ]
 )
-
-class NoCacheStaticFiles(StaticFiles):
-    """StaticFiles that disables caching for HTML so new frontend
-    bundles are always picked up by the browser after a deploy."""
-    async def get_response(self, *args, **kwargs):
-        resp = await super().get_response(*args, **kwargs)
-        if "text/html" in (resp.media_type or ""):
-            resp.headers.setdefault("Cache-Control", "no-cache")
-        return resp
 
 if __name__ == "__main__":
     import uvicorn
