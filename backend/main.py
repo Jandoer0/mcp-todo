@@ -58,6 +58,11 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
     return current_user
 
 def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     auth_header = request.headers.get("Authorization")
@@ -193,7 +198,6 @@ def delete_user(user_id: int, db: Session = Depends(get_db), admin: User = Depen
 
 @app.get("/summary")
 
-@app.get("/summary")
 def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     total = db.query(Task).filter(Task.user_id == current_user.id).count()
     todo = db.query(Task).filter(Task.user_id == current_user.id, Task.status == "todo").count()
