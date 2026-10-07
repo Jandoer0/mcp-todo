@@ -94,6 +94,14 @@ export default function App() {
   }
 
   const handleSubmit = async (payload) => {
+    if (payload._action === 'delete') {
+      if (editingTask) {
+        await remove(editingTask.id)
+        setModalOpen(false)
+      }
+      return
+    }
+
     if (editingTask) {
       await update(editingTask.id, payload)
     } else {
