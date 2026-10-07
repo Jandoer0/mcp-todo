@@ -129,7 +129,7 @@ export default function TaskCard({ task, lists = [], onSetList, onEdit, onDelete
           <span className="text-base leading-none">🗑</span>
           <span className="text-[10px] leading-tight text-center">Удалить</span>
         </button>
-      ) : (
+      ) : prevList ? (
         <button
           type="button"
           onClick={() => moveTo(prevList.name)}
@@ -141,6 +141,10 @@ export default function TaskCard({ task, lists = [], onSetList, onEdit, onDelete
             {prevList.name}
           </span>
         </button>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 opacity-40">
+          <span className="text-[10px] text-gray-400">—</span>
+        </div>
       )}
     </div>
   )
