@@ -70,7 +70,7 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
             {task.description}
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-500">
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-2 text-[11px] text-gray-500">
           {(task.tags || []).map((t) => (
             <span
               key={t.name}
