@@ -66,7 +66,7 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
           {task.title}
         </div>
         {task.description && (
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 break-words">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1 break-words">
             {task.description}
           </p>
         )}
