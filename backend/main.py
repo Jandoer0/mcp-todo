@@ -49,14 +49,6 @@ Base.metadata.create_all(bind=engine)
 # Auth helpers
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
-def get_current_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Admin privileges required"
-        )
-    return current_user
-
 def get_db():
     db = SessionLocal()
     try:
@@ -79,6 +71,14 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+def get_current_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Admin privileges required"
+        )
+    return current_user
 
 # FastAPI App
 app = FastAPI(title="OmniTask MCP API")
@@ -197,7 +197,6 @@ def delete_user(user_id: int, db: Session = Depends(get_db), admin: User = Depen
     return {"ok": True, "message": f"User deleted"}
 
 @app.get("/summary")
-
 def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     total = db.query(Task).filter(Task.user_id == current_user.id).count()
     todo = db.query(Task).filter(Task.user_id == current_user.id, Task.status == "todo").count()
