@@ -14,7 +14,7 @@ export default function Layout({
           <h1 className="text-xl font-bold">OmniTask</h1>
           <button
             onClick={onManageLists}
-            className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
           >
             Списки
           </button>

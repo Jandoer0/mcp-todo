@@ -8,25 +8,19 @@ function colorFor(lists, name, fallback) {
 export default function Board({
   tasks,
   lists,
-  filterList,
-  setFilterList,
-  sortBy,
-  setSortBy,
   onSetList,
   onEdit,
 }) {
   const doneColor = colorFor(lists, 'Готово', '#22c55e')
   const progressColor = colorFor(lists, 'В работе', '#3b82f6')
 
-  const visible = filterList === 'all' ? tasks : tasks.filter((t) => t.list === filterList)
+  const visible = tasks
 
   const sortTasks = (arr) =>
-    [...arr].sort((a, b) => {
-      if (sortBy === 'priority') return b.priority - a.priority
-      return (
+    [...arr].sort(
+      (a, b) =>
         new Date(a.deadline || '9999-12-31') - new Date(b.deadline || '9999-12-31')
-      )
-    })
+    )
 
   const groups = lists.map((list) => ({
     ...list,
@@ -41,29 +35,6 @@ export default function Board({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <select
-          value={filterList}
-          onChange={(e) => setFilterList(e.target.value)}
-          className="bg-white dark:bg-gray-800 border rounded p-1 text-sm"
-        >
-          <option value="all">Все списки</option>
-          {lists.map((l) => (
-            <option key={l.id} value={l.name}>
-              {l.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="bg-white dark:bg-gray-800 border rounded p-1 text-sm"
-        >
-          <option value="deadline">Сортировать по дедлайну</option>
-          <option value="priority">Сортировать по приоритету</option>
-        </select>
-      </div>
-
       <div className="space-y-6">
         {groups.map((group) => (
           <section key={group.id}>
