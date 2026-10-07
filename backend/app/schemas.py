@@ -57,7 +57,7 @@ class TaskResponse(BaseModel):
     priority: int
     status: str
     tag: Optional[str] = None
-    list: str = "Входящие"
+    list: Optional[str] = "Входящие"
     blocked_by: List[int] = []
     is_blocked: bool = False
     created_at: Optional[datetime] = None
