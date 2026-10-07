@@ -14,7 +14,6 @@ export default function Board({
   setSortBy,
   onSetList,
   onEdit,
-  timezone,
 }) {
   const doneColor = colorFor(lists, 'Готово', '#22c55e')
   const progressColor = colorFor(lists, 'В работе', '#3b82f6')
@@ -85,7 +84,6 @@ export default function Board({
                   progressColor={progressColor}
                   onSetList={onSetList}
                   onEdit={onEdit}
-                  timezone={timezone}
                 />
               ))}
               {group.items.length === 0 && (

@@ -45,14 +45,6 @@ def run_migrations() -> None:
             conn.execute(text('ALTER TABLE tasks ADD COLUMN "list" VARCHAR'))
         # Backfill rows that predate the "list" column (they are NULL).
         conn.execute(text('UPDATE tasks SET "list" = \'Входящие\' WHERE "list" IS NULL'))
-        user_cols = {c["name"] for c in inspector.get_columns("users")}
-        if "timezone" not in user_cols:
-            conn.execute(
-                text("ALTER TABLE users ADD COLUMN timezone VARCHAR DEFAULT 'Europe/Moscow'")
-            )
-            conn.execute(
-                text("UPDATE users SET timezone = 'Europe/Moscow' WHERE timezone IS NULL")
-            )
         conn.commit()
 
     db = SessionLocal()
