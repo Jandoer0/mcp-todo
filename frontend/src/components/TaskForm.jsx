@@ -35,7 +35,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   )
   const listColors = lists.map((l) => l.color)
   const tagPalette = PALETTE.filter((c) => !listColors.includes(c))
-  const existingTagNames = tags.map((t) => t.name)
+  const existingTagNames = useMemo(() => tags.map((t) => t.name), [tags])
 
   useEffect(() => {
     if (!open) return
