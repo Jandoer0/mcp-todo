@@ -20,10 +20,6 @@ export default function App() {
     summary,
     lists,
     tags,
-    filterList,
-    setFilterList,
-    sortBy,
-    setSortBy,
     create,
     update,
     remove,
@@ -157,10 +153,6 @@ export default function App() {
       <Board
         tasks={tasks}
         lists={lists}
-        filterList={filterList}
-        setFilterList={setFilterList}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
         onSetList={handleSetList}
         onEdit={openEdit}
       />
