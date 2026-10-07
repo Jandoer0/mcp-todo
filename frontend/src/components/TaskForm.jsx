@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { tagsApi } from '../api/client'
-import { PALETTE } from '../constants'
+import TagInput from './TagInput'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
@@ -25,41 +24,31 @@ function toDatetimeLocal(value) {
 
 export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [] }) {
   const [form, setForm] = useState(EMPTY)
-  const [tagMode, setTagMode] = useState('none') // none | existing | new
-  const [newTagName, setNewTagName] = useState('')
-  const [newTagColor, setNewTagColor] = useState(PALETTE[0])
+  const [selectedTags, setSelectedTags] = useState([])
 
   const listOptions = useMemo(() => 
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
     [lists]
   )
-  const listColors = lists.map((l) => l.color)
-  const tagPalette = PALETTE.filter((c) => !listColors.includes(c))
-  const existingTagNames = useMemo(() => tags.map((t) => t.name), [tags])
 
   useEffect(() => {
     if (!open) return
     if (task) {
-      const hasTag = task.tag && existingTagNames.includes(task.tag)
-      setTagMode(hasTag ? 'existing' : task.tag ? 'new' : 'none')
-      setNewTagName(task.tag || '')
-      setNewTagColor(PALETTE[0])
       setForm({
         title: task.title || '',
         description: task.description || '',
         start_date: toDatetimeLocal(task.start_date),
         deadline: toDatetimeLocal(task.deadline),
         priority: task.priority ?? 1,
-        tag: task.tag || '',
         list: task.list || listOptions[0]?.name || '',
         blocked_by: task.blocked_by || [],
       })
+      setSelectedTags((task.tags || []).map((t) => t.name))
     } else {
-      setTagMode('none')
-      setNewTagName('')
       setForm({ ...EMPTY, list: listOptions[0]?.name || '' })
+      setSelectedTags([])
     }
-  }, [open, task, listOptions, existingTagNames])
+  }, [open, task, listOptions])
 
   if (!open) return null
 
@@ -74,18 +63,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const submit = async (e) => {
     e.preventDefault()
-    let tag = ''
-    if (tagMode === 'existing') tag = form.tag
-    else if (tagMode === 'new' && newTagName.trim()) {
-      tag = newTagName.trim()
-      try {
-        await tagsApi.create({ name: tag, color: newTagColor })
-      } catch (err) {
-        alert(err?.response?.data?.detail || 'Не удалось создать тег')
-        return
-      }
-    }
-
     // Collect only changed fields to avoid overwriting with nulls/defaults
     const payload = {}
     if (!task || form.title !== task.title) payload.title = form.title
@@ -93,17 +70,23 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     if (!task || form.start_date !== toDatetimeLocal(task.start_date)) payload.start_date = form.start_date || null
     if (!task || form.deadline !== toDatetimeLocal(task.deadline)) payload.deadline = form.deadline || null
     if (!task || Number(form.priority) !== task.priority) payload.priority = Number(form.priority)
-    if (!task || tag !== (task.tag || '')) payload.tag = tag || null
     if (!task || form.list !== (task.list || '')) payload.list = form.list || listOptions[0]?.name || 'Не начато'
     if (!task || JSON.stringify(form.blocked_by) !== JSON.stringify(task.blocked_by || [])) {
       payload.blocked_by = form.blocked_by || []
     }
 
-    // If it's a new task, we need all required fields
+    const origTags = (task?.tags || []).map((t) => t.name).sort()
+    const newTags = [...selectedTags].sort()
+    const tagsChanged = JSON.stringify(origTags) !== JSON.stringify(newTags)
+
+    // For a new task we always need the required fields + tags.
     if (!task) {
       payload.title = form.title
       payload.priority = Number(form.priority)
       payload.list = form.list || listOptions[0]?.name || 'Не начато'
+      payload.tags = selectedTags
+    } else if (tagsChanged) {
+      payload.tags = selectedTags
     }
 
     onSubmit(payload)
@@ -150,7 +133,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Дедлайн</label>
+            <label className="block text-sm font-medium mb-1">Дата завершения</label>
             <input
               type="datetime-local"
               id="task-deadline"
@@ -175,7 +158,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Список</label>
+            <label className="block text-sm font-medium mb-1">Статус</label>
             <select
               id="task-list"
               name="list"
@@ -202,56 +185,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Тег</label>
-            <select
-              value={tagMode}
-              onChange={(e) => setTagMode(e.target.value)}
-              className="w-full p-2 border rounded dark:bg-gray-700"
-            >
-              <option value="none">Без тега</option>
-              <option value="existing">Существующий тег</option>
-              <option value="new">Новый тег</option>
-            </select>
-            {tagMode === 'existing' && (
-              <select
-                value={form.tag}
-                onChange={update('tag')}
-                className="w-full p-2 border rounded dark:bg-gray-700 mt-2"
-              >
-                {existingTagNames.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            )}
-            {tagMode === 'new' && (
-              <div className="mt-2">
-                <input
-                  type="text"
-                  value={newTagName}
-                  onChange={(e) => setNewTagName(e.target.value)}
-                  placeholder="Название тега"
-                  className="w-full p-2 border rounded dark:bg-gray-700 mb-2"
-                />
-                <div className="flex flex-wrap gap-1">
-                  {tagPalette.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewTagColor(c)}
-                      className={`w-5 h-5 rounded-full border-2 ${
-                        newTagColor === c ? 'border-black dark:border-white' : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Цвет тега не должен совпадать с цветом списка.
-                </p>
-              </div>
-            )}
+            <label className="block text-sm font-medium mb-1">Теги</label>
+            <TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} />
+            <p className="text-xs text-gray-500 mt-1">
+              Введите название и нажмите Enter. При совпадении появится выпадающий список существующих тегов.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Блокирующие задачи</label>

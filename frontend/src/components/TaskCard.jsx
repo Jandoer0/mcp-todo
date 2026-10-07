@@ -71,15 +71,16 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-500">
-          {task.tag && (
+          {(task.tags || []).map((t) => (
             <span
+              key={t.name}
               className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem]"
-              style={{ backgroundColor: task.tag_color || '#64748b' }}
-              title={task.tag}
+              style={{ backgroundColor: t.color || '#64748b' }}
+              title={t.name}
             >
-              {task.tag}
+              {t.name}
             </span>
-          )}
+          ))}
           {task.deadline && (
             <span className="truncate">
               Дедлайн: {formatDate(task.deadline)}

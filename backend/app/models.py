@@ -11,6 +11,7 @@ from sqlalchemy import (
     Table,
     Text,
 )
+from sqlalchemy.orm import relationship
 
 from .db import Base
 
@@ -33,6 +34,14 @@ task_dependencies = Table(
     Column("blocked_id", Integer, ForeignKey("tasks.id"), primary_key=True),
 )
 
+# Many-to-many: a task may carry several tags.
+task_tags = Table(
+    "task_tags",
+    Base.metadata,
+    Column("task_id", Integer, ForeignKey("tasks.id"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id"), primary_key=True),
+)
+
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -45,9 +54,13 @@ class Task(Base):
     deadline = Column(DateTime, nullable=True)
     priority = Column(Integer, default=1)  # 1 low, 2 medium, 3 high
     status = Column(String, default="todo")  # todo | in_progress | done
-    tag = Column(String, nullable=True)
+    tag = Column(String, nullable=True)  # legacy single-tag column (unused)
     list = Column(String, default="Входящие")  # задел под Канбан-доску
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    tags = relationship(
+        "Tag", secondary=task_tags, backref="tasks", order_by="Tag.name"
+    )
 
 
 class TaskList(Base):
