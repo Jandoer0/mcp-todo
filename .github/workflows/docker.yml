@@ -32,4 +32,7 @@ jobs:
       with:
         context: .
         push: true
+        # no-cache guarantees the frontend (npm run build) is rebuilt from
+        # the current source every time, so UI fixes actually reach :latest.
+        no-cache: true
         tags: ghcr.io/jandoer0/mcp-todo:latest

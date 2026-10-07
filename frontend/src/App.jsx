@@ -20,14 +20,29 @@ function App() {
   const [users, setUsers] = useState([])
 
   useEffect(() => {
-    if (token) {
-      checkAdminStatus()
-      fetchTasks()
-      fetchSummary()
-      setView('tasks')
-    } else {
+    if (!token) {
       setView('login')
+      return
     }
+    // Validate the stored token by hitting a protected endpoint.
+    // If it is expired/invalid, clear it and show login instead of a
+    // broken dashboard. This prevents the "stuck on tasks view with
+    // every request 401ing" state.
+    (async () => {
+      try {
+        await axios.get(`${API_URL}/summary`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        setView('tasks')
+        checkAdminStatus()
+        fetchTasks()
+        fetchSummary()
+      } catch (err) {
+        localStorage.removeItem('token')
+        setToken(null)
+        setView('login')
+      }
+    })()
   }, [token])
 
   const checkAdminStatus = async () => {
