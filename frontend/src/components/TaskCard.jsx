@@ -70,30 +70,32 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
             {task.description}
           </p>
         )}
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-2 text-[11px] text-gray-500">
-          {(task.tags || []).map((t) => (
-            <span
-              key={t.name}
-              className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem]"
-              style={{ backgroundColor: t.color || '#64748b' }}
-              title={t.name}
-            >
-              {t.name}
-            </span>
-          ))}
-          {task.deadline && (
-            <span className="truncate">
-              Дедлайн: {formatDate(task.deadline)}
-            </span>
-          )}
-          {task.start_date && (
-            <span className="truncate">
-              Начало: {formatDate(task.start_date)}
-            </span>
-          )}
-          {task.is_blocked && (
-            <span className="text-red-500 font-medium">Заблокирована</span>
-          )}
+        <div className="flex items-center justify-between gap-2 mt-2 text-xs text-gray-500">
+          <div className="flex-shrink-0 truncate">
+            {task.start_date && formatDate(task.start_date)}
+          </div>
+          <div className="flex flex-wrap justify-center items-center gap-2">
+            {(task.tags || []).map((t) => (
+              <span
+                key={t.name}
+                className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem]"
+                style={{ backgroundColor: t.color || '#64748b' }}
+                title={t.name}
+              >
+                {t.name}
+              </span>
+            ))}
+            {task.is_blocked && (
+              <span className="text-red-500 font-medium">Заблокирована</span>
+            )}
+          </div>
+          <div className="flex-shrink-0 text-right truncate">
+            {task.deadline && (
+              <span className={`truncate ${new Date(task.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000) ? 'text-red-500 font-medium' : ''}`}>
+                {formatDate(task.deadline)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
