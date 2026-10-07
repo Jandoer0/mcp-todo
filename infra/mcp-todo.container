@@ -7,6 +7,8 @@ Image=ghcr.io/jandoer0/mcp-todo:latest
 ContainerName=mcp-todo
 # AutoUpdate=registry
 
+Network=services-net.network
+
 # Port 8000 for API and MCP SSE
 PublishPort=8000:8000
 
