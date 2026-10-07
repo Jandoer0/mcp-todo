@@ -1,19 +1,12 @@
 import TaskCard from './TaskCard'
 
-function colorFor(lists, name, fallback) {
-  const l = lists.find((x) => x.name === name)
-  return l ? l.color : fallback
-}
-
 export default function Board({
   tasks,
   lists,
   onSetList,
   onEdit,
+  onDelete,
 }) {
-  const doneColor = colorFor(lists, 'Готово', '#22c55e')
-  const progressColor = colorFor(lists, 'В работе', '#3b82f6')
-
   const visible = tasks
 
   const sortTasks = (arr) =>
@@ -51,10 +44,10 @@ export default function Board({
                 <TaskCard
                   key={task.id}
                   task={task}
-                  doneColor={doneColor}
-                  progressColor={progressColor}
+                  lists={lists}
                   onSetList={onSetList}
                   onEdit={onEdit}
+                  onDelete={onDelete}
                 />
               ))}
               {group.items.length === 0 && (

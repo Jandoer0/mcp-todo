@@ -33,6 +33,7 @@ DEFAULT_LISTS = [
     {"name": "Не начато", "color": "#64748b", "position": 1, "kind": "todo"},
     {"name": "В работе", "color": "#3b82f6", "position": 2, "kind": "progress"},
     {"name": "Готово", "color": "#22c55e", "position": 3, "kind": "done"},
+    {"name": "Архив", "color": "#8b5cf6", "position": 4, "kind": "done"},
 ]
 
 DONE_LIST = "Готово"
@@ -44,7 +45,7 @@ PROTECTED_LIST_NAMES = {d["name"] for d in DEFAULT_LISTS}
 
 def status_for_list(name: str) -> str:
     """Derive the task status from the list it belongs to."""
-    if name == DONE_LIST:
+    if name == DONE_LIST or name == "Архив":
         return "done"
     if name == PROGRESS_LIST:
         return "in_progress"
