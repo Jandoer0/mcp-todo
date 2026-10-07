@@ -181,12 +181,13 @@ function App() {
   }
 
   const logout = () => {
+    console.log('Logout triggered');
     localStorage.removeItem('token')
+    localStorage.removeItem('theme')
     setToken(null)
     setUser(null)
     setView('login')
-    console.log('Logging out...')
-    window.location.reload()
+    window.location.href = '/' 
   }
 
   const createTask = async (e) => {
@@ -412,6 +413,8 @@ function App() {
                 <label className="block text-sm font-medium mb-1">Title</label>
                 <input
                   type="text"
+                  id="task-title"
+                  name="title"
                   placeholder="Enter task title"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
@@ -423,6 +426,8 @@ function App() {
                 <label className="block text-sm font-medium mb-1">Deadline</label>
                 <input
                   type="datetime-local"
+                  id="task-deadline"
+                  name="deadline"
                   value={newTask.deadline}
                   onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
                   className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
@@ -431,6 +436,8 @@ function App() {
               <div>
                 <label className="block text-sm font-medium mb-1">Priority</label>
                 <select
+                  id="task-priority"
+                  name="priority"
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
                   className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
@@ -443,6 +450,8 @@ function App() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <textarea
+                  id="task-description"
+                  name="description"
                   placeholder="Enter task description"
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
@@ -453,6 +462,8 @@ function App() {
                 <label className="block text-sm font-medium mb-1">Tag</label>
                 <input
                   type="text"
+                  id="task-tag"
+                  name="tag"
                   placeholder="e.g. work, personal"
                   value={newTask.tag}
                   onChange={(e) => setNewTask({ ...newTask, tag: e.target.value })}
