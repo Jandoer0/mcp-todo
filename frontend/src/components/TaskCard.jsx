@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 function formatDate(value) {
   if (!value) return ''
   return new Date(value).toLocaleString('ru-RU', {
@@ -21,40 +23,51 @@ function Radio({ active, color }) {
   )
 }
 
-export default function TaskCard({ task, doneColor, progressColor, onSetList, onEdit }) {
-  const isDone = task.list === 'Готово'
-  const isProgress = task.list === 'В работе'
-  const canDone = !task.is_blocked || isDone
+export default function TaskCard({ task, lists = [], onSetList, onEdit, onDelete }) {
+  // Lists are ordered by position; movement goes to the adjacent (neighbor) list
+  // so a card never "jumps" over a column.
+  const ordered = [...lists].sort((a, b) => a.position - b.position)
+  const idx = ordered.findIndex((l) => l.name === task.list)
+  const nextList = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null
+  const prevList = idx > 0 ? ordered[idx - 1] : null
+  const isFirst = idx === 0
 
-  const setDone = (e) => {
-    e.stopPropagation()
-    if (!canDone) {
+  const moveTo = (targetName) => {
+    if (targetName === 'Готово' && task.is_blocked) {
       alert('Сначала выполните блокирующие задачи')
       return
     }
-    onSetList(task, 'Готово')
+    onSetList(task, targetName)
   }
-  const setProgress = (e) => {
-    e.stopPropagation()
-    onSetList(task, 'В работе')
+
+  const handleDelete = () => {
+    if (confirm(`Удалить задачу «${task.title}»?`)) onDelete(task)
   }
 
   return (
     <div className="flex items-stretch border border-gray-200 dark:border-gray-700 rounded shadow-sm bg-white dark:bg-gray-800 overflow-hidden">
-      {/* Left zone: "Готово" */}
+      {/* Left zone: move to the NEXT (forward) list */}
       <button
         type="button"
-        onClick={setDone}
-        disabled={!canDone}
-        title="Готово"
+        onClick={() => nextList && moveTo(nextList.name)}
+        disabled={!nextList}
+        title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
         className={`flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-r border-gray-200 dark:border-gray-700 ${
-          canDone ? 'hover:bg-gray-50 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed'
+          nextList
+            ? 'hover:bg-gray-50 dark:hover:bg-gray-700'
+            : 'opacity-40 cursor-not-allowed'
         }`}
       >
-        <Radio active={isDone} color={doneColor} />
-        <span className="text-[10px] leading-tight text-center text-gray-500">
-          Готово
-        </span>
+        {nextList ? (
+          <>
+            <Radio active color={nextList.color} />
+            <span className="text-[10px] leading-tight text-center text-gray-500">
+              {nextList.name}
+            </span>
+          </>
+        ) : (
+          <span className="text-[10px] text-gray-400">—</span>
+        )}
       </button>
 
       {/* Middle: open editor */}
@@ -91,7 +104,13 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
           </div>
           <div className="flex-shrink-0 text-right truncate text-sm text-gray-700 dark:text-gray-300">
             {task.deadline && (
-              <span className={`truncate ${new Date(task.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000) ? 'text-red-500 font-medium' : ''}`}>
+              <span
+                className={`truncate ${
+                  new Date(task.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000)
+                    ? 'text-red-500 font-medium'
+                    : ''
+                }`}
+              >
                 {formatDate(task.deadline)}
               </span>
             )}
@@ -99,18 +118,30 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
         </div>
       </div>
 
-      {/* Right zone: "В работе" */}
-      <button
-        type="button"
-        onClick={setProgress}
-        title="В работе"
-        className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-      >
-        <Radio active={isProgress} color={progressColor} />
-        <span className="text-[10px] leading-tight text-center text-gray-500">
-          В работе
-        </span>
-      </button>
+      {/* Right zone: move to the PREVIOUS (backward) list, or delete if first */}
+      {isFirst ? (
+        <button
+          type="button"
+          onClick={handleDelete}
+          title="Удалить задачу"
+          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500"
+        >
+          <span className="text-base leading-none">🗑</span>
+          <span className="text-[10px] leading-tight text-center">Удалить</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => moveTo(prevList.name)}
+          title={`Переместить в «${prevList.name}»`}
+          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+        >
+          <Radio active color={prevList.color} />
+          <span className="text-[10px] leading-tight text-center text-gray-500">
+            {prevList.name}
+          </span>
+        </button>
+      )}
     </div>
   )
 }

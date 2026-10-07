@@ -115,6 +115,14 @@ export default function App() {
     }
   }
 
+  const handleDelete = async (task) => {
+    try {
+      await remove(task.id)
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось удалить задачу')
+    }
+  }
+
   if (!token || view === 'login') {
     return (
       <Login
@@ -159,6 +167,7 @@ export default function App() {
         lists={lists}
         onSetList={handleSetList}
         onEdit={openEdit}
+        onDelete={handleDelete}
       />
 
       <TaskForm
