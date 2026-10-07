@@ -118,9 +118,9 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 @app.post("/auth/login", response_model=Token)
-def login(username: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not verify_password(password, user.hashed_password):
+def login(login_data: UserCreate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == login_data.username).first()
+    if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     access_token_expires = timedelta(minutes=60 * 24)
     access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
