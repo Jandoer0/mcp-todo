@@ -30,7 +30,11 @@ function App() {
         const res = await axios.get(`${API_URL}/health`, { headers: { 'Cache-Control': 'no-store' } })
         const serverVersion = res.data?.version
         const clientVersion = import.meta.env.VITE_APP_VERSION
-        if (serverVersion && clientVersion && serverVersion !== clientVersion) {
+        // Reload whenever the server version differs from the one baked into
+        // this bundle. Note: an old bundle (built before version baking) has
+        // clientVersion === undefined, which is "not equal" to the server
+        // version, so it will also reload to the fresh build.
+        if (serverVersion && serverVersion !== clientVersion) {
           window.location.reload()
         }
       } catch (e) {
