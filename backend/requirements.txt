@@ -1,9 +1,10 @@
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
-python-multipart
 python-jose[cryptography]
 passlib[argon2]
-pydantic-settings
+argon2-cffi
+python-multipart
 mcp<2
 sse-starlette
+pydantic>=2.0
