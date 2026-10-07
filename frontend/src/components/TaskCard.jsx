@@ -70,8 +70,8 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
             {task.description}
           </p>
         )}
-        <div className="flex items-center justify-between gap-2 mt-2 text-xs text-gray-500">
-          <div className="flex-shrink-0 truncate">
+        <div className="flex items-center justify-between gap-2 mt-2 text-[11px] text-gray-500">
+          <div className="flex-shrink-0 truncate text-sm text-gray-700 dark:text-gray-300">
             {task.start_date && formatDate(task.start_date)}
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
@@ -89,7 +89,7 @@ export default function TaskCard({ task, doneColor, progressColor, onSetList, on
               <span className="text-red-500 font-medium">Заблокирована</span>
             )}
           </div>
-          <div className="flex-shrink-0 text-right truncate">
+          <div className="flex-shrink-0 text-right truncate text-sm text-gray-700 dark:text-gray-300">
             {task.deadline && (
               <span className={`truncate ${new Date(task.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000) ? 'text-red-500 font-medium' : ''}`}>
                 {formatDate(task.deadline)}
