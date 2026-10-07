@@ -162,6 +162,7 @@ function App() {
     setToken(null)
     setUser(null)
     setView('login')
+    window.location.reload() // Force reload to clear all state and effects
   }
 
   const createTask = async (e) => {
