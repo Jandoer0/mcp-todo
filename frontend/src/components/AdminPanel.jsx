@@ -52,21 +52,23 @@ export default function AdminPanel({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative">
-        <button
-          onClick={onBack}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 z-10"
-        >
-          ✕
-        </button>
-        
         <header className="bg-gray-50 dark:bg-gray-700 p-4 border-b dark:border-gray-600 flex justify-between items-center">
           <h1 className="text-xl font-bold">Панель администратора</h1>
-          <button
-            onClick={handleOpenCreate}
-            className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors"
-          >
-            + Создать пользователя
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleOpenCreate}
+              className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors"
+            >
+              + Создать пользователя
+            </button>
+            <button
+              onClick={onBack}
+              aria-label="Закрыть"
+              className="w-8 h-8 flex items-center justify-center rounded text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-600 text-xl leading-none"
+            >
+              ✕
+            </button>
+          </div>
         </header>
 
         <main className="p-6 overflow-y-auto">
