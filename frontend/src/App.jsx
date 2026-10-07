@@ -133,7 +133,6 @@ export default function App() {
     <Layout
       isAdmin={isAdmin}
       onAdmin={openAdmin}
-      onManageLists={() => setListsOpen(true)}
       onLogout={logout}
       theme={theme}
       onThemeChange={setTheme}
@@ -141,7 +140,12 @@ export default function App() {
       <Dashboard summary={summary} />
 
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Мои задачи</h3>
+        <button
+          onClick={() => setListsOpen(true)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Списки
+        </button>
         <button
           onClick={openNew}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2"

@@ -1,7 +1,6 @@
 export default function Layout({
   isAdmin,
   onAdmin,
-  onManageLists,
   onLogout,
   theme,
   onThemeChange,
@@ -12,12 +11,6 @@ export default function Layout({
       <header className="bg-white dark:bg-gray-800 shadow p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold">OmniTask</h1>
-          <button
-            onClick={onManageLists}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Списки
-          </button>
           {isAdmin && (
             <button
               onClick={onAdmin}
