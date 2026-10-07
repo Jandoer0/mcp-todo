@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import create_access_token, get_password_hash, verify_password
+from ..auth import create_access_token, get_current_user, get_password_hash, verify_password
 from ..config import settings
 from ..db import get_db
 from ..models import User
@@ -48,3 +48,23 @@ def login(user: schemas.UserCreate, db: Session = Depends(get_db)):
         expires_delta=timedelta(minutes=settings["ACCESS_TOKEN_EXPIRE_MINUTES"]),
     )
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=schemas.UserResponse)
+def me(current_user: User = Depends(get_current_user)):
+    """Return the currently authenticated user."""
+    return current_user
+
+
+@router.put("/me", response_model=schemas.UserResponse)
+def update_me(
+    data: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update settings of the current user (e.g. timezone)."""
+    if data.timezone is not None:
+        current_user.timezone = data.timezone
+    db.commit()
+    db.refresh(current_user)
+    return current_user
