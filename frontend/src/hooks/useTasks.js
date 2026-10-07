@@ -49,6 +49,14 @@ export function useTasks() {
     [load],
   )
 
+  const update = useCallback(
+    async (id, data) => {
+      await tasksApi.update(id, data)
+      await load()
+    },
+    [load],
+  )
+
   return {
     tasks,
     summary,
@@ -58,6 +66,7 @@ export function useTasks() {
     setSortBy,
     load,
     create,
+    update,
     remove,
   }
 }

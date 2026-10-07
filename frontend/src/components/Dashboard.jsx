@@ -2,10 +2,11 @@ export default function Dashboard({ summary }) {
   if (!summary) return null
 
   const cards = [
-    { label: 'Total', value: summary.total, color: 'text-blue-500' },
-    { label: 'To Do', value: summary.todo, color: 'text-yellow-500' },
-    { label: 'In Progress', value: summary.in_progress, color: 'text-purple-500' },
-    { label: 'Overdue', value: summary.overdue, color: 'text-red-500' },
+    { label: 'Всего', value: summary.total, color: 'text-blue-500' },
+    { label: 'К выполнению', value: summary.todo, color: 'text-yellow-500' },
+    { label: 'В работе', value: summary.in_progress, color: 'text-purple-500' },
+    { label: 'Выполнено', value: summary.done, color: 'text-green-500' },
+    { label: 'Просрочено', value: summary.overdue, color: 'text-red-500' },
   ]
 
   return (

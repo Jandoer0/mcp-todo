@@ -52,3 +52,5 @@ frontend/
 ./scripts/dev.sh          # backend :8000, frontend :5173 (with proxy)
 ```
 Built image: `ghcr.io/jandoer0/mcp-todo:latest`, run via the `mcp-todo` quadlet.
+
+Отвечай всегда на русском языке

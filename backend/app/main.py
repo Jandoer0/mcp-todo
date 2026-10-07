@@ -15,10 +15,44 @@ from starlette.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (ensures models are registered)
 from .config import settings
-from .db import Base, engine
+from .db import Base, SessionLocal, engine
 from .routers import admin, auth, mcp, summary, tasks
 
 Base.metadata.create_all(bind=engine)
+
+
+def run_migrations() -> None:
+    """Make existing SQLite databases match the current schema.
+
+    `create_all` only creates tables that are missing, it never adds new
+    columns to an existing table, so we patch older databases here.
+    """
+    from sqlalchemy import inspect, text
+
+    from .site_settings import ensure_setting
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    for name in ("settings", "task_dependencies"):
+        if name not in existing_tables:
+            Base.metadata.tables[name].create(bind=engine)
+
+    with engine.connect() as conn:
+        cols = {c["name"] for c in inspector.get_columns("tasks")}
+        if "start_date" not in cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN start_date DATETIME"))
+        if "list" not in cols:
+            conn.execute(text('ALTER TABLE tasks ADD COLUMN "list" VARCHAR'))
+        conn.commit()
+
+    db = SessionLocal()
+    try:
+        ensure_setting(db, "allow_registration", "true")
+    finally:
+        db.close()
+
+
+run_migrations()
 
 # --- JSON API (mounted at /api) ---
 api = FastAPI(title="OmniTask API")
