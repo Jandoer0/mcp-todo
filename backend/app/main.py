@@ -16,7 +16,7 @@ from starlette.staticfiles import StaticFiles
 from . import models  # noqa: F401  (ensures models are registered)
 from .config import settings
 from .db import Base, SessionLocal, engine
-from .routers import admin, auth, mcp, summary, tasks
+from .routers import admin, auth, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
 
@@ -51,8 +51,35 @@ def run_migrations() -> None:
     try:
         ensure_setting(db, "allow_registration", "true")
         ensure_admin(db)
+        seed_lists(db)
     finally:
         db.close()
+
+
+def seed_lists(db) -> None:
+    """Create the protected default board lists on first run."""
+    from .board import DEFAULT_LISTS
+    from .models import Task, TaskList
+
+    existing = {l.name for l in db.query(TaskList.name).all()}
+    for spec in DEFAULT_LISTS:
+        if spec["name"] not in existing:
+            db.add(
+                TaskList(
+                    name=spec["name"],
+                    color=spec["color"],
+                    position=spec["position"],
+                    is_default=True,
+                    kind=spec["kind"],
+                )
+            )
+    db.commit()
+    # Backfill tasks whose list does not reference an existing list.
+    valid = {l.name for l in db.query(TaskList.name).all()}
+    for task in db.query(Task).all():
+        if task.list not in valid:
+            task.list = "Не начато"
+    db.commit()
 
 
 def ensure_admin(db) -> None:
@@ -106,6 +133,8 @@ api.include_router(auth.router)
 api.include_router(tasks.router)
 api.include_router(summary.router)
 api.include_router(admin.router)
+api.include_router(lists.router)
+api.include_router(tags.router)
 
 
 @api.get("/health")

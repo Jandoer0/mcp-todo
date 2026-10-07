@@ -57,12 +57,54 @@ class TaskResponse(BaseModel):
     priority: int
     status: str
     tag: Optional[str] = None
+    tag_color: Optional[str] = None
     list: Optional[str] = "Входящие"
     blocked_by: List[int] = []
     is_blocked: bool = False
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class TaskListResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+    position: int
+    is_default: bool
+    kind: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class TaskListCreate(BaseModel):
+    name: str
+    color: str
+    position: Optional[int] = 0
+
+
+class TaskListUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    position: Optional[int] = None
+
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+
+    model_config = {"from_attributes": True}
+
+
+class TagCreate(BaseModel):
+    name: str
+    color: str
+
+
+class TagUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
 
 
 class SummaryResponse(BaseModel):

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { tagsApi } from '../api/client'
+import { PALETTE } from '../constants'
 
-const LISTS = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
+const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
 const EMPTY = {
   title: '',
@@ -9,11 +11,10 @@ const EMPTY = {
   deadline: '',
   priority: 1,
   tag: '',
-  list: 'Входящие',
+  list: '',
   blocked_by: [],
 }
 
-// Convert an ISO timestamp into a value usable by <input type="datetime-local">.
 function toDatetimeLocal(value) {
   if (!value) return ''
   const d = new Date(value)
@@ -22,13 +23,24 @@ function toDatetimeLocal(value) {
   return local.toISOString().slice(0, 16)
 }
 
-export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) {
+export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [] }) {
   const [form, setForm] = useState(EMPTY)
+  const [tagMode, setTagMode] = useState('none') // none | existing | new
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState(PALETTE[0])
 
-  // Prefill when editing an existing task.
+  const listOptions = lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' }))
+  const listColors = lists.map((l) => l.color)
+  const tagPalette = PALETTE.filter((c) => !listColors.includes(c))
+  const existingTagNames = tags.map((t) => t.name)
+
   useEffect(() => {
     if (!open) return
     if (task) {
+      const hasTag = task.tag && existingTagNames.includes(task.tag)
+      setTagMode(hasTag ? 'existing' : task.tag ? 'new' : 'none')
+      setNewTagName(task.tag || '')
+      setNewTagColor(PALETTE[0])
       setForm({
         title: task.title || '',
         description: task.description || '',
@@ -36,13 +48,15 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
         deadline: toDatetimeLocal(task.deadline),
         priority: task.priority ?? 1,
         tag: task.tag || '',
-        list: task.list || 'Входящие',
+        list: task.list || listOptions[0]?.name || '',
         blocked_by: task.blocked_by || [],
       })
     } else {
-      setForm(EMPTY)
+      setTagMode('none')
+      setNewTagName('')
+      setForm({ ...EMPTY, list: listOptions[0]?.name || '' })
     }
-  }, [open, task])
+  }, [open, task, listOptions, existingTagNames])
 
   if (!open) return null
 
@@ -55,16 +69,27 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
       blocked_by: Array.from(e.target.selectedOptions).map((o) => Number(o.value)),
     }))
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
+    let tag = ''
+    if (tagMode === 'existing') tag = form.tag
+    else if (tagMode === 'new' && newTagName.trim()) {
+      tag = newTagName.trim()
+      try {
+        await tagsApi.create({ name: tag, color: newTagColor })
+      } catch (err) {
+        alert(err?.response?.data?.detail || 'Не удалось создать тег')
+        return
+      }
+    }
     const payload = {
       title: form.title,
       description: form.description || null,
       start_date: form.start_date || null,
       deadline: form.deadline || null,
       priority: Number(form.priority),
-      tag: form.tag || null,
-      list: form.list || 'Входящие',
+      tag: tag || null,
+      list: form.list || listOptions[0]?.name || 'Не начато',
       blocked_by: form.blocked_by || [],
     }
     onSubmit(payload)
@@ -95,7 +120,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               placeholder="Введите название задачи"
               value={form.title}
               onChange={update('title')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded dark:bg-gray-700"
               required
             />
           </div>
@@ -107,7 +132,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               name="start_date"
               value={form.start_date}
               onChange={update('start_date')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded dark:bg-gray-700"
             />
           </div>
           <div>
@@ -118,7 +143,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               name="deadline"
               value={form.deadline}
               onChange={update('deadline')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded dark:bg-gray-700"
             />
           </div>
           <div>
@@ -128,7 +153,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               name="priority"
               value={form.priority}
               onChange={update('priority')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded dark:bg-gray-700"
             >
               <option value={1}>Низкий</option>
               <option value={2}>Средний</option>
@@ -142,11 +167,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               name="list"
               value={form.list}
               onChange={update('list')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded dark:bg-gray-700"
             >
-              {LISTS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
+              {listOptions.map((l) => (
+                <option key={l.name} value={l.name}>
+                  {l.name}
                 </option>
               ))}
             </select>
@@ -159,32 +184,70 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               placeholder="Введите описание задачи"
               value={form.description}
               onChange={update('description')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Метка</label>
-            <input
-              type="text"
-              id="task-tag"
-              name="tag"
-              placeholder="напр. работа, личное"
-              value={form.tag}
-              onChange={update('tag')}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded dark:bg-gray-700"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">
-              Блокирующие задачи
-            </label>
+            <label className="block text-sm font-medium mb-1">Тег</label>
+            <select
+              value={tagMode}
+              onChange={(e) => setTagMode(e.target.value)}
+              className="w-full p-2 border rounded dark:bg-gray-700"
+            >
+              <option value="none">Без тега</option>
+              <option value="existing">Существующий тег</option>
+              <option value="new">Новый тег</option>
+            </select>
+            {tagMode === 'existing' && (
+              <select
+                value={form.tag}
+                onChange={update('tag')}
+                className="w-full p-2 border rounded dark:bg-gray-700 mt-2"
+              >
+                {existingTagNames.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            )}
+            {tagMode === 'new' && (
+              <div className="mt-2">
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="Название тега"
+                  className="w-full p-2 border rounded dark:bg-gray-700 mb-2"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {tagPalette.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewTagColor(c)}
+                      className={`w-5 h-5 rounded-full border-2 ${
+                        newTagColor === c ? 'border-black dark:border-white' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Цвет тега не должен совпадать с цветом списка.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-1">Блокирующие задачи</label>
             <select
               multiple
               id="task-blocked-by"
               name="blocked_by"
               value={form.blocked_by.map(String)}
               onChange={updateBlockers}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 h-28"
+              className="w-full p-2 border rounded dark:bg-gray-700 h-28"
             >
               {editableTasks.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -193,8 +256,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [] }) 
               ))}
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              Эти задачи должны быть выполнены до того, как данную можно будет
-              отметить как выполненную.
+              Эти задачи должны быть выполнены до того, как данную можно будет отметить «Готово».
             </p>
           </div>
           <div className="md:col-span-2 flex justify-end gap-2 mt-4">
