@@ -35,7 +35,8 @@ export const summaryApi = {
 
 export const adminApi = {
   listUsers: () => api.get(`${API_URL}/admin/users`),
-  updateRole: (id, role) => api.put(`${API_URL}/admin/users/${id}?role=${role}`),
+  createUser: (data) => api.post(`${API_URL}/admin/users`, data),
+  updateUser: (id, data) => api.put(`${API_URL}/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`${API_URL}/admin/users/${id}`),
   getSettings: () => api.get(`${API_URL}/admin/settings`),
   setRegistration: (enabled) =>
