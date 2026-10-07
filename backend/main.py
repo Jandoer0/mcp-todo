@@ -399,9 +399,18 @@ starlette_app = Starlette(
         Mount("/api", app=app),
         Route("/sse", endpoint=handle_sse),
         Route("/messages", endpoint=handle_messages, methods=["POST"]),
-        Mount("/", app=StaticFiles(directory=static_dir, html=True)),
+        Mount("/", app=NoCacheStaticFiles(directory=static_dir, html=True)),
     ]
 )
+
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles that disables caching for HTML so new frontend
+    bundles are always picked up by the browser after a deploy."""
+    async def get_response(self, *args, **kwargs):
+        resp = await super().get_response(*args, **kwargs)
+        if "text/html" in (resp.media_type or ""):
+            resp.headers.setdefault("Cache-Control", "no-cache")
+        return resp
 
 if __name__ == "__main__":
     import uvicorn
