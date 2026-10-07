@@ -33,7 +33,7 @@ def run_migrations() -> None:
 
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
-    for name in ("settings", "task_dependencies"):
+    for name in ("settings", "task_dependencies", "task_tags"):
         if name not in existing_tables:
             Base.metadata.tables[name].create(bind=engine)
 
@@ -52,8 +52,37 @@ def run_migrations() -> None:
         ensure_setting(db, "allow_registration", "true")
         ensure_admin(db)
         seed_lists(db)
+        migrate_legacy_tags(db)
     finally:
         db.close()
+
+
+def migrate_legacy_tags(db) -> None:
+    """Move the old single `tasks.tag` value into the new task_tags join table."""
+    from sqlalchemy import text
+
+    from .board import PALETTE, list_colors
+    from .models import Tag, Task, task_tags
+
+    rows = db.execute(
+        text("SELECT id, tag FROM tasks WHERE tag IS NOT NULL AND tag <> ''")
+    ).fetchall()
+    for task_id, tag_name in rows:
+        tag = db.query(Tag).filter(Tag.name == tag_name).first()
+        if not tag:
+            used = list_colors(db) | {t.color for t in db.query(Tag).all()}
+            color = next((c for c in PALETTE if c not in used), "#64748b")
+            tag = Tag(name=tag_name, color=color)
+            db.add(tag)
+            db.commit()
+            db.refresh(tag)
+        exists = db.execute(
+            text("SELECT 1 FROM task_tags WHERE task_id=:tid AND tag_id=:gid"),
+            {"tid": task_id, "gid": tag.id},
+        ).first()
+        if not exists:
+            db.execute(task_tags.insert().values(task_id=task_id, tag_id=tag.id))
+    db.commit()
 
 
 def seed_lists(db) -> None:

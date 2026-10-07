@@ -30,7 +30,7 @@ class TaskCreate(BaseModel):
     start_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
     priority: int = 1
-    tag: Optional[str] = None
+    tags: Optional[List[str]] = None
     list: str = "Входящие"
     blocked_by: Optional[List[int]] = None
 
@@ -42,9 +42,17 @@ class TaskUpdate(BaseModel):
     deadline: Optional[datetime] = None
     priority: Optional[int] = None
     status: Optional[str] = None
-    tag: Optional[str] = None
+    tags: Optional[List[str]] = None
     list: Optional[str] = None
     blocked_by: Optional[List[int]] = None
+
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+
+    model_config = {"from_attributes": True}
 
 
 class TaskResponse(BaseModel):
@@ -56,8 +64,7 @@ class TaskResponse(BaseModel):
     deadline: Optional[datetime] = None
     priority: int
     status: str
-    tag: Optional[str] = None
-    tag_color: Optional[str] = None
+    tags: List[TagResponse] = []
     list: Optional[str] = "Входящие"
     blocked_by: List[int] = []
     is_blocked: bool = False
@@ -87,14 +94,6 @@ class TaskListUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     position: Optional[int] = None
-
-
-class TagResponse(BaseModel):
-    id: int
-    name: str
-    color: str
-
-    model_config = {"from_attributes": True}
 
 
 class TagCreate(BaseModel):

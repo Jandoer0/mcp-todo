@@ -10,7 +10,7 @@ from .. import schemas
 from ..auth import get_current_user
 from ..board import DONE_LIST, PALETTE, list_colors, list_names, status_for_list
 from ..db import get_db
-from ..models import Tag, Task, TaskList, User, task_dependencies
+from ..models import Tag, Task, TaskList, User, task_dependencies, task_tags
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -64,16 +64,27 @@ def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int) -> None:
         )
 
 
-def ensure_tag(db: Session, name: Optional[str]) -> None:
-    """Make sure a Tag row exists for `name` (creates one with a free color)."""
-    if not name:
-        return
-    if db.query(Tag).filter(Tag.name == name).first():
-        return
+def ensure_tags(db: Session, names) -> list:
+    """Ensure Tag rows exist for each name (auto color, never colliding with
+    list colors or other tags). Returns the list of Tag ORM objects."""
+    if not names:
+        return []
     used = list_colors(db) | {t.color for t in db.query(Tag).all()}
-    color = next((c for c in PALETTE if c not in used), "#64748b")
-    db.add(Tag(name=name, color=color))
-    db.commit()
+    result = []
+    for name in names:
+        name = (name or "").strip()
+        if not name:
+            continue
+        tag = db.query(Tag).filter(Tag.name == name).first()
+        if not tag:
+            color = next((c for c in PALETTE if c not in used), "#64748b")
+            tag = Tag(name=name, color=color)
+            db.add(tag)
+            db.commit()
+            db.refresh(tag)
+            used.add(color)
+        result.append(tag)
+    return result
 
 
 def _attach_state(db: Session, task: Task) -> Task:
@@ -81,8 +92,13 @@ def _attach_state(db: Session, task: Task) -> Task:
     ids = get_blocker_ids(db, task.id)
     task.blocked_by = ids
     task.is_blocked = compute_is_blocked(db, ids)
-    tag = db.query(Tag).filter(Tag.name == task.tag).first() if task.tag else None
-    task.tag_color = tag.color if tag else None
+    tag_rows = (
+        db.query(Tag)
+        .join(task_tags, Tag.id == task_tags.c.tag_id)
+        .filter(task_tags.c.task_id == task.id)
+        .all()
+    )
+    task.tags = tag_rows
     return task
 
 
@@ -119,11 +135,13 @@ def create_task(
 ):
     data = task.model_dump()
     blocked_by = data.pop("blocked_by", None)
+    tag_names = data.pop("tags", None)
     list_name = _resolve_list(db, data.get("list"))
     data["list"] = list_name
     data["status"] = status_for_list(list_name)
-    ensure_tag(db, data.get("tag"))
     db_task = Task(user_id=current_user.id, **data)
+    if tag_names is not None:
+        db_task.tags = ensure_tags(db, tag_names)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -152,17 +170,20 @@ def update_task(
     update_data = task.model_dump(exclude_unset=True)
     blocked_by = update_data.pop("blocked_by", None)
     has_blocked_by = "blocked_by" in task.model_fields_set
+    tag_names = update_data.pop("tags", None)
+    has_tags = "tags" in task.model_fields_set
 
     # Resolve the new list name (if provided) and derive the resulting status.
     if "list" in update_data:
         list_name = _resolve_list(db, update_data["list"])
         update_data["list"] = list_name
         update_data["status"] = status_for_list(list_name)
-    if "tag" in update_data:
-        ensure_tag(db, update_data.get("tag"))
 
     for key, value in update_data.items():
         setattr(db_task, key, value)
+
+    if has_tags:
+        db_task.tags = ensure_tags(db, tag_names or [])
 
     # A task cannot be marked done (moved to "Готово") while still blocked.
     if db_task.status == "done":

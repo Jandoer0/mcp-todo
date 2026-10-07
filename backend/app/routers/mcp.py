@@ -16,7 +16,8 @@ from starlette.routing import Route
 
 from ..auth import decode_access_token
 from ..db import SessionLocal
-from ..models import Task, User, task_dependencies
+from ..models import Tag, Task, User, task_dependencies, task_tags
+from ..routers.tasks import ensure_tags
 
 mcp = FastMCP("OmniTask")
 
@@ -61,6 +62,13 @@ def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
                     "start_date": str(t.start_date) if t.start_date else None,
                     "deadline": str(t.deadline) if t.deadline else None,
                     "list": t.list,
+                    "tags": [
+                        tg.name
+                        for tg in db.query(Tag)
+                        .join(task_tags, Tag.id == task_tags.c.tag_id)
+                        .filter(task_tags.c.task_id == t.id)
+                        .all()
+                    ],
                     "blocked_by": [
                         r[0]
                         for r in db.execute(
@@ -85,7 +93,7 @@ def create_task(
     start_date: Optional[str] = None,
     deadline: Optional[str] = None,
     priority: int = 1,
-    tag: Optional[str] = None,
+    tags: Optional[list[str]] = None,
     list: str = "Входящие",
     blocked_by: Optional[list[int]] = None,
 ) -> str:
@@ -102,12 +110,14 @@ def create_task(
             start_date=datetime.fromisoformat(start_date) if start_date else None,
             deadline=datetime.fromisoformat(deadline) if deadline else None,
             priority=priority,
-            tag=tag,
             list=list,
         )
         db.add(task)
         db.commit()
         db.refresh(task)
+        if tags:
+            task.tags = ensure_tags(db, tags)
+            db.commit()
         if blocked_by:
             seen = set()
             for bid in blocked_by:
@@ -135,7 +145,7 @@ def update_task(
     title: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[int] = None,
-    tag: Optional[str] = None,
+    tags: Optional[list[str]] = None,
     start_date: Optional[str] = None,
     deadline: Optional[str] = None,
     list: Optional[str] = None,
@@ -160,8 +170,8 @@ def update_task(
             task.status = status
         if priority is not None:
             task.priority = priority
-        if tag is not None:
-            task.tag = tag
+        if tags is not None:
+            task.tags = ensure_tags(db, tags)
         if start_date is not None:
             task.start_date = datetime.fromisoformat(start_date) if start_date else None
         if deadline is not None:
