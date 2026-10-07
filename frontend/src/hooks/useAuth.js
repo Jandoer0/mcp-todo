@@ -5,7 +5,6 @@ export function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [isAdmin, setIsAdmin] = useState(false)
   const [allowRegistration, setAllowRegistration] = useState(true)
-  const [timezone, setTimezoneState] = useState('Europe/Moscow')
   const [ready, setReady] = useState(false)
   const [view, setView] = useState(token ? 'tasks' : 'login')
 
@@ -89,25 +88,5 @@ export function useAuth() {
     if (token) checkAdmin()
   }, [token, checkAdmin])
 
-  // Load the current user's settings (e.g. timezone).
-  useEffect(() => {
-    if (!token) return
-    authApi
-      .me()
-      .then((res) => {
-        if (res.data?.timezone) setTimezoneState(res.data.timezone)
-      })
-      .catch(() => {})
-  }, [token])
-
-  const setTimezone = useCallback(async (tz) => {
-    setTimezoneState(tz)
-    try {
-      await authApi.updateMe({ timezone: tz })
-    } catch {
-      // Keep the local value even if the server update fails.
-    }
-  }, [])
-
-  return { token, isAdmin, view, ready, setView, login, register, logout, checkAdmin, allowRegistration, timezone, setTimezone }
+  return { token, isAdmin, view, ready, setView, login, register, logout, checkAdmin, allowRegistration }
 }

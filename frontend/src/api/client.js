@@ -19,8 +19,6 @@ export const authApi = {
   register: (username, password) =>
     api.post(`${API_URL}/auth/register`, { username, password }),
   registrationStatus: () => api.get(`${API_URL}/auth/registration-status`),
-  me: () => api.get(`${API_URL}/auth/me`),
-  updateMe: (data) => api.put(`${API_URL}/auth/me`, data),
 }
 
 export const tasksApi = {
