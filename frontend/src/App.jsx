@@ -76,7 +76,7 @@ function App() {
   const login = async (e) => {
     e.preventDefault()
     try {
-      const res = await axios.post(`${API_URL}/auth/login?username=${username}&password=${password}`)
+      const res = await axios.post(`${API_URL}/auth/login`, { username, password })
       localStorage.setItem('token', res.data.access_token)
       setToken(res.data.access_token)
       setView('tasks')
