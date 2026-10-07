@@ -6,12 +6,24 @@ from .. import schemas
 from ..auth import get_current_admin
 from ..db import get_db
 from ..models import User
+from ..site_settings import get_bool, set_setting
 
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
     dependencies=[Depends(get_current_admin)],
 )
+
+
+@router.get("/settings", response_model=schemas.SettingsResponse)
+def get_settings(db: Session = Depends(get_db)):
+    return {"allow_registration": get_bool(db, "allow_registration", True)}
+
+
+@router.put("/settings/allow_registration", response_model=schemas.SettingsResponse)
+def set_registration(enabled: bool, db: Session = Depends(get_db)):
+    set_setting(db, "allow_registration", "true" if enabled else "false")
+    return {"allow_registration": enabled}
 
 
 @router.get("/users", response_model=list[schemas.UserResponse])

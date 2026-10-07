@@ -9,13 +9,14 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 from starlette.routing import Route
 
 from ..auth import decode_access_token
 from ..db import SessionLocal
-from ..models import Task, User
+from ..models import Task, User, task_dependencies
 
 mcp = FastMCP("OmniTask")
 
@@ -57,7 +58,17 @@ def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
                     "title": t.title,
                     "status": t.status,
                     "priority": t.priority,
+                    "start_date": str(t.start_date) if t.start_date else None,
                     "deadline": str(t.deadline) if t.deadline else None,
+                    "list": t.list,
+                    "blocked_by": [
+                        r[0]
+                        for r in db.execute(
+                            select(task_dependencies.c.blocker_id).where(
+                                task_dependencies.c.blocked_id == t.id
+                            )
+                        ).fetchall()
+                    ],
                 }
                 for t in tasks
             ]
@@ -71,9 +82,12 @@ def create_task(
     auth_token: str,
     title: str,
     description: Optional[str] = None,
+    start_date: Optional[str] = None,
     deadline: Optional[str] = None,
     priority: int = 1,
     tag: Optional[str] = None,
+    list: str = "Входящие",
+    blocked_by: Optional[list[int]] = None,
 ) -> str:
     """Create a new task for the authenticated user."""
     user = get_user_from_token(auth_token)
@@ -85,12 +99,30 @@ def create_task(
             user_id=user.id,
             title=title,
             description=description,
+            start_date=datetime.fromisoformat(start_date) if start_date else None,
             deadline=datetime.fromisoformat(deadline) if deadline else None,
             priority=priority,
             tag=tag,
+            list=list,
         )
         db.add(task)
         db.commit()
+        db.refresh(task)
+        if blocked_by:
+            seen = set()
+            for bid in blocked_by:
+                if bid == task.id or bid in seen:
+                    continue
+                seen.add(bid)
+                blocker = db.get(Task, bid)
+                if not blocker or blocker.user_id != user.id:
+                    continue
+                db.execute(
+                    task_dependencies.insert().values(
+                        blocker_id=bid, blocked_id=task.id
+                    )
+                )
+            db.commit()
         return f"Task created with ID {task.id}"
     finally:
         db.close()
@@ -104,6 +136,10 @@ def update_task(
     status: Optional[str] = None,
     priority: Optional[int] = None,
     tag: Optional[str] = None,
+    start_date: Optional[str] = None,
+    deadline: Optional[str] = None,
+    list: Optional[str] = None,
+    blocked_by: Optional[list[int]] = None,
 ) -> str:
     """Update an existing task for the authenticated user."""
     user = get_user_from_token(auth_token)
@@ -126,6 +162,31 @@ def update_task(
             task.priority = priority
         if tag is not None:
             task.tag = tag
+        if start_date is not None:
+            task.start_date = datetime.fromisoformat(start_date) if start_date else None
+        if deadline is not None:
+            task.deadline = datetime.fromisoformat(deadline) if deadline else None
+        if list is not None:
+            task.list = list
+        if blocked_by is not None:
+            db.execute(
+                task_dependencies.delete().where(
+                    task_dependencies.c.blocked_id == task.id
+                )
+            )
+            seen = set()
+            for bid in blocked_by:
+                if bid == task.id or bid in seen:
+                    continue
+                seen.add(bid)
+                blocker = db.get(Task, bid)
+                if not blocker or blocker.user_id != user.id:
+                    continue
+                db.execute(
+                    task_dependencies.insert().values(
+                        blocker_id=bid, blocked_id=task.id
+                    )
+                )
         db.commit()
         return f"Task {task.id} updated"
     finally:

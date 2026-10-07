@@ -4,6 +4,7 @@ import { authApi, summaryApi, adminApi, healthApi } from '../api/client'
 export function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [isAdmin, setIsAdmin] = useState(false)
+  const [allowRegistration, setAllowRegistration] = useState(true)
   const [view, setView] = useState(token ? 'tasks' : 'login')
 
   // Architecture-level cache busting: if the backend build version differs from
@@ -21,7 +22,13 @@ export function useAuth() {
       .catch(() => {})
   }, [])
 
-  // Validate any stored token on load; clear it if invalid so we don't show
+  // Fetch whether self-registration is currently allowed (admin may disable it).
+  useEffect(() => {
+    authApi
+      .registrationStatus()
+      .then((res) => setAllowRegistration(res.data?.enabled !== false))
+      .catch(() => setAllowRegistration(true))
+  }, [])
   // a broken dashboard.
   useEffect(() => {
     if (!token) {
@@ -75,5 +82,5 @@ export function useAuth() {
     if (token) checkAdmin()
   }, [token, checkAdmin])
 
-  return { token, isAdmin, view, setView, login, register, logout, checkAdmin }
+  return { token, isAdmin, view, setView, login, register, logout, checkAdmin, allowRegistration }
 }
