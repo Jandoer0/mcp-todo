@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { tagsApi } from '../api/client'
 import { PALETTE } from '../constants'
 
@@ -29,7 +29,10 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState(PALETTE[0])
 
-  const listOptions = lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' }))
+  const listOptions = useMemo(() => 
+    lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
+    [lists]
+  )
   const listColors = lists.map((l) => l.color)
   const tagPalette = PALETTE.filter((c) => !listColors.includes(c))
   const existingTagNames = tags.map((t) => t.name)
