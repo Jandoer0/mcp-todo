@@ -25,6 +25,8 @@ function App() {
       fetchTasks()
       fetchSummary()
       setView('tasks')
+    } else {
+      setView('login')
     }
   }, [token])
 
@@ -140,7 +142,7 @@ function App() {
       const newToken = res.data.access_token
       localStorage.setItem('token', newToken)
       setToken(newToken)
-      setView('tasks')
+      // setView('tasks') // Removed to let useEffect handle it
       await fetchTasks(newToken)
       await fetchSummary(newToken)
     } catch (err) {
