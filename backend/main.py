@@ -84,10 +84,7 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
 app = FastAPI(title="OmniTask MCP API")
 
 # Serve static files (Frontend build)
-import os
-static_dir = "static"
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+static_dir = "/app/static"
 
 app.add_middleware(
     CORSMiddleware,
@@ -378,18 +375,24 @@ async def handle_messages(request: Request):
     await sse.handle_post_message(request.scope, request.receive, request._send)
 
 async def serve_frontend(request):
-    index_path = os.path.join("static", "index.html")
+    # Serve static files from /app/static
+    path = request.path_params.get("path", "index.html")
+    full_path = os.path.join(static_dir, path)
+    if os.path.exists(full_path) and os.path.isfile(full_path):
+        return FileResponse(full_path)
+    # Fallback to index.html for SPA routing
+    index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path)
+        return FileResponse(index_path, media_type="text/html")
     return HTMLResponse("<h1>OmniTask API</h1><p>Frontend not found.</p>")
 
 # Combine FastAPI and MCP
 starlette_app = Starlette(
     routes=[
-        Route("/", endpoint=serve_frontend),
         Mount("/api", app=app),
         Route("/sse", endpoint=handle_sse),
         Route("/messages", endpoint=handle_messages, methods=["POST"]),
+        Mount("/", app=StaticFiles(directory=static_dir, html=True)),
     ]
 )
 
