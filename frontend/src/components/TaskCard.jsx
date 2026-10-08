@@ -35,7 +35,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   // Priority-based background colors
   // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
   const priorityBg = {
-    1: 'bg-gray-200 dark:bg-gray-700',
+    1: 'bg-gray-100 dark:bg-gray-900',
     2: 'bg-white dark:bg-gray-800',
     3: 'bg-red-50 dark:bg-red-900/20',
   }[task.priority || 2]
@@ -117,9 +117,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           </div>
 
           {/* Ячейка 3: Блокирующие задачи */}
-          <div className="text-left truncate text-gray-500 dark:text-gray-400 overflow-hidden flex flex-wrap gap-1">
+          <div className="text-left truncate text-gray-500 dark:text-gray-400 overflow-hidden flex items-center gap-1">
+            {task.is_blocked && <span className="flex-shrink-0">🔒</span>}
             {task.blocked_by && task.blocked_by.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 truncate">
                 {task.blocked_by.map((bid) => {
                   const bTask = allTasks.find((t) => t.id === bid);
                   return (
@@ -130,7 +131,6 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                 })}
               </div>
             )}
-            {task.is_blocked && <span className="ml-1">🔒</span>}
           </div>
 
           {/* Ячейка 4: Дата завершения */}
