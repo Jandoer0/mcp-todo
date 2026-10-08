@@ -82,6 +82,13 @@ class TagUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
 
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+
+    model_config = {"from_attributes": True}
+
 class SummaryResponse(BaseModel):
     total: int
     todo: int
