@@ -1,4 +1,6 @@
 """Authentication: password hashing, JWT creation/validation, dependencies."""
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -74,3 +76,25 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
     return current_user
+
+
+# --- Long-lived MCP API key -------------------------------------------------
+def generate_mcp_token() -> str:
+    """Return a new random API key for the agent (raw value, show once)."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_mcp_token(token: str) -> str:
+    """SHA-256 hex digest of a raw MCP token (safe to store)."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def get_user_by_mcp_token(db: Session, token: str) -> Optional[User]:
+    """Resolve a user from a long-lived MCP token, or None if it does not match."""
+    if not token:
+        return None
+    return (
+        db.query(User)
+        .filter(User.mcp_token_hash == hash_mcp_token(token))
+        .first()
+    )

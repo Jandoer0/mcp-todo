@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, computed_field
 
 
 class UserCreate(BaseModel):
@@ -15,8 +15,15 @@ class UserResponse(BaseModel):
     id: int
     username: str
     role: str
+    # Stored hashed token is never serialized; only expose whether one is set.
+    mcp_token_hash: Optional[str] = Field(default=None, exclude=True)
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "extra": "ignore"}
+
+    @computed_field
+    @property
+    def has_mcp_token(self) -> bool:
+        return bool(self.mcp_token_hash)
 
 
 class Token(BaseModel):

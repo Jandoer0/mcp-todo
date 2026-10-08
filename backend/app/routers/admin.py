@@ -3,7 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import get_current_admin, get_password_hash
+from ..auth import (
+    generate_mcp_token,
+    get_current_admin,
+    get_password_hash,
+    hash_mcp_token,
+)
 from ..db import get_db
 from ..models import User
 from ..site_settings import get_bool, set_setting
@@ -88,3 +93,36 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/users/{user_id}/mcp-token")
+def regenerate_mcp_token(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """Create or rotate the user's long-lived MCP API key.
+
+    Returns the raw token exactly once so the admin can copy it into the
+    agent's configuration. Subsequent reads only report whether a key is set.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    token = generate_mcp_token()
+    user.mcp_token_hash = hash_mcp_token(token)
+    db.commit()
+    return {"token": token, "set": True}
+
+
+@router.delete("/users/{user_id}/mcp-token")
+def revoke_mcp_token(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """Revoke the user's MCP API key."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.mcp_token_hash = None
+    db.commit()
+    return {"set": False}

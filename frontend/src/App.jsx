@@ -194,6 +194,7 @@ export default function App() {
         onUpdateRole={changeRole}
         onDeleteUser={delUser}
         onToggleRegistration={toggleRegistration}
+        onChanged={openAdmin}
         onBack={() => setAdminView(false)}
       />
     </Layout>

@@ -4,17 +4,16 @@ Every tool requires an ``auth_token`` (a JWT). The token is decoded to find the
 owning user so tools only ever touch that user's data.
 """
 import json
+import os
 from datetime import datetime
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
+from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from starlette.requests import Request
-from starlette.routing import Route
 
-from ..auth import decode_access_token
+from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
 from ..models import Tag, Task, User, task_dependencies, task_tags
 from ..routers.tasks import ensure_tags
@@ -27,15 +26,19 @@ def _session() -> Session:
 
 
 def get_user_from_token(token: str) -> Optional[User]:
+    """Resolve a user from either a JWT or a long-lived MCP API key."""
+    # Standard JWT first (short-lived, stored statelessly).
     payload = decode_access_token(token)
-    if not payload:
-        return None
-    username = payload.get("sub")
-    if not username:
-        return None
+    if payload and payload.get("sub"):
+        db = _session()
+        try:
+            return db.query(User).filter(User.username == payload["sub"]).first()
+        finally:
+            db.close()
+    # Fall back to the long-lived MCP API key (stored hashed on the user).
     db = _session()
     try:
-        return db.query(User).filter(User.username == username).first()
+        return get_user_by_mcp_token(db, token)
     finally:
         db.close()
 
@@ -282,23 +285,37 @@ def get_project_summary(auth_token: str) -> str:
         db.close()
 
 
-# --- SSE transport wiring ---
-sse = SseServerTransport("/messages/")
+# --- SSE transport wiring -------------------------------------------------
+# We deliberately disable DNS-rebinding protection (or restrict it via the
+# MCP_ALLOWED_HOSTS env var) so the server is reachable behind a reverse proxy
+# or from any host. The original hand-rolled transport did not enforce it, and
+# the FastMCP default would otherwise reject every request whose Host header is
+# not localhost/127.0.0.1 with HTTP 421 -- which is exactly what broke tool
+# discovery. The constructor auto-enables the protection for host=127.0.0.1, so
+# we override it here.
+_allowed_hosts = [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+if _allowed_hosts:
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=_allowed_hosts,
+        allowed_origins=[f"http://{h}" for h in _allowed_hosts],
+    )
+else:
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
 
 
-async def handle_sse(request: Request):
-    async with sse.connect_sse(
-        request.scope, request.receive, request._send
-    ) as streams:
-        await mcp.run(streams[0], streams[1], mcp.create_initialization_options())
+def _build_mcp_routes():
+    """Build the SSE routes from FastMCP's official ``sse_app()``.
+
+    Using the library's own SSE app guarantees the handshake
+    (initialize / tools/list / tools/call) is implemented correctly, so all
+    registered tools are discoverable by standard MCP clients.
+    """
+    sse_app = mcp.sse_app()
+    return list(sse_app.routes)
 
 
-async def handle_messages(request: Request):
-    await sse.handle_post_message(request.scope, request.receive, request._send)
-
-
-# Routes mounted by the application factory in main.py
-mcp_routes = [
-    Route("/sse", endpoint=handle_sse),
-    Route("/messages", endpoint=handle_messages, methods=["POST"]),
-]
+# Routes mounted by the application factory in main.py.
+mcp_routes = _build_mcp_routes()
