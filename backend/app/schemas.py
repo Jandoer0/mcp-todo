@@ -43,6 +43,7 @@ class TaskUpdate(BaseModel):
     deadline: Optional[datetime] = None
     priority: Optional[int] = None
     tags: Optional[List[str]] = None
+    blocked_by: Optional[List[int]] = None
 
 class TaskResponse(BaseModel):
     id: int
@@ -53,6 +54,8 @@ class TaskResponse(BaseModel):
     priority: int
     tags: List[str] = []
     created_at: datetime
+    blocked_by: List[int] = []
+    is_blocked: bool = False
 
     model_config = {"from_attributes": True}
 

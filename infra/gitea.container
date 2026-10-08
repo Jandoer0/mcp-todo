@@ -1,0 +1,27 @@
+[Unit]
+Description=Gitea Container
+After=network-online.target
+
+[Container]
+Image=docker.io/gitea/gitea:latest
+ContainerName=gitea
+# Rootless Podman mapping: inside container UID 1000 will be mapped to host UID 999
+Environment=USER_UID=1000
+Environment=USER_GID=1000
+Environment=GITEA__database__DB_TYPE=sqlite3
+Environment=GITEA__database__PATH=/data/gitea.db
+Environment=GITEA__repository__ROOT=/data/git
+Environment=GITEA__server__SSH_PORT=2222
+Environment=GITEA__server__DOMAIN=git.local
+Environment=GITEA__server__HTTP_PORT=3000
+Volume=/mnt/library/containers/gitlab:/data:Z
+Network=mcp-todo-net
+PublishPort=3000:3000
+PublishPort=2222:22
+
+[Service]
+Restart=always
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
