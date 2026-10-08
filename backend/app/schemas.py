@@ -54,6 +54,32 @@ class TagResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class TaskListResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+    position: int
+
+    model_config = {"from_attributes": True}
+
+class TaskListCreate(BaseModel):
+    name: str
+    color: Optional[str] = None
+    position: Optional[int] = None
+
+class TaskListUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    position: Optional[int] = None
+
+class TagCreate(BaseModel):
+    name: str
+    color: str
+
+class TagUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+
 class TaskResponse(BaseModel):
     id: int
     title: str
