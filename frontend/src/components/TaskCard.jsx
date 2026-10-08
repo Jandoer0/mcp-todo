@@ -11,15 +11,19 @@ function formatDate(value) {
   })
 }
 
-function Radio({ active, color }) {
+function ArrowDown() {
   return (
-    <span
-      className="inline-block w-4 h-4 rounded-full border-2 flex-shrink-0"
-      style={{
-        borderColor: color,
-        backgroundColor: active ? color : 'transparent',
-      }}
-    />
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+function ArrowUp() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+    </svg>
   )
 }
 
@@ -60,22 +64,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         onClick={() => nextList && moveTo(nextList.name)}
         disabled={!nextList}
         title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
-        className={`flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-r border-gray-200 dark:border-gray-700 ${
+        className={`flex items-center justify-center w-14 py-2 border-r border-gray-200 dark:border-gray-700 ${
           nextList
-            ? 'hover:bg-gray-200/50 dark:hover:bg-gray-700'
+            ? 'hover:bg-gray-200/50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
             : 'opacity-40 cursor-not-allowed'
         }`}
       >
-        {nextList ? (
-          <>
-            <Radio active color={nextList.color} />
-            <span className="text-[10px] leading-tight text-center text-gray-500">
-              {nextList.name}
-            </span>
-          </>
-        ) : (
-          <span className="text-[10px] text-gray-400">—</span>
-        )}
+        {nextList ? <ArrowDown /> : <span className="text-sm text-gray-400">—</span>}
       </button>
 
       {/* Middle: open editor */}
@@ -166,16 +161,15 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           type="button"
           onClick={() => moveTo(prevList.name)}
           title={`Переместить в «${prevList.name}»`}
-          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-200/50 dark:hover:bg-gray-700"
+          className={`flex items-center justify-center w-14 py-2 border-l border-gray-200 dark:border-gray-700 ${
+            'hover:bg-gray-200/50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
+          }`}
         >
-          <Radio active color={prevList.color} />
-          <span className="text-[10px] leading-tight text-center text-gray-500">
-            {prevList.name}
-          </span>
+          <ArrowUp />
         </button>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 opacity-40">
-          <span className="text-[10px] text-gray-400">—</span>
+        <div className="flex items-center justify-center w-14 py-2 border-l border-gray-200 dark:border-gray-700 opacity-40">
+          <span className="text-sm text-gray-400">—</span>
         </div>
       )}
     </div>
