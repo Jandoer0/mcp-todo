@@ -8,6 +8,7 @@ export default function AdminPanel({
   onBack,
   settings,
   onToggleRegistration,
+  onChanged,
   open,
 }) {
   if (!open) return null
@@ -16,17 +17,54 @@ export default function AdminPanel({
   const [isEditing, setIsEditing] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [formData, setFormData] = useState({ username: '', password: '', role: 'user' })
+  const [mcpToken, setMcpToken] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   const handleOpenCreate = () => {
     setCurrentUser(null)
     setFormData({ username: '', password: '', role: 'user' })
+    setMcpToken(null)
+    setCopied(false)
     setIsEditing(true)
   }
 
   const handleOpenEdit = (u) => {
     setCurrentUser(u)
     setFormData({ username: u.username, password: '', role: u.role })
+    setMcpToken(null)
+    setCopied(false)
     setIsEditing(true)
+  }
+
+  const handleRegenerate = async () => {
+    try {
+      const res = await adminApi.mcpToken.regenerate(currentUser.id)
+      setMcpToken(res.data.token)
+      setCopied(false)
+      if (onChanged) onChanged()
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Ошибка генерации токена')
+    }
+  }
+
+  const handleRevoke = async () => {
+    try {
+      await adminApi.mcpToken.revoke(currentUser.id)
+      setMcpToken(null)
+      if (onChanged) onChanged()
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Ошибка отзыва токена')
+    }
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpToken)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard may be unavailable; ignore
+    }
   }
 
   const handleSaveUser = async (e) => {
@@ -173,6 +211,55 @@ export default function AdminPanel({
                     <option value="admin">Администратор</option>
                   </select>
                 </div>
+
+                {currentUser && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                    <div className="text-sm font-medium mb-1">MCP-токен (для ИИ-агента)</div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Долгоживущий ключ для агента. Показывается только при генерации —
+                      скопируйте его сразу в настройки агента.
+                    </p>
+                    {mcpToken ? (
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={mcpToken}
+                          className="flex-1 p-2 border rounded dark:bg-gray-700 text-xs font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCopy}
+                          className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm whitespace-nowrap"
+                        >
+                          {copied ? 'Скопировано!' : 'Копировать'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 mb-2">
+                        {currentUser.has_mcp_token ? 'Токен установлен.' : 'Токен не установлен.'}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRegenerate}
+                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                      >
+                        {currentUser.has_mcp_token || mcpToken ? 'Сгенерировать новый' : 'Сгенерировать MCP-токен'}
+                      </button>
+                      {currentUser.has_mcp_token && !mcpToken && (
+                        <button
+                          type="button"
+                          onClick={handleRevoke}
+                          className="px-3 py-2 text-red-500 border border-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-sm"
+                        >
+                          Отозвать
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-end gap-2 mt-6">
                   <button
                     type="button"

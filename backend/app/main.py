@@ -9,6 +9,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.responses import FileResponse, HTMLResponse
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
@@ -46,6 +47,13 @@ def run_migrations() -> None:
         # Backfill rows that predate the "list" column (they are NULL).
         conn.execute(text('UPDATE tasks SET "list" = \'Входящие\' WHERE "list" IS NULL'))
         conn.commit()
+
+    # Long-lived MCP API key column on the users table.
+    with engine.connect() as conn:
+        user_cols = {c["name"] for c in inspector.get_columns("users")}
+        if "mcp_token_hash" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN mcp_token_hash VARCHAR"))
+            conn.commit()
 
     db = SessionLocal()
     try:
@@ -203,5 +211,16 @@ starlette_app = Starlette(
         Mount("/api", app=api),
         *mcp.mcp_routes,
         Mount("/", app=NoCacheStaticFiles(directory=static_dir, html=True)),
-    ]
+    ],
+    middleware=[
+        # Allow cross-origin access to the SSE/MCP endpoints so browser-based
+        # MCP clients (and the agent's tool_search) can connect from any origin.
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    ],
 )

@@ -41,6 +41,10 @@ export const adminApi = {
   getSettings: () => api.get(`${API_URL}/admin/settings`),
   setRegistration: (enabled) =>
     api.put(`${API_URL}/admin/settings/allow_registration?enabled=${enabled}`),
+  mcpToken: {
+    regenerate: (id) => api.post(`${API_URL}/admin/users/${id}/mcp-token`),
+    revoke: (id) => api.delete(`${API_URL}/admin/users/${id}/mcp-token`),
+  },
 }
 
 export const listsApi = {
