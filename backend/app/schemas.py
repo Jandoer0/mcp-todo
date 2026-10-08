@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, computed_field
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, computed_field, field_validator
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 
 class UserResponse(BaseModel):
@@ -49,12 +49,19 @@ class TaskResponse(BaseModel):
     title: str
     description: Optional[str] = None
     list: str
-    due_date: Optional[datetime] = None
+    deadline: Optional[datetime] = None
     priority: int
     tags: List[str] = []
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def validate_tags(cls, v):
+        if isinstance(v, list):
+            return [tag.name if hasattr(tag, "name") else str(tag) for tag in v]
+        return v
 
 class TaskListResponse(BaseModel):
     id: int
