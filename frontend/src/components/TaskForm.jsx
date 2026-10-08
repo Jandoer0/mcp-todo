@@ -77,12 +77,13 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     const newTags = [...selectedTags].sort()
     const tagsChanged = JSON.stringify(origTags) !== JSON.stringify(newTags)
 
-    // For a new task we always need the required fields + tags.
+    // For a new task we always need the required fields + tags + blockers.
     if (!task) {
       payload.title = form.title
       payload.priority = Number(form.priority)
       payload.list = form.list || listOptions[0]?.name || 'Не начато'
       payload.tags = selectedTags
+      payload.blocked_by = selectedBlockers
     } else if (tagsChanged) {
       payload.tags = selectedTags
     }
