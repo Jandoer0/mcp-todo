@@ -56,6 +56,14 @@ class TaskResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class TaskListResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+    position: int
+
+    model_config = {"from_attributes": True}
+
 class TaskListUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
