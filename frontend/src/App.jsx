@@ -20,6 +20,8 @@ export default function App() {
     summary,
     lists,
     tags,
+    activeFilter,
+    setActiveFilter,
     create,
     update,
     remove,
@@ -150,7 +152,11 @@ export default function App() {
       theme={theme}
       onThemeChange={setTheme}
     >
-      <Dashboard summary={summary} />
+      <Dashboard 
+        summary={summary} 
+        activeFilter={activeFilter} 
+        onFilterChange={setActiveFilter} 
+      />
 
       <div className="flex justify-between items-center mb-4">
         <button
@@ -171,6 +177,7 @@ export default function App() {
         tasks={tasks}
         lists={lists}
         tags={tags}
+        activeFilter={activeFilter}
         onSetList={handleSetList}
         onEdit={openEdit}
         onDelete={handleDelete}
