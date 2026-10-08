@@ -47,6 +47,13 @@ class TaskUpdate(BaseModel):
     tags: Optional[List[str]] = None
     blocked_by: Optional[List[int]] = None
 
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    color: str
+
+    model_config = {"from_attributes": True}
+
 class TaskResponse(BaseModel):
     id: int
     title: str
@@ -68,39 +75,6 @@ class TaskResponse(BaseModel):
         if isinstance(v, list):
             return [tag.name if hasattr(tag, "name") else str(tag) for tag in v]
         return v
-
-class TaskListResponse(BaseModel):
-    id: int
-    name: str
-    color: str
-    position: int
-
-    model_config = {"from_attributes": True}
-
-class TaskListCreate(BaseModel):
-    name: str
-    color: Optional[str] = None
-    position: Optional[int] = None
-
-class TaskListUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-    position: Optional[int] = None
-
-class TagCreate(BaseModel):
-    name: str
-    color: str
-
-class TagUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-
-class TagResponse(BaseModel):
-    id: int
-    name: str
-    color: str
-
-    model_config = {"from_attributes": True}
 
 class SummaryResponse(BaseModel):
     total: int
