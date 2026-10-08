@@ -64,6 +64,11 @@ class TaskListResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class TaskListCreate(BaseModel):
+    name: str
+    color: Optional[str] = None
+    position: Optional[int] = None
+
 class TaskListUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
