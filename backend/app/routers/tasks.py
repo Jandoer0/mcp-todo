@@ -69,7 +69,10 @@ def ensure_tags(db: Session, names) -> list:
     list colors or other tags). Returns the list of Tag ORM objects."""
     if not names:
         return []
-    used = list_colors(db) | {t.color for t in db.query(Tag).all()}
+    
+    # Current colors used by lists and existing tags
+    used = set(list_colors(db)) | {t.color for t in db.query(Tag).all()}
+    
     result = []
     for name in names:
         name = (name or "").strip()
@@ -77,6 +80,7 @@ def ensure_tags(db: Session, names) -> list:
             continue
         tag = db.query(Tag).filter(Tag.name == name).first()
         if not tag:
+            # Find next available color from PALETTE
             color = next((c for c in PALETTE if c not in used), "#64748b")
             tag = Tag(name=name, color=color)
             db.add(tag)

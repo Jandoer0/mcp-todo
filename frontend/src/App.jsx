@@ -170,6 +170,7 @@ export default function App() {
       <Board
         tasks={tasks}
         lists={lists}
+        tags={tags}
         onSetList={handleSetList}
         onEdit={openEdit}
         onDelete={handleDelete}

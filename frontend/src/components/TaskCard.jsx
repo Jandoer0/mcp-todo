@@ -23,7 +23,7 @@ function Radio({ active, color }) {
   )
 }
 
-export default function TaskCard({ task, lists = [], onSetList, onEdit, onDelete }) {
+export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdit, onDelete }) {
   // Lists are ordered by position; movement goes to the adjacent (neighbor) list
   // so a card never "jumps" over a column.
   const ordered = [...lists].sort((a, b) => a.position - b.position)
@@ -89,10 +89,9 @@ export default function TaskCard({ task, lists = [], onSetList, onEdit, onDelete
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
             {(task.tags || []).map((t, idx) => {
-              // Поддержка обоих форматов: строка или объект {name, color}
               const name = typeof t === 'string' ? t : (t.name || t);
-              // Если это объект, берем его цвет, иначе генерируем или берем дефолтный
-              const color = typeof t === 'object' && t.color ? t.color : '#64748b';
+              const tagData = tags.find((tag) => tag.name === name);
+              const color = tagData ? tagData.color : '#64748b';
               return (
                 <span
                   key={idx}

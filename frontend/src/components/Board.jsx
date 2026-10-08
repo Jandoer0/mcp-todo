@@ -3,6 +3,7 @@ import TaskCard from './TaskCard'
 export default function Board({
   tasks,
   lists,
+  tags,
   onSetList,
   onEdit,
   onDelete,
@@ -45,6 +46,7 @@ export default function Board({
                   key={task.id}
                   task={task}
                   lists={lists}
+                  tags={tags}
                   onSetList={onSetList}
                   onEdit={onEdit}
                   onDelete={onDelete}

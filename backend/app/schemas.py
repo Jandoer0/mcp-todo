@@ -29,6 +29,7 @@ class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
     list: Optional[str] = "Входящие"
+    start_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
     priority: Optional[int] = 1
     tags: Optional[List[str]] = []
@@ -40,6 +41,7 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     list: Optional[str] = None
+    start_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
     priority: Optional[int] = None
     tags: Optional[List[str]] = None
@@ -50,9 +52,10 @@ class TaskResponse(BaseModel):
     title: str
     description: Optional[str] = None
     list: str
+    start_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
     priority: int
-    tags: List[str] = []
+    tags: List[TagResponse] = []
     created_at: datetime
     blocked_by: List[int] = []
     is_blocked: bool = False
