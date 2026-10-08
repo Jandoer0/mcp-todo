@@ -88,19 +88,12 @@ class TaskResponse(BaseModel):
     start_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
     priority: int
-    tags: List[TagResponse] = []
+    tags: List[str] = []
     created_at: datetime
     blocked_by: List[int] = []
     is_blocked: bool = False
 
     model_config = {"from_attributes": True}
-
-    @field_validator("tags", mode="before")
-    @classmethod
-    def validate_tags(cls, v):
-        if isinstance(v, list):
-            return [tag.name if hasattr(tag, "name") else str(tag) for tag in v]
-        return v
 
 class SummaryResponse(BaseModel):
     total: int
