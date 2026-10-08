@@ -23,7 +23,7 @@ function Radio({ active, color }) {
   )
 }
 
-export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdit, onDelete }) {
+export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete }) {
   // Lists are ordered by position; movement goes to the adjacent (neighbor) list
   // so a card never "jumps" over a column.
   const ordered = [...lists].sort((a, b) => a.position - b.position)
@@ -35,7 +35,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
   // Priority-based background colors
   // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
   const priorityBg = {
-    1: 'bg-gray-100 dark:bg-gray-900',
+    1: 'bg-gray-200 dark:bg-gray-700',
     2: 'bg-white dark:bg-gray-800',
     3: 'bg-red-50 dark:bg-red-900/20',
   }[task.priority || 2]
@@ -83,7 +83,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
         onClick={() => onEdit(task)}
         className="flex-1 min-w-0 p-3 cursor-pointer"
       >
-        <div className="font-semibold truncate" title={task.title}>
+        <div className="font-semibold truncate text-base" title={task.title}>
           {task.title}
         </div>
         {task.description && (
@@ -91,7 +91,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
             {task.description}
           </p>
         )}
-        <div className="grid grid-cols-4 items-center gap-2 mt-2 text-[11px]">
+        <div className="grid grid-cols-4 items-center gap-2 mt-2 text-sm">
           {/* Ячейка 1: Дата начала */}
           <div className="text-left truncate font-bold text-gray-700 dark:text-gray-300">
             {task.start_date && formatDate(task.start_date)}
@@ -117,10 +117,19 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
           </div>
 
           {/* Ячейка 3: Блокирующие задачи */}
-          <div className="text-left truncate text-gray-500 dark:text-gray-400 overflow-hidden">
-            {task.blocked_by && task.blocked_by.length > 0 
-              ? `Блок.: ${task.blocked_by.join(', ')}` 
-              : ''}
+          <div className="text-left truncate text-gray-500 dark:text-gray-400 overflow-hidden flex flex-wrap gap-1">
+            {task.blocked_by && task.blocked_by.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {task.blocked_by.map((bid) => {
+                  const bTask = allTasks.find((t) => t.id === bid);
+                  return (
+                    <span key={bid} className="px-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-[10px] whitespace-nowrap">
+                      {bTask ? bTask.title : bid}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
             {task.is_blocked && <span className="ml-1">🔒</span>}
           </div>
 
