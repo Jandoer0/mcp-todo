@@ -121,7 +121,7 @@ frontend/
 2. **Сборка и публикация образа в GHCR**:
    ```bash
    # Авторизация (если не выполнена)
-   echo "ВАШ_GH_TOKEN" | podman login ghcr.io -u Jandoer0 --password-stdin
+   echo $(cat /home/agent/.ghcr_token) | podman login ghcr.io -u Jandoer0 --password-stdin
    
    # Сборка образа
    podman build -t ghcr.io/jandoer0/mcp-todo:latest .
