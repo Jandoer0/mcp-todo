@@ -139,15 +139,21 @@ def create_task(
     deadline: Optional[str] = None,
     priority: int = 1,
     tags: Optional[list[str]] = None,
-    list: str = "Входящие",
+    list: str = "Не начато",
     blocked_by: Optional[list[int]] = None,
 ) -> str:
     """Create a new task for the authenticated user."""
+    from ..board import list_names, status_for_list
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
+        # Validate list name. If it doesn't exist, fall back to default.
+        valid_lists = list_names(db)
+        if list not in valid_lists:
+            list = "Не начато"
+        
         task = Task(
             user_id=user.id,
             title=title,
@@ -156,6 +162,7 @@ def create_task(
             deadline=datetime.fromisoformat(deadline) if deadline else None,
             priority=priority,
             list=list,
+            status=status_for_list(list),
         )
         db.add(task)
         db.commit()
@@ -263,9 +270,16 @@ def delete_task(auth_token: str, task_id: int) -> str:
         )
         if not task:
             return "Task not found"
+        # Clean up dependencies to avoid orphaned records or constraint issues
+        db.execute(
+            task_dependencies.delete().where(
+                (task_dependencies.c.blocker_id == task_id)
+                | (task_dependencies.c.blocked_id == task_id)
+            )
+        )
         db.delete(task)
         db.commit()
-        return f"Task {task.id} deleted"
+        return f"Task {task_id} deleted"
     finally:
         db.close()
 
