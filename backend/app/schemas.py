@@ -88,7 +88,7 @@ class TaskResponse(BaseModel):
     start_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
     priority: int
-    tags: List[str] = []
+    tags: List[TagResponse] = []
     created_at: datetime
     blocked_by: List[int] = []
     is_blocked: bool = False
