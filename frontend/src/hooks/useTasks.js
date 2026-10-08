@@ -6,22 +6,16 @@ export function useTasks(ready) {
   const [summary, setSummary] = useState(null)
   const [lists, setLists] = useState([])
   const [tags, setTags] = useState([])
-  const [filterList, setFilterList] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState('deadline')
 
   const load = useCallback(async () => {
-    // Summary and tasks are loaded independently so a failure in one request
-    // (e.g. a 500) does not blank out the other.
     try {
       const s = await summaryApi.get()
       setSummary(s.data)
-    } catch {
-      // auth errors are handled by useAuth; just leave summary as-is
-    }
+    } catch {}
     try {
-      const t = await tasksApi.list(
-        filterList !== 'all' ? filterList : undefined,
-      )
+      const t = await tasksApi.list()
       let data = t.data
       if (sortBy === 'deadline') {
         data = [...data].sort(
@@ -33,16 +27,14 @@ export function useTasks(ready) {
         data = [...data].sort((a, b) => b.priority - a.priority)
       }
       setTasks(data)
-    } catch {
-      // leave tasks as-is on error
-    }
+    } catch {}
     try {
       setLists((await listsApi.list()).data)
     } catch {}
     try {
       setTags((await tagsApi.list()).data)
     } catch {}
-  }, [filterList, sortBy])
+  }, [sortBy])
 
   useEffect(() => {
     if (ready) load()
@@ -84,8 +76,8 @@ export function useTasks(ready) {
     summary,
     lists,
     tags,
-    filterList,
-    setFilterList,
+    activeFilter,
+    setActiveFilter,
     sortBy,
     setSortBy,
     load,

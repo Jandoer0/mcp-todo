@@ -4,11 +4,32 @@ export default function Board({
   tasks,
   lists,
   tags,
+  activeFilter,
   onSetList,
   onEdit,
   onDelete,
 }) {
-  const visible = tasks
+  const filterTasks = (allTasks) => {
+    if (!allTasks) return []
+    if (activeFilter === 'all') return allTasks
+    
+    if (activeFilter === 'todo') {
+      return allTasks.filter((t) => t.list === 'Не начато')
+    }
+    if (activeFilter === 'done') {
+      return allTasks.filter((t) => t.list === 'Готово')
+    }
+    if (activeFilter === 'in_progress') {
+      return allTasks.filter((t) => !['Не начато', 'Готово', 'Архив'].includes(t.list))
+    }
+    if (activeFilter === 'overdue') {
+      const now = new Date()
+      return allTasks.filter((t) => t.deadline && new Date(t.deadline) < now)
+    }
+    return allTasks
+  }
+
+  const visible = filterTasks(tasks)
 
   const sortTasks = (arr) =>
     [...arr].sort(
