@@ -88,18 +88,24 @@ export default function TaskCard({ task, lists = [], onSetList, onEdit, onDelete
             {task.start_date && formatDate(task.start_date)}
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
-            {(task.tags || []).map((t) => (
-              <span
-                key={t.name}
-                className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem]"
-                style={{ backgroundColor: t.color || '#64748b' }}
-                title={t.name}
-              >
-                {t.name}
-              </span>
-            ))}
+            {(task.tags || []).map((t, idx) => {
+              // Поддержка обоих форматов: строка или объект {name, color}
+              const name = typeof t === 'string' ? t : (t.name || t);
+              // Если это объект, берем его цвет, иначе генерируем или берем дефолтный
+              const color = typeof t === 'object' && t.color ? t.color : '#64748b';
+              return (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem] text-xs"
+                  style={{ backgroundColor: color }}
+                  title={name}
+                >
+                  {name}
+                </span>
+              );
+            })}
             {task.is_blocked && (
-              <span className="text-red-500 font-medium">Заблокирована</span>
+              <span className="text-red-500 font-medium text-xs" title="Есть незавершенные блокирующие задачи">🔒</span>
             )}
           </div>
           <div className="flex-shrink-0 text-right truncate text-sm text-gray-700 dark:text-gray-300">
