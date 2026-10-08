@@ -44,6 +44,22 @@ def get_user_from_token(token: str) -> Optional[User]:
 
 
 @mcp.tool()
+def reset_admin_password(username: str, new_password: str) -> str:
+    """Reset password for a user. Use with caution!"""
+    from ..auth import get_password_hash
+    db = _session()
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            return f"User {username} not found"
+        user.password = get_password_hash(new_password)
+        db.commit()
+        return f"Password for {username} has been reset successfully"
+    finally:
+        db.close()
+
+
+@mcp.tool()
 def get_my_profile(auth_token: str) -> str:
     """Get information about the current authenticated user (ID, role)."""
     user = get_user_from_token(auth_token)
