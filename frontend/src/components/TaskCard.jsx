@@ -35,6 +35,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const nextList = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null
   const prevList = idx > 0 ? ordered[idx - 1] : null
   const isFirst = idx === 0
+  const isLast = idx === ordered.length - 1
 
   // Priority-based background colors
   // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
@@ -58,20 +59,32 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
 
   return (
     <div className={`flex items-stretch border border-gray-200 dark:border-gray-700 rounded shadow-sm ${priorityBg} overflow-hidden`}>
-      {/* Left zone: move to the NEXT (forward) list */}
-      <button
-        type="button"
-        onClick={() => nextList && moveTo(nextList.name)}
-        disabled={!nextList}
-        title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
-        className={`flex items-center justify-center w-14 py-2 border-r border-gray-200 dark:border-gray-700 ${
-          nextList
-            ? 'hover:bg-gray-200/50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
-            : 'opacity-40 cursor-not-allowed'
-        }`}
-      >
-        {nextList ? <ArrowDown /> : <span className="text-sm text-gray-400">—</span>}
-      </button>
+      {/* Left zone: move to the NEXT (forward) list or delete if last */}
+      {isLast ? (
+        <button
+          type="button"
+          onClick={handleDelete}
+          title="Удалить задачу"
+          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-r border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500"
+        >
+          <span className="text-base leading-none">🗑</span>
+          <span className="text-[10px] leading-tight text-center">Удалить</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => nextList && moveTo(nextList.name)}
+          disabled={!nextList}
+          title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
+          className={`flex items-center justify-center w-14 py-2 border-r border-gray-200 dark:border-gray-700 ${
+            nextList
+              ? 'hover:bg-gray-200/50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
+              : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          {nextList ? <ArrowDown /> : <span className="text-sm text-gray-400">—</span>}
+        </button>
+      )}
 
       {/* Middle: open editor */}
       <div
