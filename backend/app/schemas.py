@@ -29,7 +29,7 @@ class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
     list: Optional[str] = "Входящие"
-    due_date: Optional[datetime] = None
+    deadline: Optional[datetime] = None
     priority: Optional[int] = 1
     tags: Optional[List[str]] = []
 
@@ -40,7 +40,7 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     list: Optional[str] = None
-    due_date: Optional[datetime] = None
+    deadline: Optional[datetime] = None
     priority: Optional[int] = None
     tags: Optional[List[str]] = None
 
