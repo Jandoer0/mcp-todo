@@ -44,6 +44,32 @@ def get_user_from_token(token: str) -> Optional[User]:
 
 
 @mcp.tool()
+def get_my_profile(auth_token: str) -> str:
+    """Get information about the current authenticated user (ID, role)."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    return f"User: {user.username}, ID: {user.id}, Role: {user.role}"
+
+
+@mcp.tool()
+def list_all_lists(auth_token: str) -> str:
+    """List all available task lists (categories) and their corresponding statuses."""
+    from ..board import list_names, status_for_list
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    db = _session()
+    try:
+        names = list_names(db)
+        mapping = {name: status_for_list(name) for name in names}
+        lists_str = "\n".join([f"- {name} (status: {status})" for name, status in mapping.items()])
+        return f"Available lists:\n{lists_str}"
+    finally:
+        db.close()
+
+
+@mcp.tool()
 def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
     """List tasks for the authenticated user. Optional status filter."""
     user = get_user_from_token(auth_token)

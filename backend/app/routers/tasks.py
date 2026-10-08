@@ -109,6 +109,66 @@ def _resolve_list(db: Session, name: Optional[str]) -> str:
     return "Не начато"
 
 
+@router.post("/bulk", response_model=schemas.BulkUpdateResponse)
+def bulk_update_tasks(
+    bulk_data: schemas.TaskBulkUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    updated = 0
+    created = 0
+    errors = []
+
+    for i, task_data in enumerate(bulk_data.tasks):
+        try:
+            task_id = task_data.get("id")
+            if task_id:
+                # Update existing
+                db_task = db.query(Task).filter(
+                    Task.id == task_id, Task.user_id == current_user.id
+                ).first()
+                if not db_task:
+                    raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+                
+                # Update fields (excluding ID)
+                update_fields = {k: v for k, v in task_data.items() if k != "id"}
+                
+                # Resolve list and status
+                if "list" in update_fields:
+                    list_name = _resolve_list(db, update_fields["list"])
+                    update_fields["list"] = list_name
+                    update_fields["status"] = status_for_list(list_name)
+                
+                # Handle tags
+                tag_names = update_fields.pop("tags", None)
+                for key, value in update_fields.items():
+                    setattr(db_task, key, value)
+                
+                if tag_names is not None:
+                    db_task.tags = ensure_tags(db, tag_names)
+                
+                db.commit()
+                updated += 1
+            else:
+                # Create new
+                data = task_data.copy()
+                list_name = _resolve_list(db, data.get("list"))
+                data["list"] = list_name
+                data["status"] = status_for_list(list_name)
+                
+                tag_names = data.pop("tags", None)
+                db_task = Task(user_id=current_user.id, **data)
+                if tag_names is not None:
+                    db_task.tags = ensure_tags(db, tag_names)
+                
+                db.add(db_task)
+                db.commit()
+                created += 1
+        except Exception as e:
+            errors.append({"index": i, "error": str(e)})
+    
+    return {"updated": updated, "created": created, "errors": errors}
+
 @router.get("", response_model=list[schemas.TaskResponse])
 def list_tasks(
     status: Optional[str] = None,

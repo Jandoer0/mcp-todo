@@ -1,15 +1,6 @@
-"""Pydantic request/response schemas."""
-from datetime import datetime
-from typing import List, Optional
-
 from pydantic import BaseModel, Field, computed_field
-
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    role: str = "user"
-
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 
 class UserResponse(BaseModel):
     id: int
@@ -25,93 +16,58 @@ class UserResponse(BaseModel):
     def has_mcp_token(self) -> bool:
         return bool(self.mcp_token_hash)
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    role: Optional[str] = "user"
 
 class Token(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str
 
-
-class TaskCreate(BaseModel):
+class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    deadline: Optional[datetime] = None
-    priority: int = 1
-    tags: Optional[List[str]] = None
-    list: str = "Входящие"
-    blocked_by: Optional[List[int]] = None
+    list: Optional[str] = "Входящие"
+    due_date: Optional[datetime] = None
+    priority: Optional[int] = 1
+    tags: Optional[List[str]] = []
 
+class TaskCreate(TaskBase):
+    pass
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    deadline: Optional[datetime] = None
-    priority: Optional[int] = None
-    status: Optional[str] = None
-    tags: Optional[List[str]] = None
     list: Optional[str] = None
-    blocked_by: Optional[List[int]] = None
-
-
-class TagResponse(BaseModel):
-    id: int
-    name: str
-    color: str
-
-    model_config = {"from_attributes": True}
-
+    due_date: Optional[datetime] = None
+    priority: Optional[int] = None
+    tags: Optional[List[str]] = None
 
 class TaskResponse(BaseModel):
     id: int
-    user_id: int
     title: str
     description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    deadline: Optional[datetime] = None
+    list: str
+    due_date: Optional[datetime] = None
     priority: int
-    status: str
-    tags: List[TagResponse] = []
-    list: Optional[str] = "Входящие"
-    blocked_by: List[int] = []
-    is_blocked: bool = False
-    created_at: Optional[datetime] = None
+    tags: List[str] = []
+    created_at: datetime
 
     model_config = {"from_attributes": True}
-
-
-class TaskListResponse(BaseModel):
-    id: int
-    name: str
-    color: str
-    position: int
-    is_default: bool
-    kind: Optional[str] = None
-
-    model_config = {"from_attributes": True}
-
-
-class TaskListCreate(BaseModel):
-    name: str
-    color: str
-    position: Optional[int] = 0
-
 
 class TaskListUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     position: Optional[int] = None
 
-
 class TagCreate(BaseModel):
     name: str
     color: str
 
-
 class TagUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
-
 
 class SummaryResponse(BaseModel):
     total: int
@@ -120,6 +76,13 @@ class SummaryResponse(BaseModel):
     done: int
     overdue: int
 
-
 class SettingsResponse(BaseModel):
     allow_registration: bool
+
+class TaskBulkUpdate(BaseModel):
+    tasks: List[Dict[str, Any]]
+
+class BulkUpdateResponse(BaseModel):
+    updated: int
+    created: int
+    errors: List[Dict[str, Any]] = []
