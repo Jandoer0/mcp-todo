@@ -45,7 +45,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
         list: task.list || listOptions[0]?.name || '',
         blocked_by: task.blocked_by || [],
       })
-      setSelectedTags((task.tags || []).map((t) => t.name))
+      setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
       setForm({ ...EMPTY, list: listOptions[0]?.name || '' })

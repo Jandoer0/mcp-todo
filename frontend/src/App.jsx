@@ -90,18 +90,23 @@ export default function App() {
   }
 
   const handleSubmit = async (payload) => {
-    if (payload._action === 'delete') {
-      if (editingTask) {
-        await remove(editingTask.id)
-        setModalOpen(false)
+    try {
+      if (payload._action === 'delete') {
+        if (editingTask) {
+          await remove(editingTask.id)
+          setModalOpen(false)
+        }
+        return
       }
-      return
-    }
 
-    if (editingTask) {
-      await update(editingTask.id, payload)
-    } else {
-      await create(payload)
+      if (editingTask) {
+        await update(editingTask.id, payload)
+      } else {
+        await create(payload)
+      }
+      setModalOpen(false)
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Произошла ошибка при сохранении задачи')
     }
   }
 
