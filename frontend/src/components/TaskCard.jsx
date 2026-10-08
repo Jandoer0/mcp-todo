@@ -32,6 +32,14 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
   const prevList = idx > 0 ? ordered[idx - 1] : null
   const isFirst = idx === 0
 
+  // Priority-based background colors
+  // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
+  const priorityBg = {
+    1: 'bg-gray-100 dark:bg-gray-900',
+    2: 'bg-white dark:bg-gray-800',
+    3: 'bg-red-50 dark:bg-red-900/20',
+  }[task.priority || 2]
+
   const moveTo = (targetName) => {
     if (targetName === 'Готово' && task.is_blocked) {
       alert('Сначала выполните блокирующие задачи')
@@ -45,7 +53,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
   }
 
   return (
-    <div className="flex items-stretch border border-gray-200 dark:border-gray-700 rounded shadow-sm bg-white dark:bg-gray-800 overflow-hidden">
+    <div className={`flex items-stretch border border-gray-200 dark:border-gray-700 rounded shadow-sm ${priorityBg} overflow-hidden`}>
       {/* Left zone: move to the NEXT (forward) list */}
       <button
         type="button"
@@ -54,7 +62,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
         title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
         className={`flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-r border-gray-200 dark:border-gray-700 ${
           nextList
-            ? 'hover:bg-gray-50 dark:hover:bg-gray-700'
+            ? 'hover:bg-gray-200/50 dark:hover:bg-gray-700'
             : 'opacity-40 cursor-not-allowed'
         }`}
       >
@@ -79,15 +87,18 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
           {task.title}
         </div>
         {task.description && (
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1 break-words">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1 break-words italic">
             {task.description}
           </p>
         )}
-        <div className="flex items-center justify-between gap-2 mt-2 text-[11px] text-gray-500">
-          <div className="flex-shrink-0 truncate text-sm text-gray-700 dark:text-gray-300">
+        <div className="grid grid-cols-4 items-center gap-2 mt-2 text-[11px]">
+          {/* Ячейка 1: Дата начала */}
+          <div className="text-left truncate font-bold text-gray-700 dark:text-gray-300">
             {task.start_date && formatDate(task.start_date)}
           </div>
-          <div className="flex flex-wrap justify-center items-center gap-2">
+
+          {/* Ячейка 2: Теги */}
+          <div className="text-left truncate flex gap-1 overflow-hidden">
             {(task.tags || []).map((t, idx) => {
               const name = typeof t === 'string' ? t : (t.name || t);
               const tagData = tags.find((tag) => tag.name === name);
@@ -95,7 +106,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
               return (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-full text-white truncate max-w-[10rem] text-xs"
+                  className="px-1.5 py-0 rounded-full text-white truncate text-[10px] whitespace-nowrap"
                   style={{ backgroundColor: color }}
                   title={name}
                 >
@@ -103,16 +114,23 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
                 </span>
               );
             })}
-            {task.is_blocked && (
-              <span className="text-red-500 font-medium text-xs" title="Есть незавершенные блокирующие задачи">🔒</span>
-            )}
           </div>
-          <div className="flex-shrink-0 text-right truncate text-sm text-gray-700 dark:text-gray-300">
+
+          {/* Ячейка 3: Блокирующие задачи */}
+          <div className="text-left truncate text-gray-500 dark:text-gray-400 overflow-hidden">
+            {task.blocked_by && task.blocked_by.length > 0 
+              ? `Блок.: ${task.blocked_by.join(', ')}` 
+              : ''}
+            {task.is_blocked && <span className="ml-1">🔒</span>}
+          </div>
+
+          {/* Ячейка 4: Дата завершения */}
+          <div className="text-right truncate font-bold text-gray-700 dark:text-gray-300">
             {task.deadline && (
               <span
                 className={`truncate ${
-                  new Date(task.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000)
-                    ? 'text-red-500 font-medium'
+                  new Date(task.deadline) < new Date()
+                    ? 'text-red-500'
                     : ''
                 }`}
               >
@@ -139,7 +157,7 @@ export default function TaskCard({ task, lists = [], tags = [], onSetList, onEdi
           type="button"
           onClick={() => moveTo(prevList.name)}
           title={`Переместить в «${prevList.name}»`}
-          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-200/50 dark:hover:bg-gray-700"
         >
           <Radio active color={prevList.color} />
           <span className="text-[10px] leading-tight text-center text-gray-500">
