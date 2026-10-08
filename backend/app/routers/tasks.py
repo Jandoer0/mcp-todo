@@ -93,12 +93,12 @@ def _attach_state(db: Session, task: Task) -> Task:
     task.blocked_by = ids
     task.is_blocked = compute_is_blocked(db, ids)
     tag_rows = (
-        db.query(Tag)
+        db.query(Tag.name)
         .join(task_tags, Tag.id == task_tags.c.tag_id)
         .filter(task_tags.c.task_id == task.id)
         .all()
     )
-    task.tags = tag_rows
+    task.tags = [r[0] for r in tag_rows]
     return task
 
 
