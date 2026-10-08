@@ -35,7 +35,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   // Priority-based background colors
   // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
   const priorityBg = {
-    1: 'bg-gray-100 dark:bg-gray-900',
+    1: 'bg-slate-100 dark:bg-slate-800',
     2: 'bg-white dark:bg-gray-800',
     3: 'bg-red-50 dark:bg-red-900/20',
   }[task.priority || 2]
