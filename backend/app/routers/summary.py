@@ -29,10 +29,14 @@ def get_summary(
         Task.deadline < datetime.utcnow(),
         Task.status != "done",
     ).count()
+    planned = db.query(Task).filter(
+        Task.user_id == uid, Task.is_cyclic == True  # noqa: E712
+    ).count()
     return {
         "total": total,
         "todo": todo,
         "in_progress": in_progress,
         "done": done,
         "overdue": overdue,
+        "planned": planned,
     }

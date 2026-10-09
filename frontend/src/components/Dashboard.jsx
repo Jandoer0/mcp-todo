@@ -7,6 +7,7 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
     { id: 'in_progress', label: 'В работе', value: summary.in_progress, color: 'text-purple-500' },
     { id: 'done', label: 'Выполнено', value: summary.done, color: 'text-green-500' },
     { id: 'overdue', label: 'Просрочено', value: summary.overdue, color: 'text-red-500' },
+    { id: 'planned', label: 'Запланировано', value: summary.planned ?? 0, color: 'text-slate-400' },
   ]
 
   return (
