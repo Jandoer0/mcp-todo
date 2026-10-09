@@ -14,6 +14,10 @@ const EMPTY = {
   tag: '',
   list: '',
   blocked_by: [],
+  is_cyclic: false,
+  cycle_period: 'monthly',
+  cycle_interval: 1,
+  reminder_days: 0,
 }
 
 function toDatetimeLocal(value) {
@@ -45,6 +49,10 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
         priority: task.priority ?? 1,
         list: task.list || listOptions[0]?.name || '',
         blocked_by: task.blocked_by || [],
+        is_cyclic: task.is_cyclic || false,
+        cycle_period: task.cycle_period || 'monthly',
+        cycle_interval: task.cycle_interval || 1,
+        reminder_days: task.reminder_days || 0,
       })
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
@@ -87,6 +95,20 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       payload.blocked_by = selectedBlockers
     } else if (tagsChanged) {
       payload.tags = selectedTags
+    }
+
+    // Cyclic settings: send when changed or when enabling cyclicity.
+    const cycleChanged =
+      !task ||
+      form.is_cyclic !== !!task.is_cyclic ||
+      form.cycle_period !== (task.cycle_period || 'monthly') ||
+      Number(form.cycle_interval) !== (task.cycle_interval || 1) ||
+      Number(form.reminder_days) !== (task.reminder_days || 0)
+    if (cycleChanged) {
+      payload.is_cyclic = form.is_cyclic
+      payload.cycle_period = form.cycle_period
+      payload.cycle_interval = Number(form.cycle_interval) || 1
+      payload.reminder_days = Number(form.reminder_days) || 0
     }
 
     onSubmit(payload)
@@ -178,6 +200,55 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             <p className="text-xs text-gray-500 mt-1">
               Введите название и нажмите Enter. При совпадении появится выпадающий список существующих тегов.
             </p>
+          </div>
+          <div className="md:col-span-2 border-t border-slate-200 pt-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_cyclic}
+                onChange={(e) => setForm((f) => ({ ...f, is_cyclic: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold">Циклическая задача</span>
+              <span className="text-xs text-slate-400">— будет автоматически создаваться заново</span>
+            </label>
+            {form.is_cyclic && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Период</label>
+                  <select
+                    value={form.cycle_period}
+                    onChange={(e) => setForm((f) => ({ ...f, cycle_period: e.target.value }))}
+                    className="w-full p-2 border rounded text-sm"
+                  >
+                    <option value="daily">Ежедневно</option>
+                    <option value="weekly">Еженедельно</option>
+                    <option value="monthly">Ежемесячно</option>
+                    <option value="yearly">Ежегодно</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Каждые N периодов</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.cycle_interval}
+                    onChange={(e) => setForm((f) => ({ ...f, cycle_interval: e.target.value }))}
+                    className="w-full p-2 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Показывать за (дней)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.reminder_days}
+                    onChange={(e) => setForm((f) => ({ ...f, reminder_days: e.target.value }))}
+                    className="w-full p-2 border rounded text-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Блокирующие задачи</label>

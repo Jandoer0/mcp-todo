@@ -34,7 +34,7 @@ def run_migrations() -> None:
 
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
-    for name in ("settings", "task_dependencies", "task_tags"):
+    for name in ("settings", "task_dependencies", "task_tags", "task_cycle_logs"):
         if name not in existing_tables:
             Base.metadata.tables[name].create(bind=engine)
 
@@ -44,6 +44,15 @@ def run_migrations() -> None:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN start_date DATETIME"))
         if "list" not in cols:
             conn.execute(text('ALTER TABLE tasks ADD COLUMN "list" VARCHAR'))
+        for col, ddl in (
+            ("is_cyclic", "BOOLEAN DEFAULT 0"),
+            ("cycle_period", "VARCHAR"),
+            ("cycle_interval", "INTEGER DEFAULT 1"),
+            ("cycle_group_id", "VARCHAR"),
+            ("reminder_days", "INTEGER DEFAULT 0"),
+        ):
+            if col not in cols:
+                conn.execute(text(f"ALTER TABLE tasks ADD COLUMN {col} {ddl}"))
         # Backfill rows that predate the "list" column (they are NULL).
         conn.execute(text('UPDATE tasks SET "list" = \'Входящие\' WHERE "list" IS NULL'))
         conn.commit()
