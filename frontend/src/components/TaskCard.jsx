@@ -222,7 +222,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
 
         {/* Cycle controls for cyclic tasks */}
         {task.is_cyclic && (
-          <div className="flex flex-wrap justify-center items-center gap-1 mt-2">
+          <div
+            className="flex flex-wrap justify-center items-center gap-1 mt-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => moveTo('Готово')}
