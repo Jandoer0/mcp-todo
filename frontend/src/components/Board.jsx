@@ -31,10 +31,16 @@ export default function Board({
 
     // Filter by tag
     if (activeTag) {
-      // Find the tag name by its ID
-      const selectedTag = tags.find(t => t.id === activeTag);
+      // Find the tag name by its ID (ensure type match)
+      const selectedTag = tags.find(t => String(t.id) === String(activeTag));
       if (selectedTag) {
         filtered = filtered.filter((t) => t.tags && t.tags.includes(selectedTag.name));
+      } else {
+        // If tag not found in the list, but activeTag is set, 
+        // we might be in a state where tags are still loading.
+        // But logically, we should only show tasks that match this ID if we can't find the name.
+        // However, TaskResponse.tags contains names, not IDs.
+        // So if selectedTag is not found, no tasks can match by name.
       }
     }
 
