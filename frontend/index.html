@@ -2,34 +2,20 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>OmniTask — Менеджер задач</title>
     <style>
-      html { background-color: #f1f5f9; }
-      html.dark { background-color: #0f172a; }
+      html { background-color: #35506b; }
       #root:empty::before {
         content: "Загрузка…";
         display: flex;
         height: 100vh;
         align-items: center;
         justify-content: center;
-        color: #64748b;
+        color: #f1f5f9;
         font-family: system-ui, sans-serif;
       }
     </style>
-    <script>
-      // Apply the saved theme before first paint to avoid a white/dark flash.
-      (function () {
-        try {
-          var t = localStorage.getItem("theme") || "system";
-          var dark =
-            t === "dark" ||
-            (t === "system" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          document.documentElement.classList.add(dark ? "dark" : "light");
-        } catch (e) {}
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
