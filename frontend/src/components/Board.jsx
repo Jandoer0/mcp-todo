@@ -18,7 +18,10 @@ export default function Board({
     console.log('Filtering tasks. activeFilter:', activeFilter, 'activeTag:', activeTag);
 
     // Filter by status/date
-    if (activeFilter !== 'all') {
+    if (activeFilter === 'all') {
+      // Dormant cyclic tasks live in the 'Запланировано' tab only.
+      filtered = filtered.filter((t) => !t.cycle_dormant)
+    } else {
       if (activeFilter === 'todo') {
         filtered = filtered.filter((t) => t.list === 'Не начато')
       } else if (activeFilter === 'done') {
