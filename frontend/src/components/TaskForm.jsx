@@ -153,54 +153,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               className="w-full p-2 border rounded"
             />
           </div>
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Приоритет</label>
-            <select
-              id="task-priority"
-              name="priority"
-              value={form.priority}
-              onChange={update('priority')}
-              className="w-full p-2 border rounded"
-            >
-              <option value={1}>Низкий</option>
-              <option value={2}>Средний</option>
-              <option value={3}>Высокий</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Статус</label>
-            <select
-              id="task-list"
-              name="list"
-              value={form.list}
-              onChange={update('list')}
-              className="w-full p-2 border rounded"
-            >
-              {listOptions.map((l) => (
-                <option key={l.name} value={l.name}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
-            <textarea
-              id="task-description"
-              name="description"
-              placeholder="Введите описание задачи"
-              value={form.description}
-              onChange={update('description')}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
-            <TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} />
-            <p className="text-xs text-gray-500 mt-1">
-              Введите название и нажмите Enter. При совпадении появится выпадающий список существующих тегов.
-            </p>
-          </div>
           <div className="md:col-span-2 border-t border-slate-200 pt-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -249,6 +201,55 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 </div>
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Приоритет</label>
+            <select
+              id="task-priority"
+              name="priority"
+              value={form.priority}
+              onChange={update('priority')}
+              className="w-full p-2 border rounded"
+            >
+              <option value={1}>Низкий</option>
+              <option value={2}>Средний</option>
+              <option value={3}>Высокий</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Статус</label>
+            <select
+              id="task-list"
+              name="list"
+              value={form.list}
+              onChange={update('list')}
+              className="w-full p-2 border rounded"
+            >
+              {listOptions.map((l) => (
+                <option key={l.name} value={l.name}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
+            <textarea
+              id="task-description"
+              name="description"
+              placeholder="Введите описание задачи"
+              value={form.description}
+              onChange={update('description')}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
+            <TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} />
+            <p className="text-xs text-gray-500 mt-1">
+              Введите название и нажмите Enter. При совпадении появится выпадающий список существующих тегов.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Блокирующие задачи</label>

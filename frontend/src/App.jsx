@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
 import { adminApi } from './api/client'
@@ -36,6 +36,7 @@ export default function App() {
   const [settings, setSettings] = useState({ allow_registration: true })
   const [authError, setAuthError] = useState('')
   const [listsOpen, setListsOpen] = useState(false)
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
 
   const handleLogin = async (u, p) => {
     try {
@@ -144,6 +145,17 @@ export default function App() {
   // adminView state is now used to control the AdminPanel modal rendered below
   
 
+  const FILTERS = summary
+    ? [
+        { id: 'all', label: 'Всего задач', count: summary.total },
+        { id: 'todo', label: 'К выполнению', count: summary.todo },
+        { id: 'in_progress', label: 'В работе', count: summary.in_progress },
+        { id: 'done', label: 'Выполнено', count: summary.done },
+        { id: 'overdue', label: 'Просрочено', count: summary.overdue },
+        { id: 'planned', label: 'Запланировано', count: summary.planned ?? 0 },
+      ]
+    : []
+
   const tagCloud = (
     <>
       {tags.map((tag) => (
@@ -188,13 +200,45 @@ export default function App() {
         {tagCloud}
       </div>
 
-      <div className="flex justify-between items-center mb-4 gap-4">
-        <button
-          onClick={() => setListsOpen(true)}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 whitespace-nowrap"
-        >
-          Списки
-        </button>
+      <div className="flex justify-between items-center mb-4 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => setListsOpen(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 whitespace-nowrap"
+          >
+            Списки
+          </button>
+
+          {/* Mobile: filters as a dropdown between the two buttons */}
+          <div className="md:hidden relative">
+            <button
+              onClick={() => setFilterMenuOpen((v) => !v)}
+              className="bg-white text-slate-700 px-3 py-2 rounded shadow-sm text-sm flex items-center gap-1 whitespace-nowrap"
+            >
+              {FILTERS.find((f) => f.id === activeFilter)?.label || 'Фильтры'}
+              <span className={`text-[10px] transition-transform ${filterMenuOpen ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            {filterMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded shadow-lg py-1 min-w-[12rem]">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      setActiveFilter(f.id)
+                      setFilterMenuOpen(false)
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center hover:bg-slate-100 ${
+                      activeFilter === f.id ? 'font-semibold text-blue-600' : 'text-slate-700'
+                    }`}
+                  >
+                    <span>{f.label}</span>
+                    <span className="text-xs text-slate-400">{f.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Tag Cloud Filter — desktop: inside the buttons row */}
         <div className="hidden md:flex flex-wrap gap-2 items-center justify-center flex-1">
