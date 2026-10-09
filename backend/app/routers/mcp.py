@@ -17,7 +17,16 @@ from sqlalchemy.orm import Session
 from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
 from ..models import Tag, Task, User, task_dependencies, task_tags
-from ..routers.tasks import ensure_tags
+from ..routers.tasks import (
+    CYCLE_PERIODS,
+    compute_is_blocked,
+    cycle_log,
+    ensure_tags,
+    is_cycle_visible,
+    regenerate_cycle,
+    advance_deadline,
+)
+import uuid as _uuid
 
 mcp = FastMCP("OmniTask")
 
@@ -96,19 +105,37 @@ def list_all_lists(auth_token: str) -> str:
 
 
 @mcp.tool()
-def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
-    """List tasks for the authenticated user. Optional status filter."""
+def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[bool] = None) -> str:
+    """List tasks for the authenticated user. Optional status filter and cyclic filter (True = only cyclic tasks, False = only non-cyclic)."""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
+        from .tasks import is_cycle_visible
         query = db.query(Task).filter(Task.user_id == user.id)
         if status:
             query = query.filter(Task.status == status)
+        if cyclic is not None:
+            query = query.filter(Task.is_cyclic == cyclic)
         tasks = query.all()
-        return json.dumps(
-            [
+        now = datetime.utcnow()
+        result = []
+        for t in tasks:
+            blocked_by = [
+                r[0]
+                for r in db.execute(
+                    select(task_dependencies.c.blocker_id).where(
+                        task_dependencies.c.blocked_id == t.id
+                    )
+                ).fetchall()
+            ]
+            t_is_blocked = bool(blocked_by) and any(
+                db.get(Task, b) and db.get(Task, b).status != "done"
+                for b in blocked_by
+            )
+            t_is_blocked = compute_is_blocked(db, blocked_by)
+            result.append(
                 {
                     "id": t.id,
                     "title": t.title,
@@ -125,18 +152,16 @@ def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
                         .filter(task_tags.c.task_id == t.id)
                         .all()
                     ],
-                    "blocked_by": [
-                        r[0]
-                        for r in db.execute(
-                            select(task_dependencies.c.blocker_id).where(
-                                task_dependencies.c.blocked_id == t.id
-                            )
-                        ).fetchall()
-                    ],
+                    "blocked_by": blocked_by,
+                    "is_cyclic": bool(t.is_cyclic),
+                    "cycle_period": t.cycle_period,
+                    "cycle_interval": t.cycle_interval,
+                    "cycle_group_id": t.cycle_group_id,
+                    "reminder_days": t.reminder_days,
+                    "cycle_dormant": not is_cycle_visible(t, now),
                 }
-                for t in tasks
-            ]
-        )
+            )
+        return json.dumps(result)
     finally:
         db.close()
 
@@ -152,9 +177,15 @@ def create_task(
     tags: Optional[list[str]] = None,
     list: str = "Не начато",
     blocked_by: Optional[list[int]] = None,
+    is_cyclic: bool = False,
+    cycle_period: str = "monthly",
+    cycle_interval: int = 1,
+    reminder_days: int = 0,
     **kwargs,
 ) -> str:
-    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
+    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
+    Cyclic tasks: cycle_period is daily|weekly|monthly|yearly, cycle_interval = every N periods,
+    reminder_days = days before deadline when the task becomes visible in the main lists."""
     data = _extract_args(locals())
     
     token = data.get("auth_token")
@@ -190,6 +221,12 @@ def create_task(
             list=t_list,
             status=status_for_list(t_list),
         )
+        if data.get("is_cyclic"):
+            task.is_cyclic = True
+            task.cycle_period = data.get("cycle_period") if data.get("cycle_period") in CYCLE_PERIODS else "monthly"
+            task.cycle_interval = max(1, int(data.get("cycle_interval") or 1))
+            task.reminder_days = max(0, int(data.get("reminder_days") or 0))
+            task.cycle_group_id = _uuid.uuid4().hex
         db.add(task)
         db.commit()
         db.refresh(task)
@@ -229,9 +266,14 @@ def update_task(
     deadline: Optional[str] = None,
     list: Optional[str] = None,
     blocked_by: Optional[list[int]] = None,
+    is_cyclic: Optional[bool] = None,
+    cycle_period: Optional[str] = None,
+    cycle_interval: Optional[int] = None,
+    reminder_days: Optional[int] = None,
     **kwargs,
 ) -> str:
-    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
+    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
+    Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration."""
     data = _extract_args(locals())
     
     token = data.get("auth_token")
@@ -267,7 +309,26 @@ def update_task(
         if data.get("deadline") is not None:
             task.deadline = datetime.fromisoformat(data.get("deadline")) if data.get("deadline") else None
         if data.get("list") is not None:
-            task.list = data.get("list")
+            from ..board import status_for_list, list_names
+            new_list = data.get("list")
+            if new_list in list_names(db):
+                task.list = new_list
+                task.status = status_for_list(new_list)
+        if data.get("is_cyclic") is not None:
+            task.is_cyclic = bool(data.get("is_cyclic"))
+        if data.get("cycle_period") is not None:
+            task.cycle_period = data.get("cycle_period") if data.get("cycle_period") in CYCLE_PERIODS else "monthly"
+        if data.get("cycle_interval") is not None:
+            task.cycle_interval = max(1, int(data.get("cycle_interval")))
+        if data.get("reminder_days") is not None:
+            task.reminder_days = max(0, int(data.get("reminder_days")))
+        if task.is_cyclic:
+            if task.cycle_period not in CYCLE_PERIODS:
+                task.cycle_period = "monthly"
+            if not task.cycle_group_id:
+                task.cycle_group_id = _uuid.uuid4().hex
+            task.cycle_interval = max(1, task.cycle_interval or 1)
+            task.reminder_days = max(0, task.reminder_days or 0)
         if data.get("blocked_by") is not None:
             db.execute(
                 task_dependencies.delete().where(
@@ -288,6 +349,11 @@ def update_task(
                     )
                 )
         db.commit()
+        # Cyclic completion via MCP: log the iteration and spawn the next one.
+        if task.is_cyclic and task.status == "done":
+            from ..board import _resolve_list
+            next_task = regenerate_cycle(db, task)
+            return f"Cycle iteration completed. Next iteration created with ID {next_task.id}, deadline {next_task.deadline}"
         return f"Task {task.id} updated"
     finally:
         db.close()
@@ -295,7 +361,7 @@ def update_task(
 
 @mcp.tool()
 def delete_task(auth_token: str, task_id: int) -> str:
-    """Delete a task for the authenticated user."""
+    """Delete a task for the authenticated user. For a cyclic task, the whole iteration chain is deleted."""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
@@ -308,16 +374,93 @@ def delete_task(auth_token: str, task_id: int) -> str:
         )
         if not task:
             return "Task not found"
+        group_id = task.cycle_group_id if task.is_cyclic else None
+        chain_ids = [task_id]
+        if group_id:
+            chain = (
+                db.query(Task)
+                .filter(Task.user_id == user.id, Task.cycle_group_id == group_id)
+                .all()
+            )
+            chain_ids = [t.id for t in chain]
         # Clean up dependencies to avoid orphaned records or constraint issues
         db.execute(
             task_dependencies.delete().where(
-                (task_dependencies.c.blocker_id == task_id)
-                | (task_dependencies.c.blocked_id == task_id)
+                (task_dependencies.c.blocker_id.in_(chain_ids))
+                | (task_dependencies.c.blocked_id.in_(chain_ids))
             )
         )
+        if group_id:
+            db.query(Task).filter(
+                Task.user_id == user.id, Task.cycle_group_id == group_id
+            ).delete(synchronize_session=False)
+            return f"Cyclic task chain deleted ({len(chain_ids)} task(s))"
         db.delete(task)
         db.commit()
         return f"Task {task_id} deleted"
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def manage_cycle(auth_token: str, task_id: int, action: str) -> str:
+    """Manage a cyclic task. action: 'skip' (shift deadline to next cycle, no history),
+    'stop' (break the cycle, logged), 'history' (list completed iterations),
+    'complete' (mark done: logs history and creates the next iteration)."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    db = _session()
+    try:
+        task = (
+            db.query(Task)
+            .filter(Task.id == task_id, Task.user_id == user.id)
+            .first()
+        )
+        if not task:
+            return "Task not found"
+        if not task.is_cyclic:
+            return "Error: Task is not cyclic"
+        action = (action or "").lower()
+        if action == "skip":
+            if not task.deadline:
+                return "Error: Task has no deadline to shift"
+            task.deadline = advance_deadline(
+                task.deadline, task.cycle_period, task.cycle_interval
+            )
+            db.commit()
+            return f"Deadline shifted to next cycle: {task.deadline}"
+        if action == "stop":
+            task.is_cyclic = False
+            cycle_log(db, task.user_id, task.cycle_group_id, task, "stopped")
+            db.commit()
+            return "Cycle stopped. No new iterations will be created."
+        if action == "complete":
+            next_task = regenerate_cycle(db, task)
+            return f"Cycle iteration completed. Next iteration created with ID {next_task.id}, deadline {next_task.deadline}"
+        if action == "history":
+            from ..models import TaskCycleLog
+            logs = (
+                db.query(TaskCycleLog)
+                .filter(
+                    TaskCycleLog.user_id == user.id,
+                    TaskCycleLog.cycle_group_id == task.cycle_group_id,
+                )
+                .order_by(TaskCycleLog.logged_at.desc())
+                .all()
+            )
+            return json.dumps(
+                [
+                    {
+                        "task_title": l.task_title,
+                        "action": l.action,
+                        "deadline": str(l.deadline) if l.deadline else None,
+                        "logged_at": str(l.logged_at),
+                    }
+                    for l in logs
+                ]
+            )
+        return "Error: Unknown action. Use skip | stop | complete | history"
     finally:
         db.close()
 
