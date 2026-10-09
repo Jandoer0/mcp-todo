@@ -174,8 +174,12 @@ export default function App() {
             <button
               key={tag.id}
               onClick={() => {
-                console.log('Tag clicked:', tag.name, 'ID:', tag.id, 'Current activeTag:', activeTag);
-                setActiveTag(activeTag === tag.id ? null : tag.id);
+                if (typeof setActiveTag === 'function') {
+                  console.log('Tag clicked:', tag.name, 'ID:', tag.id, 'Current activeTag:', activeTag);
+                  setActiveTag(activeTag === tag.id ? null : tag.id);
+                } else {
+                  console.error('CRITICAL ERROR: setActiveTag is not a function! Value:', setActiveTag);
+                }
               }}
               className={`px-2 py-1 rounded-full text-xs transition-all border ${
                 activeTag === tag.id
@@ -190,6 +194,7 @@ export default function App() {
               {tag.name}
             </button>
           ))}
+
 
           {activeTag && (
             <button
