@@ -1,26 +1,9 @@
-export default function Layout({
-  isAdmin,
-  onAdmin,
-  onLogout,
-  theme,
-  onThemeChange,
-  children,
-}) {
+export default function Layout({ isAdmin, onAdmin, onLogout, children }) {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <header className="bg-white dark:bg-gray-800 shadow p-4 grid grid-cols-3 items-center">
-        {/* Левая ячейка: Переключатель тем */}
-        <div className="flex justify-start">
-          <select
-            value={theme}
-            onChange={(e) => onThemeChange(e.target.value)}
-            className="bg-gray-100 dark:bg-gray-700 border-none rounded text-sm p-1"
-          >
-            <option value="system">Системная</option>
-            <option value="light">Светлая</option>
-            <option value="dark">Тёмная</option>
-          </select>
-        </div>
+        {/* Левая ячейка (пустая для симметрии) */}
+        <div />
 
         {/* Средняя ячейка: Название */}
         <div className="flex justify-center">

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
-import { useTheme } from './hooks/useTheme'
 import { adminApi } from './api/client'
 import Login from './components/Login'
 import Layout from './components/Layout'
@@ -14,7 +13,6 @@ import AdminPanel from './components/AdminPanel'
 export default function App() {
   const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration } =
     useAuth()
-  const { theme, setTheme } = useTheme()
   const {
     tasks,
     summary,
@@ -151,8 +149,6 @@ export default function App() {
       isAdmin={isAdmin}
       onAdmin={openAdmin}
       onLogout={logout}
-      theme={theme}
-      onThemeChange={setTheme}
     >
       <Dashboard 
         summary={summary} 

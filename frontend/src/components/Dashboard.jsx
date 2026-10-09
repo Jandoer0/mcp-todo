@@ -10,19 +10,19 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-6">
+    <div className="hidden md:grid grid-cols-5 gap-2 mb-6">
       {filters.map((f) => (
         <button
           key={f.id}
           onClick={() => onFilterChange(f.id)}
-          className={`p-3 sm:p-2 rounded shadow text-center transition-all ${
+          className={`px-2 py-1 rounded text-center transition-all ${
             activeFilter === f.id 
               ? 'ring-2 ring-offset-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30' 
               : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
           }`}
         >
-          <div className={`text-xl sm:text-2xl font-bold ${f.color}`}>{f.value}</div>
-          <div className="text-[11px] sm:text-xs text-gray-500">{f.label}</div>
+          <div className={`text-sm font-bold ${f.color}`}>{f.value}</div>
+          <div className="text-[11px] text-gray-500">{f.label}</div>
         </button>
       ))}
     </div>
