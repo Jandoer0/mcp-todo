@@ -99,7 +99,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             {task.description}
           </p>
         )}
-        <div className="grid grid-cols-4 items-center gap-2 mt-2 text-sm">
+        <div className="grid grid-cols-3 items-center gap-2 mt-2 text-sm">
           {/* Ячейка 1: Дата начала */}
           <div className="text-left truncate font-bold text-gray-700 dark:text-gray-300">
             {task.start_date && formatDate(task.start_date)}
@@ -124,24 +124,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             })}
           </div>
 
-          {/* Ячейка 3: Блокирующие задачи */}
-          <div className="text-left truncate text-gray-500 dark:text-gray-400 overflow-hidden flex items-center gap-1">
-            {task.is_blocked && <span className="flex-shrink-0">🔒</span>}
-            {task.blocked_by && task.blocked_by.length > 0 && (
-              <div className="flex flex-wrap gap-1 truncate">
-                {task.blocked_by.map((bid) => {
-                  const bTask = allTasks.find((t) => t.id === bid);
-                  return (
-                    <span key={bid} className="px-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-[10px] whitespace-nowrap">
-                      {bTask ? bTask.title : bid}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Ячейка 4: Дата завершения */}
+          {/* Ячейка 3: Дата завершения */}
           <div className="text-right truncate font-bold text-gray-700 dark:text-gray-300">
             {task.deadline && (
               <span
@@ -156,6 +139,23 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             )}
           </div>
         </div>
+        
+        {/* Четвертая строка: Блокирующие задачи */}
+        {(task.is_blocked || (task.blocked_by && task.blocked_by.length > 0)) && (
+          <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500 dark:text-gray-400 truncate overflow-hidden">
+            <span className="flex-shrink-0">🔒</span>
+            <div className="flex gap-1 truncate">
+              {task.blocked_by && task.blocked_by.map((bid) => {
+                const bTask = allTasks.find((t) => t.id === bid);
+                return (
+                  <span key={bid} className="px-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-[10px] whitespace-nowrap">
+                    {bTask ? bTask.title : bid}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right zone: move to the PREVIOUS (backward) list, or delete if first */}
