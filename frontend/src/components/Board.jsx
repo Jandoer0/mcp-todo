@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import TaskCard from './TaskCard'
 
 export default function Board({
@@ -74,19 +75,43 @@ export default function Board({
 
 
 
+  // Collapsible groups: collapsed by default for «Архив», expanded otherwise.
+  const [collapsed, setCollapsed] = useState(() => {
+    const init = {}
+    for (const l of lists) init[l.name] = l.name === 'Архив'
+    return init
+  })
+  const toggleGroup = (name) =>
+    setCollapsed((c) => ({ ...c, [name]: !c[name] }))
+
   return (
     <div>
       <div className="space-y-6">
         {groups.map((group) => (
           <section key={group.id}>
-            <div className="flex items-center gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => toggleGroup(group.name)}
+              className="flex items-center gap-2 mb-2 w-full text-left group"
+              title={collapsed[group.name] ? 'Развернуть группу' : 'Свернуть группу'}
+            >
+              <span
+                className={`text-white/60 text-xs transition-transform ${
+                  collapsed[group.name] ? '' : 'rotate-0'
+                }`}
+              >
+                {collapsed[group.name] ? '▶' : '▼'}
+              </span>
               <span
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: group.color }}
               />
-              <h4 className="font-semibold text-sm text-white">{group.name}</h4>
+              <h4 className="font-semibold text-sm text-white group-hover:text-white/80">
+                {group.name}
+              </h4>
               <span className="text-xs text-white/60">({group.items.length})</span>
-            </div>
+            </button>
+            {!collapsed[group.name] && (
             <div className="space-y-2">
               {group.items.map((task) => (
                 <TaskCard
@@ -105,6 +130,7 @@ export default function Board({
                 <p className="text-xs text-white/40 italic">Нет задач</p>
               )}
             </div>
+            )}
           </section>
         ))}
       </div>
