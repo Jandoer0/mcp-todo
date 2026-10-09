@@ -120,6 +120,7 @@ class SummaryResponse(BaseModel):
     in_progress: int
     done: int
     overdue: int
+    planned: int = 0
 
 class SettingsResponse(BaseModel):
     allow_registration: bool
