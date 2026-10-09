@@ -1,5 +1,5 @@
 """Task summary statistics for the authenticated user."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -18,20 +18,33 @@ def get_summary(
     current_user: User = Depends(get_current_user),
 ):
     uid = current_user.id
-    total = db.query(Task).filter(Task.user_id == uid).count()
-    todo = db.query(Task).filter(Task.user_id == uid, Task.status == "todo").count()
-    in_progress = db.query(Task).filter(
-        Task.user_id == uid, Task.status == "in_progress"
-    ).count()
-    done = db.query(Task).filter(Task.user_id == uid, Task.status == "done").count()
-    overdue = db.query(Task).filter(
+
+    # Dormant cyclic tasks (outside their reminder window) are excluded from
+    # the headline statistics — they are only counted in 'planned'.
+    now = datetime.utcnow()
+    dormant_ids = set()
+    for t in db.query(Task).filter(
         Task.user_id == uid,
-        Task.deadline < datetime.utcnow(),
+        Task.is_cyclic == True,  # noqa: E712
+    ).all():
+        if t.deadline:
+            window = t.deadline - timedelta(days=max(0, t.reminder_days or 0))
+            if now < window:
+                dormant_ids.add(t.id)
+
+    base = db.query(Task).filter(Task.user_id == uid)
+    if dormant_ids:
+        base = base.filter(~Task.id.in_(dormant_ids))
+
+    total = base.count()
+    todo = base.filter(Task.status == "todo").count()
+    in_progress = base.filter(Task.status == "in_progress").count()
+    done = base.filter(Task.status == "done").count()
+    overdue = base.filter(
+        Task.deadline < now,
         Task.status != "done",
     ).count()
-    planned = db.query(Task).filter(
-        Task.user_id == uid, Task.is_cyclic == True  # noqa: E712
-    ).count()
+    planned = len(dormant_ids)
     return {
         "total": total,
         "todo": todo,
