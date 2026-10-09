@@ -398,6 +398,15 @@ def update_task(
     for key, value in update_data.items():
         setattr(db_task, key, value)
 
+    # Normalize cyclic settings when cyclicity is (re)enabled on a task.
+    if update_data.get("is_cyclic"):
+        if db_task.cycle_period not in CYCLE_PERIODS:
+            db_task.cycle_period = "monthly"
+        if not db_task.cycle_group_id:
+            db_task.cycle_group_id = _uuid.uuid4().hex
+        db_task.cycle_interval = max(1, db_task.cycle_interval or 1)
+        db_task.reminder_days = max(0, db_task.reminder_days or 0)
+
     if has_tags:
         db_task.tags = ensure_tags(db, tag_names or [])
         cleanup_orphan_tags(db)
