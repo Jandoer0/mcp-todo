@@ -153,15 +153,9 @@ def create_task(
     blocked_by: Optional[list[int]] = None,
     **kwargs,
 ) -> str:
-    \"\"\"Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
-    # Use the helper to ensure we have the actual data regardless of wrapping
+    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
     data = _extract_args(locals())
     
-    # If we are here, FastMCP passed them as named args, but we still 
-    # normalize via locals() and _extract_args to be safe.
-    # In practice, if FastMCP wrapped them in 'args', they'd be in kwargs.
-    
-    # Extract normalized values
     token = data.get("auth_token")
     t_title = data.get("title")
     t_desc = data.get("description")
@@ -235,7 +229,7 @@ def update_task(
     blocked_by: Optional[list[int]] = None,
     **kwargs,
 ) -> str:
-    \"\"\"Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
     data = _extract_args(locals())
     
     token = data.get("auth_token")
