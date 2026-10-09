@@ -192,7 +192,7 @@ export default function App() {
           {activeTag && (
             <button
               onClick={() => setActiveTag(null)}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="text-xs text-gray-400 hover:text-gray-600"
             >
               ✕ Очистить
             </button>
