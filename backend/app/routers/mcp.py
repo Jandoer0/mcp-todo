@@ -44,6 +44,15 @@ def get_user_from_token(token: str) -> Optional[User]:
         db.close()
 
 
+def _extract_args(kwargs: dict) -> dict:
+    """Helper to handle FastMCP's inconsistent argument wrapping.
+    If arguments are wrapped in an 'args' key, unwrap them.
+    """
+    if "args" in kwargs and isinstance(kwargs["args"], dict):
+        return kwargs["args"]
+    return kwargs
+
+
 @mcp.tool()
 def reset_admin_password(username: str, new_password: str) -> str:
     """Reset password for a user. Use with caution!"""
@@ -142,38 +151,59 @@ def create_task(
     tags: Optional[list[str]] = None,
     list: str = "Не начато",
     blocked_by: Optional[list[int]] = None,
+    **kwargs,
 ) -> str:
-    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
-    from ..board import list_names, status_for_list
-    user = get_user_from_token(auth_token)
+    \"\"\"Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    # Use the helper to ensure we have the actual data regardless of wrapping
+    data = _extract_args(locals())
+    
+    # If we are here, FastMCP passed them as named args, but we still 
+    # normalize via locals() and _extract_args to be safe.
+    # In practice, if FastMCP wrapped them in 'args', they'd be in kwargs.
+    
+    # Extract normalized values
+    token = data.get("auth_token")
+    t_title = data.get("title")
+    t_desc = data.get("description")
+    t_start = data.get("start_date")
+    t_dead = data.get("deadline")
+    t_prio = data.get("priority", 2)
+    t_tags = data.get("tags")
+    t_list = data.get("list", "Не начато")
+    t_blocked = data.get("blocked_by")
+
+    if not token or not t_title:
+        return "Error: Missing required parameters (auth_token, title)"
+
+    user = get_user_from_token(token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        # Validate list name. If it doesn't exist, fall back to default.
+        from ..board import list_names, status_for_list
         valid_lists = list_names(db)
-        if list not in valid_lists:
-            list = "Не начато"
+        if t_list not in valid_lists:
+            t_list = "Не начато"
         
         task = Task(
             user_id=user.id,
-            title=title,
-            description=description,
-            start_date=datetime.fromisoformat(start_date) if start_date else None,
-            deadline=datetime.fromisoformat(deadline) if deadline else None,
-            priority=priority,
-            list=list,
-            status=status_for_list(list),
+            title=t_title,
+            description=t_desc,
+            start_date=datetime.fromisoformat(t_start) if t_start else None,
+            deadline=datetime.fromisoformat(t_dead) if t_dead else None,
+            priority=t_prio,
+            list=t_list,
+            status=status_for_list(t_list),
         )
         db.add(task)
         db.commit()
         db.refresh(task)
-        if tags:
-            task.tags = ensure_tags(db, tags)
+        if t_tags:
+            task.tags = ensure_tags(db, t_tags)
             db.commit()
-        if blocked_by:
+        if t_blocked:
             seen = set()
-            for bid in blocked_by:
+            for bid in t_blocked:
                 if bid == task.id or bid in seen:
                     continue
                 seen.add(bid)
@@ -203,42 +233,51 @@ def update_task(
     deadline: Optional[str] = None,
     list: Optional[str] = None,
     blocked_by: Optional[list[int]] = None,
+    **kwargs,
 ) -> str:
-    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
-    user = get_user_from_token(auth_token)
+    \"\"\"Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    data = _extract_args(locals())
+    
+    token = data.get("auth_token")
+    t_id = data.get("task_id")
+    
+    if not token or t_id is None:
+        return "Error: Missing required parameters (auth_token, task_id)"
+
+    user = get_user_from_token(token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
         task = (
             db.query(Task)
-            .filter(Task.id == task_id, Task.user_id == user.id)
+            .filter(Task.id == t_id, Task.user_id == user.id)
             .first()
         )
         if not task:
             return "Task not found"
-        if title is not None:
-            task.title = title
-        if status is not None:
-            task.status = status
-        if priority is not None:
-            task.priority = priority
-        if tags is not None:
-            task.tags = ensure_tags(db, tags)
-        if start_date is not None:
-            task.start_date = datetime.fromisoformat(start_date) if start_date else None
-        if deadline is not None:
-            task.deadline = datetime.fromisoformat(deadline) if deadline else None
-        if list is not None:
-            task.list = list
-        if blocked_by is not None:
+        if data.get("title") is not None:
+            task.title = data.get("title")
+        if data.get("status") is not None:
+            task.status = data.get("status")
+        if data.get("priority") is not None:
+            task.priority = data.get("priority")
+        if data.get("tags") is not None:
+            task.tags = ensure_tags(db, data.get("tags"))
+        if data.get("start_date") is not None:
+            task.start_date = datetime.fromisoformat(data.get("start_date")) if data.get("start_date") else None
+        if data.get("deadline") is not None:
+            task.deadline = datetime.fromisoformat(data.get("deadline")) if data.get("deadline") else None
+        if data.get("list") is not None:
+            task.list = data.get("list")
+        if data.get("blocked_by") is not None:
             db.execute(
                 task_dependencies.delete().where(
                     task_dependencies.c.blocked_id == task.id
                 )
             )
             seen = set()
-            for bid in blocked_by:
+            for bid in data.get("blocked_by", []):
                 if bid == task.id or bid in seen:
                     continue
                 seen.add(bid)
