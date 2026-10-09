@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
+import Modal from './Modal'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
@@ -93,19 +94,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white text-slate-800 p-6 rounded-lg shadow-2xl w-full max-w-2xl relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-lg leading-none"
-        >
-          ×
-        </button>
-        <h3 className="text-base font-bold mb-5 flex items-center gap-2">
-          <span className="w-2 h-4 bg-[#22384d] rounded-sm inline-block" />
-          {task ? 'Изменить задачу' : 'Создать задачу'}
-        </h3>
-        <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <Modal open={open} onClose={onClose} title={task ? 'Изменить задачу' : 'Создать задачу'}>
+      <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Название</label>
             <input
@@ -115,7 +105,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               placeholder="Введите название задачи"
               value={form.title}
               onChange={update('title')}
-              className="w-full p-2 border rounded dark:bg-gray-700"
+              className="w-full p-2 border rounded"
               required
             />
           </div>
@@ -127,7 +117,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               name="start_date"
               value={form.start_date}
               onChange={update('start_date')}
-              className="w-full p-2 border rounded dark:bg-gray-700"
+              className="w-full p-2 border rounded"
             />
           </div>
           <div>
@@ -138,7 +128,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               name="deadline"
               value={form.deadline}
               onChange={update('deadline')}
-              className="w-full p-2 border rounded dark:bg-gray-700"
+              className="w-full p-2 border rounded"
             />
           </div>
           <div>
@@ -148,7 +138,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               name="priority"
               value={form.priority}
               onChange={update('priority')}
-              className="w-full p-2 border rounded dark:bg-gray-700"
+              className="w-full p-2 border rounded"
             >
               <option value={1}>Низкий</option>
               <option value={2}>Средний</option>
@@ -162,7 +152,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               name="list"
               value={form.list}
               onChange={update('list')}
-              className="w-full p-2 border rounded dark:bg-gray-700"
+              className="w-full p-2 border rounded"
             >
               {listOptions.map((l) => (
                 <option key={l.name} value={l.name}>
@@ -179,7 +169,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               placeholder="Введите описание задачи"
               value={form.description}
               onChange={update('description')}
-              className="w-full p-2 border rounded dark:bg-gray-700"
+              className="w-full p-2 border rounded"
             />
           </div>
           <div className="md:col-span-2">
@@ -230,8 +220,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </button>
         </div>
       </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   )
 }

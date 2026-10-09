@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { listsApi } from '../api/client'
+import Modal from './Modal'
 import { PALETTE } from '../constants'
 
 function Palette({ value, onPick }) {
@@ -80,24 +81,16 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400"
-        >
-          ✕
-        </button>
-        <h3 className="text-xl font-bold mb-4">Управление списками</h3>
+    <Modal open={open} onClose={onClose} title="Управление списками">
 
-        <div className="mb-6 p-3 border rounded bg-gray-50 dark:bg-gray-700">
+        <div className="mb-6 p-3 border rounded bg-gray-50">
           <div className="text-sm font-medium mb-2">Новый список</div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Название (напр. Срочные)"
-              className="flex-1 p-2 border rounded dark:bg-gray-800"
+              className="flex-1 p-2 border rounded"
             />
             <button
               onClick={addList}
@@ -112,7 +105,7 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
         <div className="space-y-3">
           {sorted.map((list) => (
             <div key={list.id} className="border rounded p-3">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <button
                   type="button"
                   onClick={() => setEditingColor(editingColor === list.id ? null : list.id)}
@@ -164,7 +157,6 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
