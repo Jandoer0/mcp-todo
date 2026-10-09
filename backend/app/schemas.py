@@ -51,6 +51,11 @@ class TaskUpdate(BaseModel):
     priority: Optional[int] = None
     tags: Optional[List[str]] = None
     blocked_by: Optional[List[int]] = None
+    # Cyclic task settings
+    is_cyclic: Optional[bool] = None
+    cycle_period: Optional[str] = None
+    cycle_interval: Optional[int] = None
+    reminder_days: Optional[int] = None
 
 class TagResponse(BaseModel):
     id: int
