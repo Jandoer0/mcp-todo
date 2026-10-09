@@ -60,20 +60,20 @@ export default function TaskLinkInput({ value = [], tasks = [], excludeId, onCha
 
   return (
     <div className="relative">
-      <div className="flex flex-wrap items-center gap-2 p-2 border rounded dark:bg-gray-700 min-h-[42px]">
+      <div className="flex flex-wrap items-center gap-1.5 p-2 border rounded min-h-[42px]">
         {value.map((id) => {
           const t = byId[id]
           if (!t) return null
           return (
             <span
               key={id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100 text-sm"
+              className="inline-flex items-center gap-1 px-1 rounded bg-slate-100 border border-slate-300 text-[10px] text-slate-600 max-w-full"
             >
-              {t.title}
+              <span className="truncate">{t.title}</span>
               <button
                 type="button"
                 onClick={() => removeTask(id)}
-                className="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white leading-none"
+                className="text-slate-400 hover:text-red-500 leading-none text-xs shrink-0"
                 aria-label={`Убрать блокирующую задачу ${t.title}`}
               >
                 ×
@@ -96,7 +96,7 @@ export default function TaskLinkInput({ value = [], tasks = [], excludeId, onCha
         />
       </div>
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border rounded shadow max-h-56 overflow-auto">
+        <ul className="absolute z-10 mt-1 w-full bg-white border rounded shadow max-h-56 overflow-auto">
           {suggestions.map((t) => (
             <li key={t.id}>
               <button
@@ -105,7 +105,7 @@ export default function TaskLinkInput({ value = [], tasks = [], excludeId, onCha
                   e.preventDefault()
                   addTask(t)
                 }}
-                className="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-slate-100"
               >
                 <span className="truncate">{t.title}</span>
                 <span className="text-[11px] text-gray-500 flex-shrink-0">

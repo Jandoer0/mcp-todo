@@ -12,7 +12,7 @@ function Palette({ value, onPick }) {
           type="button"
           onClick={() => onPick(c)}
           className={`w-5 h-5 rounded-full border-2 ${
-            value === c ? 'border-black dark:border-white' : 'border-transparent'
+            value === c ? 'border-black' : 'border-transparent'
           }`}
           style={{ backgroundColor: c }}
         />

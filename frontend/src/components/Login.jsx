@@ -17,12 +17,12 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
         onSubmit={submit}
-        className="bg-white dark:bg-gray-800 p-8 rounded shadow-md w-full max-w-md"
+        className="bg-white p-8 rounded shadow-md w-full max-w-md"
       >
-        <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">
           {mode === 'login' ? 'Вход' : 'Регистрация'}
         </h2>
         <input
@@ -32,7 +32,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
           placeholder="Имя пользователя"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full p-2 mb-4 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          className="w-full p-2 mb-4 border rounded"
         />
         <input
           type="password"
@@ -41,7 +41,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
           placeholder="Пароль"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-2 mb-4 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          className="w-full p-2 mb-4 border rounded"
         />
         <button
           type="submit"
@@ -51,7 +51,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
         </button>
         {error && <p className="mt-4 text-center text-red-500 text-sm">{error}</p>}
         {allowRegistration ? (
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-400 text-sm">
+          <p className="mt-4 text-center text-gray-600 text-sm">
             {mode === 'login' ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
             <span
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
@@ -61,7 +61,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
             </span>
           </p>
         ) : (
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-400 text-sm">
+          <p className="mt-4 text-center text-gray-600 text-sm">
             Регистрация новых пользователей отключена администратором.
           </p>
         )}

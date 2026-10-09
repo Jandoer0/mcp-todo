@@ -17,8 +17,8 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
           onClick={() => onFilterChange(f.id)}
           className={`px-2 py-1 rounded text-center transition-all ${
             activeFilter === f.id 
-              ? 'ring-2 ring-offset-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30' 
-              : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+              ? 'ring-2 ring-offset-2 ring-blue-500 bg-blue-50' 
+              : 'bg-white hover:bg-gray-50'
           }`}
         >
           <div className={`text-sm font-bold ${f.color}`}>{f.value}</div>

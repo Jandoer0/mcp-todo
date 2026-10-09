@@ -44,7 +44,7 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
 
   return (
     <div className="relative">
-      <div className="flex flex-wrap items-center gap-2 p-2 border rounded dark:bg-gray-700 min-h-[42px]">
+      <div className="flex flex-wrap items-center gap-2 p-2 border rounded min-h-[42px]">
         {value.map((name) => {
           const color = colorMap[name] || FALLBACK_COLOR
           return (
@@ -80,7 +80,7 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
         />
       </div>
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border rounded shadow max-h-48 overflow-auto">
+        <ul className="absolute z-10 mt-1 w-full bg-white border rounded shadow max-h-48 overflow-auto">
           {suggestions.map((t) => (
             <li key={t.id ?? t.name}>
               <button
@@ -89,7 +89,7 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
                   e.preventDefault()
                   addTag(t.name)
                 }}
-                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-100"
               >
                 <span
                   className="w-3 h-3 rounded-full"

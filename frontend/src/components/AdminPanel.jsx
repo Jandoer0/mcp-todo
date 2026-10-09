@@ -215,7 +215,7 @@ export default function AdminPanel({
                           type="text"
                           readOnly
                           value={mcpToken}
-                          className="flex-1 p-2 border rounded text-xs font-mono"
+                          className="flex-1 p-2 border rounded text-xs"
                         />
                         <button
                           type="button"
@@ -242,7 +242,7 @@ export default function AdminPanel({
                         <button
                           type="button"
                           onClick={handleRevoke}
-                          className="px-3 py-2 text-red-500 border border-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-sm"
+                          className="px-3 py-2 text-red-500 border border-red-500 rounded hover:bg-red-50 text-sm"
                         >
                           Отозвать
                         </button>
