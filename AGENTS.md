@@ -133,6 +133,10 @@ frontend/
    ssh podman-svc "systemctl --user restart mcp-todo.service"
    ```
 
+4. **Доступ**
+   После перезапуска сервер OmniTask доступен для по адресу http://127.0.0.1:8000
+   Сервер MCP настроен как omnitask (/home/agent/.pi/agent/mcp-adapter.json) 
+
 ## Взаимодействие с GitHub и Реестром (GHCR)
 - **Код**: Работа с репозиторием через SSH-ключи.
 - **Образы (GHCR)**: Для авторизации в GitHub Container Registry используется Personal Access Token (PAT).

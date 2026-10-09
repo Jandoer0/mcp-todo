@@ -6,8 +6,8 @@ owning user so tools only ever touch that user's data.
 import json
 import os
 from datetime import datetime
-from typing import Optional, Annotated
-from pydantic import Field
+from typing import Optional, List
+from pydantic import BaseModel, Field
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -43,6 +43,35 @@ def get_user_from_token(token: str) -> Optional[User]:
     finally:
         db.close()
 
+
+# --- Pydantic Models for Tool Arguments ---
+
+class CreateTaskArgs(BaseModel):
+    auth_token: str = Field(description="JWT or MCP API key for authentication")
+    title: str = Field(description="Title of the task")
+    description: Optional[str] = Field(None, description="Detailed description of the task")
+    start_date: Optional[str] = Field(None, description="Start date in ISO format")
+    deadline: Optional[str] = Field(None, description="Deadline in ISO format")
+    priority: int = Field(2, description="Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий")
+    tags: Optional[List[str]] = Field(None, description="List of tag names")
+    list: str = Field("Не начато", description="Target list name")
+    blocked_by: Optional[List[int]] = Field(None, description="List of blocking task IDs")
+
+
+class UpdateTaskArgs(BaseModel):
+    auth_token: str = Field(description="JWT or MCP API key for authentication")
+    task_id: int = Field(description="ID of the task to update")
+    title: Optional[str] = Field(None, description="New title")
+    status: Optional[str] = Field(None, description="New status")
+    priority: Optional[int] = Field(None, description="Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий")
+    tags: Optional[List[str]] = Field(None, description="New list of tag names")
+    start_date: Optional[str] = Field(None, description="New start date in ISO format")
+    deadline: Optional[str] = Field(None, description="New deadline in ISO format")
+    list: Optional[str] = Field(None, description="New list name")
+    blocked_by: Optional[List[int]] = Field(None, description="New list of blocking task IDs")
+
+
+# --- MCP Tools ---
 
 @mcp.tool()
 def reset_admin_password(username: str, new_password: str) -> str:
@@ -132,48 +161,39 @@ def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
 
 
 @mcp.tool()
-def create_task(
-    auth_token: str,
-    title: str,
-    description: Optional[str] = None,
-    start_date: Optional[str] = None,
-    deadline: Optional[str] = None,
-    priority: Annotated[int, Field(description="Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий")] = 2,
-    tags: Optional[list[str]] = None,
-    list: str = "Не начато",
-    blocked_by: Optional[list[int]] = None,
-) -> str:
-    """Create a new task for the authenticated user."""
+def create_task(args: CreateTaskArgs) -> str:
+    \"\"\"Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
     from ..board import list_names, status_for_list
-    user = get_user_from_token(auth_token)
+    user = get_user_from_token(args.auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
         # Validate list name. If it doesn't exist, fall back to default.
         valid_lists = list_names(db)
-        if list not in valid_lists:
-            list = "Не начато"
+        target_list = args.list
+        if target_list not in valid_lists:
+            target_list = "Не начато"
         
         task = Task(
             user_id=user.id,
-            title=title,
-            description=description,
-            start_date=datetime.fromisoformat(start_date) if start_date else None,
-            deadline=datetime.fromisoformat(deadline) if deadline else None,
-            priority=priority,
-            list=list,
-            status=status_for_list(list),
+            title=args.title,
+            description=args.description,
+            start_date=datetime.fromisoformat(args.start_date) if args.start_date else None,
+            deadline=datetime.fromisoformat(args.deadline) if args.deadline else None,
+            priority=args.priority,
+            list=target_list,
+            status=status_for_list(target_list),
         )
         db.add(task)
         db.commit()
         db.refresh(task)
-        if tags:
-            task.tags = ensure_tags(db, tags)
+        if args.tags:
+            task.tags = ensure_tags(db, args.tags)
             db.commit()
-        if blocked_by:
+        if args.blocked_by:
             seen = set()
-            for bid in blocked_by:
+            for bid in args.blocked_by:
                 if bid == task.id or bid in seen:
                     continue
                 seen.add(bid)
@@ -192,53 +212,42 @@ def create_task(
 
 
 @mcp.tool()
-def update_task(
-    auth_token: str,
-    task_id: int,
-    title: Optional[str] = None,
-    status: Optional[str] = None,
-    priority: Annotated[Optional[int], Field(description="Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий")] = None,
-    tags: Optional[list[str]] = None,
-    start_date: Optional[str] = None,
-    deadline: Optional[str] = None,
-    list: Optional[str] = None,
-    blocked_by: Optional[list[int]] = None,
-) -> str:
-    """Update an existing task for the authenticated user."""
-    user = get_user_from_token(auth_token)
+def update_task(args: UpdateTaskArgs) -> str:
+    \"\"\"Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    user = get_user_from_token(args.auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
         task = (
             db.query(Task)
-            .filter(Task.id == task_id, Task.user_id == user.id)
+            .filter(Task.id == args.task_id, Task.user_id == user.id)
             .first()
         )
         if not task:
             return "Task not found"
-        if title is not None:
-            task.title = title
-        if status is not None:
-            task.status = status
-        if priority is not None:
-            task.priority = priority
-        if tags is not None:
-            task.tags = ensure_tags(db, tags)
-        if start_date is not None:
-            task.start_date = datetime.fromisoformat(start_date) if start_date else None
-        if deadline is not None:
-            task.deadline = datetime.fromisoformat(deadline) if deadline else None
-        if list is not None:
-            task.list = list
-        if blocked_by is not None:
+        if args.title is not None:
+            task.title = args.title
+        if args.status is not None:
+            task.status = args.status
+        if args.priority is not None:
+            task.priority = args.priority
+        if args.tags is not None:
+            task.tags = ensure_tags(db, args.tags)
+        if args.start_date is not None:
+            task.start_date = datetime.fromisoformat(args.start_date) if args.start_date else None
+        if args.deadline is not None:
+            task.deadline = datetime.fromisoformat(args.deadline) if args.deadline else None
+        if args.list is not None:
+            task.list = args.list
+        if args.blocked_by is not None:
             db.execute(
                 task_dependencies.delete().where(
                     task_dependencies.c.blocked_id == task.id
                 )
             )
             seen = set()
-            for bid in blocked_by:
+            for bid in args.blocked_by:
                 if bid == task.id or bid in seen:
                     continue
                 seen.add(bid)
