@@ -31,7 +31,11 @@ export default function Board({
 
     // Filter by tag
     if (activeTag) {
-      filtered = filtered.filter((t) => t.tags && t.tags.some(tagId => tagId === activeTag))
+      // Find the tag name by its ID
+      const selectedTag = tags.find(t => t.id === activeTag);
+      if (selectedTag) {
+        filtered = filtered.filter((t) => t.tags && t.tags.includes(selectedTag.name));
+      }
     }
 
     return filtered
