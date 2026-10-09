@@ -76,13 +76,11 @@ export default function Board({
 
 
   // Collapsible groups: collapsed by default for «Архив», expanded otherwise.
-  const [collapsed, setCollapsed] = useState(() => {
-    const init = {}
-    for (const l of lists) init[l.name] = l.name === 'Архив'
-    return init
-  })
+  // Keys may be absent while lists are still loading, so fall back to defaults.
+  const [collapsed, setCollapsed] = useState({})
+  const isCollapsed = (name) => collapsed[name] ?? name === 'Архив'
   const toggleGroup = (name) =>
-    setCollapsed((c) => ({ ...c, [name]: !c[name] }))
+    setCollapsed((c) => ({ ...c, [name]: !(c[name] ?? name === 'Архив') }))
 
   return (
     <div>
@@ -93,14 +91,12 @@ export default function Board({
               type="button"
               onClick={() => toggleGroup(group.name)}
               className="flex items-center gap-2 mb-2 w-full text-left group"
-              title={collapsed[group.name] ? 'Развернуть группу' : 'Свернуть группу'}
+              title={isCollapsed(group.name) ? 'Развернуть группу' : 'Свернуть группу'}
             >
               <span
-                className={`text-white/60 text-xs transition-transform ${
-                  collapsed[group.name] ? '' : 'rotate-0'
-                }`}
+                className="text-white/60 text-xs transition-transform"
               >
-                {collapsed[group.name] ? '▶' : '▼'}
+                {isCollapsed(group.name) ? '▶' : '▼'}
               </span>
               <span
                 className="w-3 h-3 rounded-full"
@@ -111,7 +107,7 @@ export default function Board({
               </h4>
               <span className="text-xs text-white/60">({group.items.length})</span>
             </button>
-            {!collapsed[group.name] && (
+            {!isCollapsed(group.name) && (
             <div className="space-y-2">
               {group.items.map((task) => (
                 <TaskCard
