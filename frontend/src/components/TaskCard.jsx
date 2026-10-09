@@ -37,12 +37,12 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const isFirst = idx === 0
   const isLast = idx === ordered.length - 1
 
-  // Priority-based background colors
-  // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
-  const priorityBg = {
-    1: 'bg-slate-200',
-    2: 'bg-white',
-    3: 'bg-red-50',
+  // Priority dot color (card itself is always white)
+  // 1: Low (Grey), 2: Medium (Blue), 3: High (Red)
+  const priorityDot = {
+    1: 'bg-slate-400',
+    2: 'bg-blue-500',
+    3: 'bg-red-500',
   }[task.priority || 2]
 
   const moveTo = (targetName) => {
@@ -58,7 +58,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   return (
-    <div className={`flex items-stretch rounded-md shadow-sm ${priorityBg} overflow-hidden`}>
+    <div className="flex items-stretch bg-white rounded-md shadow-sm overflow-hidden">
       {/* Left zone: move to the NEXT (forward) list or delete if last */}
       {isLast ? (
         <button
@@ -91,8 +91,12 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         onClick={() => onEdit(task)}
         className="flex-1 min-w-0 p-3 cursor-pointer"
       >
-        <div className="font-semibold truncate text-sm text-slate-800" title={task.title}>
-          {task.title}
+        <div className="font-semibold truncate text-sm text-slate-800 flex items-center gap-1.5" title={task.title}>
+          <span
+            className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${priorityDot}`}
+            title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
+          />
+          <span className="truncate">{task.title}</span>
         </div>
         {task.description && (
           <p className="text-xs text-slate-500 mt-1 line-clamp-1 break-words italic">

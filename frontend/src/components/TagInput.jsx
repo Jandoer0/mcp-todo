@@ -50,14 +50,14 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
           return (
             <span
               key={name}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-sm"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white truncate max-w-full"
               style={{ backgroundColor: color }}
             >
               {name}
               <button
                 type="button"
                 onClick={() => removeTag(name)}
-                className="text-white/80 hover:text-white leading-none"
+                className="text-white/80 hover:text-white leading-none text-xs"
                 aria-label={`Удалить тег ${name}`}
               >
                 ×
