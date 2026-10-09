@@ -79,6 +79,8 @@ export function useTasks(ready) {
     tags,
     activeFilter,
     setActiveFilter,
+    activeTag,
+    setActiveTag,
     sortBy,
     setSortBy,
     load,
