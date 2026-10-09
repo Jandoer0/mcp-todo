@@ -162,7 +162,7 @@ def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
 
 @mcp.tool()
 def create_task(args: CreateTaskArgs) -> str:
-    \"\"\"Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
     from ..board import list_names, status_for_list
     user = get_user_from_token(args.auth_token)
     if not user:
@@ -213,7 +213,7 @@ def create_task(args: CreateTaskArgs) -> str:
 
 @mcp.tool()
 def update_task(args: UpdateTaskArgs) -> str:
-    \"\"\"Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
     user = get_user_from_token(args.auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
