@@ -144,6 +144,33 @@ export default function App() {
   // adminView state is now used to control the AdminPanel modal rendered below
   
 
+  const tagCloud = (
+    <>
+      {tags.map((tag) => (
+        <button
+          key={tag.id}
+          onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
+          className={`px-2 py-0.5 rounded text-xs font-semibold text-white transition-all ${
+            activeTag === tag.id
+              ? 'ring-2 ring-white/70 scale-105'
+              : 'opacity-90 hover:opacity-100'
+          }`}
+          style={{ backgroundColor: tag.color }}
+        >
+          {tag.name}
+        </button>
+      ))}
+      {activeTag && (
+        <button
+          onClick={() => setActiveTag(null)}
+          className="text-xs text-white/60 hover:text-white"
+        >
+          ✕ Очистить
+        </button>
+      )}
+    </>
+  )
+
   return (
     <Layout
       isAdmin={isAdmin}
@@ -156,8 +183,12 @@ export default function App() {
         onFilterChange={setActiveFilter} 
       />
 
+      {/* Tag Cloud — mobile: between header and buttons row */}
+      <div className="md:hidden flex flex-wrap gap-2 items-center mb-3">
+        {tagCloud}
+      </div>
+
       <div className="flex justify-between items-center mb-4 gap-4">
-        {/* Tag Cloud Filter */}
         <button
           onClick={() => setListsOpen(true)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 whitespace-nowrap"
@@ -165,38 +196,9 @@ export default function App() {
           Списки
         </button>
 
+        {/* Tag Cloud Filter — desktop: inside the buttons row */}
         <div className="hidden md:flex flex-wrap gap-2 items-center justify-center flex-1">
-          {tags.map((tag) => (
-            <button
-              key={tag.id}
-              onClick={() => {
-                if (typeof setActiveTag === 'function') {
-                  console.log('Tag clicked:', tag.name, 'ID:', tag.id, 'Current activeTag:', activeTag);
-                  setActiveTag(activeTag === tag.id ? null : tag.id);
-                } else {
-                  console.error('CRITICAL ERROR: setActiveTag is not a function! Value:', setActiveTag);
-                }
-              }}
-              className={`px-2 py-0.5 rounded text-xs font-semibold text-white transition-all ${
-                activeTag === tag.id
-                  ? 'ring-2 ring-white/70 scale-105'
-                  : 'opacity-90 hover:opacity-100'
-              }`}
-              style={{ backgroundColor: tag.color }}
-            >
-              {tag.name}
-            </button>
-          ))}
-
-
-          {activeTag && (
-            <button
-              onClick={() => setActiveTag(null)}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              ✕ Очистить
-            </button>
-          )}
+          {tagCloud}
         </div>
 
         <button
