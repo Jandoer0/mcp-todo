@@ -6,7 +6,8 @@ export default function Layout({ isAdmin, onAdmin, onLogout, children }) {
         <div />
 
         {/* Средняя ячейка: Название */}
-        <div className="flex justify-center">
+        {/* Средняя ячейка: Название (на мобильных — слева, чтобы не перекрывалась кнопкой админки) */}
+        <div className="flex justify-start md:justify-center">
           <h1 className="text-lg font-bold tracking-wide text-white">OmniTask</h1>
         </div>
 
