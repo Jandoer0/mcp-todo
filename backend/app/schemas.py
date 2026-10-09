@@ -103,6 +103,7 @@ class TaskResponse(BaseModel):
     cycle_interval: Optional[int] = 1
     cycle_group_id: Optional[str] = None
     reminder_days: Optional[int] = 0
+    cycle_dormant: bool = False  # cyclic task outside its reminder window
 
     model_config = {"from_attributes": True}
 

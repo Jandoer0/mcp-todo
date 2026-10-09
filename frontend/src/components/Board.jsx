@@ -67,6 +67,12 @@ export default function Board({
     groups.push({ id: -1, name: 'Прочее', color: '#64748b', is_default: false, items: orphan })
   }
 
+  // Dormant cyclic tasks: outside their reminder window — a low-noise section.
+  const planned = sortTasks(visible.filter((t) => t.cycle_dormant))
+  if (planned.length) {
+    groups.push({ id: -2, name: 'Запланировано', color: '#94a3b8', is_default: false, items: planned })
+  }
+
   return (
     <div>
       <div className="space-y-6">
