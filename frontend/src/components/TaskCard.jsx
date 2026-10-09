@@ -143,8 +143,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         {/* Четвертая строка: Блокирующие задачи */}
         {(task.is_blocked || (task.blocked_by && task.blocked_by.length > 0)) && (
           <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500 dark:text-gray-400 truncate overflow-hidden">
-            <span className="flex-shrink-0">🔒</span>
-            <div className="flex gap-1 truncate">
+            <div className="flex gap-1 truncate flex-row-reverse">
               {task.blocked_by && task.blocked_by.map((bid) => {
                 const bTask = allTasks.find((t) => t.id === bid);
                 return (
