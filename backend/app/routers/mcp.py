@@ -181,7 +181,6 @@ def create_task(
     cycle_period: str = "monthly",
     cycle_interval: int = 1,
     reminder_days: int = 0,
-    **kwargs,
 ) -> str:
     """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Cyclic tasks: cycle_period is daily|weekly|monthly|yearly, cycle_interval = every N periods,
@@ -270,7 +269,6 @@ def update_task(
     cycle_period: Optional[str] = None,
     cycle_interval: Optional[int] = None,
     reminder_days: Optional[int] = None,
-    **kwargs,
 ) -> str:
     """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration."""
