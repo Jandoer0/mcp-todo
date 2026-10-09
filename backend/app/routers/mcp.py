@@ -143,7 +143,7 @@ def create_task(
     list: str = "Не начато",
     blocked_by: Optional[list[int]] = None,
 ) -> str:
-    \"\"\"Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
     from ..board import list_names, status_for_list
     user = get_user_from_token(auth_token)
     if not user:
@@ -204,7 +204,7 @@ def update_task(
     list: Optional[str] = None,
     blocked_by: Optional[list[int]] = None,
 ) -> str:
-    \"\"\"Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High\"\"\"
+    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High"""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
