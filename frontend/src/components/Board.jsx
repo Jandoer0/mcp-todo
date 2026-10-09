@@ -9,6 +9,7 @@ export default function Board({
   onSetList,
   onEdit,
   onDelete,
+  onRefresh,
 }) {
   const filterTasks = (allTasks) => {
     if (!allTasks) return []
@@ -90,6 +91,7 @@ export default function Board({
                   onSetList={onSetList}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onRefresh={onRefresh}
                 />
               ))}
               {group.items.length === 0 && (

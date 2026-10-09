@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { tasksApi } from '../api/client'
+import Modal from './Modal'
 
 function formatDate(value) {
   if (!value) return ''
@@ -61,6 +63,8 @@ function RadioCircle() {
 }
 
 export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete }) {
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState([])
   // Lists are ordered by position; movement goes to the adjacent (neighbor) list
   // so a card never "jumps" over a column.
   const ordered = [...lists].sort((a, b) => a.position - b.position)
@@ -86,7 +90,39 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   const handleDelete = () => {
-    if (confirm(`Удалить задачу «${task.title}»?`)) onDelete(task)
+    const msg = task.is_cyclic
+      ? `Удалить циклическую задачу «${task.title}» и ВСЮ её историю?`
+      : `Удалить задачу «${task.title}»?`
+    if (confirm(msg)) onDelete(task)
+  }
+
+  const handleSkip = async () => {
+    try {
+      await tasksApi.cycleSkip(task.id)
+      onRefresh && onRefresh()
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Не удалось пропустить цикл')
+    }
+  }
+
+  const handleStop = async () => {
+    if (!confirm(`Остановить цикл задачи «${task.title}»? Новые копии создаваться больше не будут.`)) return
+    try {
+      await tasksApi.cycleStop(task.id)
+      onRefresh && onRefresh()
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Не удалось остановить цикл')
+    }
+  }
+
+  const openHistory = async () => {
+    try {
+      const res = await tasksApi.cycleHistory(task.id)
+      setHistory(res.data)
+    } catch {
+      setHistory([])
+    }
+    setHistoryOpen(true)
   }
 
   const overdue = task.deadline && new Date(task.deadline) < new Date()
@@ -178,6 +214,45 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             </div>
           </div>
         )}
+
+        {/* Cycle controls for cyclic tasks */}
+        {task.is_cyclic && (
+          <div className="flex flex-wrap justify-center items-center gap-1 mt-2">
+            <button
+              type="button"
+              onClick={() => moveTo('Готово')}
+              disabled={task.is_blocked}
+              title={task.is_blocked ? 'Сначала выполните блокирующие задачи' : 'Отметить выполненной и создать следующую итерацию'}
+              className="px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700 disabled:opacity-40"
+            >
+              Выполнено
+            </button>
+            <button
+              type="button"
+              onClick={handleSkip}
+              title="Сдвинуть срок на следующий цикл без записи в истории"
+              className="px-2 py-0.5 rounded bg-blue-500 text-white text-[10px] font-semibold hover:bg-blue-600"
+            >
+              Пропустить
+            </button>
+            <button
+              type="button"
+              onClick={handleStop}
+              title="Остановить цикл — новые копии создаваться не будут"
+              className="px-2 py-0.5 rounded bg-slate-500 text-white text-[10px] font-semibold hover:bg-slate-600"
+            >
+              Остановить
+            </button>
+            <button
+              type="button"
+              onClick={openHistory}
+              title="История выполненных итераций"
+              className="px-2 py-0.5 rounded border border-slate-300 text-slate-500 text-[10px] hover:bg-slate-100"
+            >
+              История
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right segment: radio — move to the PREVIOUS (upper) list; in «Не начато» (first) — Delete */}
@@ -194,6 +269,33 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           <RadioCircle />
         </RadioBtn>
       )}
+
+      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={`История: ${task.title}`}>
+        {history.length === 0 ? (
+          <p className="text-sm text-slate-500">Записей пока нет — история появляется после выполнения или остановки цикла.</p>
+        ) : (
+          <ul className="space-y-2">
+            {history.map((h) => (
+              <li key={h.id} className="flex items-center justify-between gap-2 text-sm border-b border-slate-100 pb-2">
+                <span className="truncate min-w-0">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                      h.action === 'completed' ? 'bg-green-500' : 'bg-slate-400'
+                    }`}
+                  />
+                  {h.task_title}
+                  <span className="text-slate-400 ml-2">
+                    {h.action === 'completed' ? 'выполнена' : 'цикл остановлен'}
+                  </span>
+                </span>
+                <span className="text-xs text-slate-400 shrink-0">
+                  {new Date(h.logged_at).toLocaleString('ru-RU')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   )
 }

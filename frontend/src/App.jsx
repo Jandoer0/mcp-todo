@@ -218,6 +218,7 @@ export default function App() {
         onSetList={handleSetList}
         onEdit={openEdit}
         onDelete={handleDelete}
+        onRefresh={load}
       />
 
       <TaskForm

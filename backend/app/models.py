@@ -61,9 +61,34 @@ class Task(Base):
     list = Column(String, default="Входящие")  # задел под Канбан-доску
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Cyclic task support: a repeating task regenerates itself on completion.
+    is_cyclic = Column(Boolean, default=False)
+    cycle_period = Column(String, nullable=True)  # daily | weekly | monthly | yearly
+    cycle_interval = Column(Integer, default=1)  # every N periods
+    cycle_group_id = Column(String, nullable=True, index=True)  # iteration chain id
+    reminder_days = Column(Integer, default=0)  # visible N days before deadline
+
     tags = relationship(
         "Tag", secondary=task_tags, backref="tasks", order_by="Tag.name"
     )
+
+
+class TaskCycleLog(Base):
+    """History of finished cyclic-task iterations.
+
+    When a cyclic iteration is completed it is removed from the board and
+    logged here; skipping is silent and logs nothing; stopping the cycle is
+    logged with action='stopped'."""
+
+    __tablename__ = "task_cycle_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    cycle_group_id = Column(String, index=True)
+    task_title = Column(String)
+    action = Column(String)  # completed | stopped
+    deadline = Column(DateTime, nullable=True)  # deadline of that iteration
+    logged_at = Column(DateTime, default=datetime.utcnow)
 
 
 class TaskList(Base):

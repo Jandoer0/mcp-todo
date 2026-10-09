@@ -27,6 +27,9 @@ export const tasksApi = {
   create: (data) => api.post(`${API_URL}/tasks`, data),
   update: (id, data) => api.put(`${API_URL}/tasks/${id}`, data),
   remove: (id) => api.delete(`${API_URL}/tasks/${id}`),
+  cycleSkip: (id) => api.post(`${API_URL}/tasks/${id}/cycle/skip`),
+  cycleStop: (id) => api.post(`${API_URL}/tasks/${id}/cycle/stop`),
+  cycleHistory: (id) => api.get(`${API_URL}/tasks/${id}/cycle/history`),
 }
 
 export const summaryApi = {

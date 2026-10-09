@@ -33,6 +33,11 @@ class TaskBase(BaseModel):
     deadline: Optional[datetime] = None
     priority: Optional[int] = 1
     tags: Optional[List[str]] = []
+    # Cyclic task settings
+    is_cyclic: Optional[bool] = False
+    cycle_period: Optional[str] = None  # daily | weekly | monthly | yearly
+    cycle_interval: Optional[int] = 1
+    reminder_days: Optional[int] = 0
 
 class TaskCreate(TaskBase):
     pass
@@ -92,6 +97,12 @@ class TaskResponse(BaseModel):
     created_at: datetime
     blocked_by: List[int] = []
     is_blocked: bool = False
+    # Cyclic task info
+    is_cyclic: bool = False
+    cycle_period: Optional[str] = None
+    cycle_interval: Optional[int] = 1
+    cycle_group_id: Optional[str] = None
+    reminder_days: Optional[int] = 0
 
     model_config = {"from_attributes": True}
 
@@ -111,6 +122,15 @@ class SummaryResponse(BaseModel):
 
 class SettingsResponse(BaseModel):
     allow_registration: bool
+
+class CycleLogResponse(BaseModel):
+    id: int
+    task_title: str
+    action: str
+    deadline: Optional[datetime] = None
+    logged_at: datetime
+
+    model_config = {"from_attributes": True}
 
 class TaskBulkUpdate(BaseModel):
     tasks: List[Dict[str, Any]]
