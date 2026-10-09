@@ -40,9 +40,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   // Priority-based background colors
   // 1: Low (Grey), 2: Medium (White), 3: High (Reddish)
   const priorityBg = {
-    1: 'bg-slate-100 dark:bg-slate-800',
-    2: 'bg-white dark:bg-gray-800',
-    3: 'bg-red-50 dark:bg-red-900/20',
+    1: 'bg-slate-200',
+    2: 'bg-white',
+    3: 'bg-red-50',
   }[task.priority || 2]
 
   const moveTo = (targetName) => {
@@ -58,14 +58,14 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   return (
-    <div className={`flex items-stretch border border-gray-200 dark:border-gray-700 rounded shadow-sm ${priorityBg} overflow-hidden`}>
+    <div className={`flex items-stretch rounded-md shadow-sm ${priorityBg} overflow-hidden`}>
       {/* Left zone: move to the NEXT (forward) list or delete if last */}
       {isLast ? (
         <button
           type="button"
           onClick={handleDelete}
           title="Удалить задачу"
-          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-r border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500"
+          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 hover:bg-red-100 text-red-500"
         >
           <span className="text-base leading-none">🗑</span>
           <span className="text-[10px] leading-tight text-center">Удалить</span>
@@ -76,9 +76,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           onClick={() => nextList && moveTo(nextList.name)}
           disabled={!nextList}
           title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
-          className={`flex items-center justify-center w-14 py-2 border-r border-gray-200 dark:border-gray-700 ${
+          className={`flex items-center justify-center w-14 py-2 ${
             nextList
-              ? 'hover:bg-gray-200/50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
+              ? 'hover:bg-slate-200/60 text-slate-500'
               : 'opacity-40 cursor-not-allowed'
           }`}
         >
@@ -91,17 +91,17 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         onClick={() => onEdit(task)}
         className="flex-1 min-w-0 p-3 cursor-pointer"
       >
-        <div className="font-semibold truncate text-base" title={task.title}>
+        <div className="font-semibold truncate text-sm text-slate-800" title={task.title}>
           {task.title}
         </div>
         {task.description && (
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1 break-words italic">
+          <p className="text-xs text-slate-500 mt-1 line-clamp-1 break-words italic">
             {task.description}
           </p>
         )}
         <div className="grid grid-cols-3 items-center gap-2 mt-2 text-sm">
           {/* Ячейка 1: Дата начала */}
-          <div className="text-left truncate font-bold text-gray-700 dark:text-gray-300">
+          <div className="text-left truncate font-bold text-[11px] text-slate-600">
             {task.start_date && formatDate(task.start_date)}
           </div>
 
@@ -114,8 +114,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
               return (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-full text-xs border border-transparent truncate whitespace-nowrap"
-                  style={{ backgroundColor: color + '20', color }}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white truncate whitespace-nowrap"
+                  style={{ backgroundColor: color }}
                   title={name}
                 >
                   {name}
@@ -125,7 +125,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           </div>
 
           {/* Ячейка 3: Дата завершения */}
-          <div className="text-right truncate font-bold text-gray-700 dark:text-gray-300">
+          <div className="text-right truncate font-bold text-[11px] text-slate-600">
             {task.deadline && (
               <span
                 className={`truncate ${
@@ -142,12 +142,12 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         
         {/* Четвертая строка: Блокирующие задачи */}
         {(task.is_blocked || (task.blocked_by && task.blocked_by.length > 0)) && (
-          <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500 dark:text-gray-400 truncate overflow-hidden">
+          <div className="flex items-center justify-end gap-1 mt-1 text-xs text-slate-500 truncate overflow-hidden">
             <div className="flex gap-1 truncate flex-row-reverse">
               {task.blocked_by && task.blocked_by.map((bid) => {
                 const bTask = allTasks.find((t) => t.id === bid);
                 return (
-                  <span key={bid} className="px-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-[10px] whitespace-nowrap">
+                  <span key={bid} className="px-1 rounded bg-slate-100 border border-slate-300 text-[10px] whitespace-nowrap">
                     {bTask ? bTask.title : bid}
                   </span>
                 );
@@ -163,7 +163,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           type="button"
           onClick={handleDelete}
           title="Удалить задачу"
-          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 border-l border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500"
+          className="flex flex-col items-center justify-center gap-1 w-14 px-1 py-2 hover:bg-red-100 text-red-500"
         >
           <span className="text-base leading-none">🗑</span>
           <span className="text-[10px] leading-tight text-center">Удалить</span>
@@ -173,15 +173,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           type="button"
           onClick={() => moveTo(prevList.name)}
           title={`Переместить в «${prevList.name}»`}
-          className={`flex items-center justify-center w-14 py-2 border-l border-gray-200 dark:border-gray-700 ${
-            'hover:bg-gray-200/50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
-          }`}
+          className="flex items-center justify-center w-14 py-2 hover:bg-slate-200/60 text-slate-500"
         >
           <ArrowUp />
         </button>
       ) : (
-        <div className="flex items-center justify-center w-14 py-2 border-l border-gray-200 dark:border-gray-700 opacity-40">
-          <span className="text-sm text-gray-400">—</span>
+        <div className="flex items-center justify-center w-14 py-2 opacity-40">
+          <span className="text-sm text-slate-400">—</span>
         </div>
       )}
     </div>

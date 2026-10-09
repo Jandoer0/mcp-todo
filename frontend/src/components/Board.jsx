@@ -76,8 +76,8 @@ export default function Board({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: group.color }}
               />
-              <h4 className="font-semibold">{group.name}</h4>
-              <span className="text-xs text-gray-500">({group.items.length})</span>
+              <h4 className="font-semibold text-sm text-white">{group.name}</h4>
+              <span className="text-xs text-white/60">({group.items.length})</span>
             </div>
             <div className="space-y-2">
               {group.items.map((task) => (
@@ -93,7 +93,7 @@ export default function Board({
                 />
               ))}
               {group.items.length === 0 && (
-                <p className="text-xs text-gray-400 italic">Нет задач</p>
+                <p className="text-xs text-white/40 italic">Нет задач</p>
               )}
             </div>
           </section>
