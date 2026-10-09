@@ -177,15 +177,12 @@ export default function App() {
                   console.error('CRITICAL ERROR: setActiveTag is not a function! Value:', setActiveTag);
                 }
               }}
-              className={`px-2 py-1 rounded-full text-xs transition-all border ${
+              className={`px-2 py-0.5 rounded text-xs font-semibold text-white transition-all ${
                 activeTag === tag.id
-                  ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-100 border-blue-400'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-transparent hover:border-gray-300'
+                  ? 'ring-2 ring-white/70 scale-105'
+                  : 'opacity-90 hover:opacity-100'
               }`}
-              style={{
-                backgroundColor: activeTag === tag.id ? undefined : tag.color + '20',
-                color: activeTag === tag.id ? undefined : tag.color,
-              }}
+              style={{ backgroundColor: tag.color }}
             >
               {tag.name}
             </button>

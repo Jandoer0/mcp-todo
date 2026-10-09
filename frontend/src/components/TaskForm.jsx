@@ -94,19 +94,20 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl relative">
+      <div className="bg-white text-slate-800 p-6 rounded-lg shadow-2xl w-full max-w-2xl relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-lg leading-none"
         >
-          ✕
+          ×
         </button>
-        <h3 className="text-xl font-bold mb-6">
+        <h3 className="text-base font-bold mb-5 flex items-center gap-2">
+          <span className="w-2 h-4 bg-[#22384d] rounded-sm inline-block" />
           {task ? 'Изменить задачу' : 'Создать задачу'}
         </h3>
         <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Название</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Название</label>
             <input
               type="text"
               id="task-title"
@@ -119,7 +120,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Дата начала</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата начала</label>
             <input
               type="datetime-local"
               id="task-start-date"
@@ -130,7 +131,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Дата завершения</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата завершения</label>
             <input
               type="datetime-local"
               id="task-deadline"
@@ -141,7 +142,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Приоритет</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Приоритет</label>
             <select
               id="task-priority"
               name="priority"
@@ -155,7 +156,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Статус</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Статус</label>
             <select
               id="task-list"
               name="list"
@@ -171,7 +172,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </select>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Описание</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
             <textarea
               id="task-description"
               name="description"
@@ -182,14 +183,14 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Теги</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
             <TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} />
             <p className="text-xs text-gray-500 mt-1">
               Введите название и нажмите Enter. При совпадении появится выпадающий список существующих тегов.
             </p>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Блокирующие задачи</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Блокирующие задачи</label>
             <TaskLinkInput
               value={selectedBlockers}
               tasks={tasks}
@@ -209,7 +210,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             }
           }}
           disabled={!task}
-          className="px-4 py-2 text-red-500 hover:text-red-700 font-medium transition-colors"
+          className="px-4 py-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded font-medium transition-colors"
         >
           Удалить
         </button>
@@ -217,13 +218,13 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400"
+            className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded"
           >
             Отмена
           </button>
           <button
             type="submit"
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+            className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium"
           >
             {task ? 'Сохранить' : 'Создать задачу'}
           </button>
