@@ -128,7 +128,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const overdue = task.deadline && new Date(task.deadline) < new Date()
 
   return (
-    <div className="flex items-stretch bg-white rounded-md shadow-sm overflow-hidden">
+    <div className={`flex items-stretch bg-white rounded-md shadow-sm overflow-hidden ${task.cycle_dormant ? 'opacity-60' : ''}`}>
       {/* Left segment: radio — move to the NEXT (lower) list; in «Архив» (last) — Delete */}
       {isLast ? (
         <RadioBtn onClick={handleDelete} title="Удалить задачу" danger>
@@ -156,6 +156,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
           <span className="truncate">{task.title}</span>
+          {task.cycle_dormant && (
+            <span className="text-[10px] font-normal text-slate-400 shrink-0" title="Появится в основных списках ближе к дедлайну">
+              (запланирована)
+            </span>
+          )}
         </div>
 
         {/* Line 2: description, single line, italic allowed */}

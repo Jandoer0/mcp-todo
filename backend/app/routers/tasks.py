@@ -321,9 +321,11 @@ def list_tasks(
     tasks = query.all()
     for t in tasks:
         _attach_state(db, t)
-    # Smart visibility: dormant cyclic tasks are filtered out server-side.
+    # Smart visibility: dormant cyclic tasks are marked so the UI can show
+    # them in a separate low-noise "Запланировано" section.
     now = datetime.utcnow()
-    tasks = [t for t in tasks if is_cycle_visible(t, now)]
+    for t in tasks:
+        t.cycle_dormant = not is_cycle_visible(t, now)
     return tasks
 
 
