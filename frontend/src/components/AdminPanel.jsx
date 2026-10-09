@@ -123,36 +123,38 @@ export default function AdminPanel({
                 <tr className="text-xs uppercase text-gray-500">
                   <th className="p-4">Пользователь</th>
                   <th className="p-4">Роль</th>
-                  <th className="p-4 text-right">Действия</th>
+                  <th className="p-2 sm:p-4 text-right">Действия</th>
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-200">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="p-4 font-medium">{u.username}</td>
-                    <td className="p-4">
+                  <tr key={u.id} className="hover:bg-gray-50">
+                    <td className="p-2 sm:p-4 font-medium">{u.username}</td>
+                    <td className="p-2 sm:p-4">
                       <select
                         value={u.role}
                         onChange={(e) => onUpdateRole(u.id, e.target.value)}
-                        className="bg-gray-100 border-none rounded text-xs p-1 outline-none"
+                        className="bg-gray-100 border-none rounded text-xs p-1 outline-none max-w-[9rem]"
                       >
                         <option value="user">Пользователь</option>
                         <option value="admin">Администратор</option>
                       </select>
                     </td>
-                    <td className="p-4 text-right flex justify-end gap-2">
-                      <button
-                        onClick={() => handleOpenEdit(u)}
-                        className="text-blue-500 text-xs hover:underline"
-                      >
-                        Изменить
-                      </button>
-                      <button
-                        onClick={() => onDeleteUser(u.id)}
-                        className="text-red-500 text-xs hover:underline"
-                      >
-                        Удалить
-                      </button>
+                    <td className="p-2 sm:p-4 text-right">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
+                        <button
+                          onClick={() => handleOpenEdit(u)}
+                          className="text-blue-500 text-xs hover:underline whitespace-nowrap"
+                        >
+                          Изменить
+                        </button>
+                        <button
+                          onClick={() => onDeleteUser(u.id)}
+                          className="text-red-500 text-xs hover:underline whitespace-nowrap"
+                        >
+                          Удалить
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
