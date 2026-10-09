@@ -137,7 +137,7 @@ def create_task(
     description: Optional[str] = None,
     start_date: Optional[str] = None,
     deadline: Optional[str] = None,
-    priority: int = 1,
+    priority: int = 2, # Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий
     tags: Optional[list[str]] = None,
     list: str = "Не начато",
     blocked_by: Optional[list[int]] = None,
@@ -196,7 +196,7 @@ def update_task(
     task_id: int,
     title: Optional[str] = None,
     status: Optional[str] = None,
-    priority: Optional[int] = None,
+    priority: Optional[int] = None, # Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий
     tags: Optional[list[str]] = None,
     start_date: Optional[str] = None,
     deadline: Optional[str] = None,
