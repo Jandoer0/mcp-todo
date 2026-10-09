@@ -7,6 +7,7 @@ import json
 import os
 from datetime import datetime
 from typing import Optional, Annotated
+from pydantic import Field
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -137,7 +138,7 @@ def create_task(
     description: Optional[str] = None,
     start_date: Optional[str] = None,
     deadline: Optional[str] = None,
-    priority: Annotated[int, "Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий"] = 2,
+    priority: int = Field(default=2, description="Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий"),
     tags: Optional[list[str]] = None,
     list: str = "Не начато",
     blocked_by: Optional[list[int]] = None,
@@ -196,7 +197,7 @@ def update_task(
     task_id: int,
     title: Optional[str] = None,
     status: Optional[str] = None,
-    priority: Annotated[Optional[int], "Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий"] = None,
+    priority: Optional[int] = Field(default=None, description="Уровень приоритета задачи. Шкала: 1 = Низкий, 2 = Средний, 3 = Высокий"),
     tags: Optional[list[str]] = None,
     start_date: Optional[str] = None,
     deadline: Optional[str] = None,
