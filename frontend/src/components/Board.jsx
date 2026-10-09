@@ -24,14 +24,14 @@ export default function Board({
       filtered = filtered.filter((t) => !t.cycle_dormant)
     } else {
       if (activeFilter === 'todo') {
-        filtered = filtered.filter((t) => t.list === 'Не начато')
+        filtered = filtered.filter((t) => t.list === 'Не начато' && !t.cycle_dormant)
       } else if (activeFilter === 'done') {
         filtered = filtered.filter((t) => t.list === 'Готово')
       } else if (activeFilter === 'in_progress') {
-        filtered = filtered.filter((t) => !['Не начато', 'Готово', 'Архив'].includes(t.list))
+        filtered = filtered.filter((t) => !['Не начато', 'Готово', 'Архив'].includes(t.list) && !t.cycle_dormant)
       } else if (activeFilter === 'overdue') {
         const now = new Date()
-        filtered = filtered.filter((t) => t.deadline && new Date(t.deadline) < now)
+        filtered = filtered.filter((t) => t.deadline && new Date(t.deadline) < now && !t.cycle_dormant)
       } else if (activeFilter === 'planned') {
         filtered = filtered.filter((t) => t.is_cyclic)
       }
