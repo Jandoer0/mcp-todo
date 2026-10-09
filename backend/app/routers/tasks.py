@@ -65,15 +65,57 @@ def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int) -> None:
         )
 
 
+def tag_palette(db) -> list:
+    """Colors available for tags: the full PALETTE minus colors taken by lists.
+    Per AGENTS.md there are 18 presets; when they run out, colors repeat."""
+    used_by_lists = list_colors(db)
+    return [c for c in PALETTE if c not in used_by_lists]
+
+
+def _pick_tag_color(db) -> str:
+    """Pick a color for a new tag: first unused one, otherwise cycle deterministically
+    by the count of existing tags (colors repeat when the palette is exhausted)."""
+    avail = tag_palette(db)
+    if not avail:
+        avail = list(PALETTE)
+    used = {t.color for t in db.query(Tag).all()}
+    color = next((c for c in avail if c not in used), None)
+    if color is None:
+        count = db.query(Tag).count()
+        color = avail[count % len(avail)]
+    return color
+
+
+def repair_tag_colors(db) -> int:
+    """Reassign colors to tags that ended up with a color not allowed for tags
+    (e.g. the gray fallback colliding with the 'Не начато' list color)."""
+    avail = tag_palette(db)
+    if not avail:
+        avail = list(PALETTE)
+    allowed = set(avail)
+    used = {t.color for t in db.query(Tag).all() if t.color in allowed}
+    fixed = 0
+    for tag in db.query(Tag).all():
+        if tag.color in allowed:
+            continue
+        color = next((c for c in avail if c not in used), None)
+        if color is None:
+            color = avail[fixed % len(avail)]
+        tag.color = color
+        used.add(color)
+        fixed += 1
+    if fixed:
+        db.commit()
+    return fixed
+
+
 def ensure_tags(db: Session, names) -> list:
     """Ensure Tag rows exist for each name (auto color, never colliding with
-    list colors or other tags). Returns the list of Tag ORM objects."""
+    list colors; colors repeat cyclically when the palette is exhausted).
+    Returns the list of Tag ORM objects."""
     if not names:
         return []
-    
-    # Current colors used by lists and existing tags
-    used = set(list_colors(db)) | {t.color for t in db.query(Tag).all()}
-    
+
     result = []
     for name in names:
         name = (name or "").strip()
@@ -81,13 +123,10 @@ def ensure_tags(db: Session, names) -> list:
             continue
         tag = db.query(Tag).filter(Tag.name == name).first()
         if not tag:
-            # Find next available color from PALETTE
-            color = next((c for c in PALETTE if c not in used), "#64748b")
-            tag = Tag(name=name, color=color)
+            tag = Tag(name=name, color=_pick_tag_color(db))
             db.add(tag)
             db.commit()
             db.refresh(tag)
-            used.add(color)
         result.append(tag)
     return result
 
