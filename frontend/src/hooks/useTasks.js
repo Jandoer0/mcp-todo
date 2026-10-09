@@ -7,6 +7,7 @@ export function useTasks(ready) {
   const [lists, setLists] = useState([])
   const [tags, setTags] = useState([])
   const [activeFilter, setActiveFilter] = useState('all')
+  const [activeTag, setActiveTag] = useState(null)
   const [sortBy, setSortBy] = useState('deadline')
 
   const load = useCallback(async () => {

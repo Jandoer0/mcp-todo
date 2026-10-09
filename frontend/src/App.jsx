@@ -22,6 +22,8 @@ export default function App() {
     tags,
     activeFilter,
     setActiveFilter,
+    activeTag,
+    setActiveTag,
     create,
     update,
     remove,
@@ -158,16 +160,45 @@ export default function App() {
         onFilterChange={setActiveFilter} 
       />
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 gap-4">
         <button
           onClick={() => setListsOpen(true)}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 whitespace-nowrap"
         >
           Списки
         </button>
+
+        <div className="hidden md:flex flex-wrap gap-2 items-center justify-center flex-1">
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
+              className={`px-2 py-1 rounded-full text-xs transition-all border ${
+                activeTag === tag.id
+                  ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-100 border-blue-400'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-transparent hover:border-gray-300'
+              }`}
+              style={{
+                backgroundColor: activeTag === tag.id ? undefined : tag.color + '20',
+                color: activeTag === tag.id ? undefined : tag.color,
+              }}
+            >
+              {tag.name}
+            </button>
+          ))}
+          {activeTag && (
+            <button
+              onClick={() => setActiveTag(null)}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              ✕ Очистить
+            </button>
+          )}
+        </div>
+
         <button
           onClick={openNew}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2 whitespace-nowrap"
         >
           <span>+</span> Новая задача
         </button>
@@ -178,6 +209,7 @@ export default function App() {
         lists={lists}
         tags={tags}
         activeFilter={activeFilter}
+        activeTag={activeTag}
         onSetList={handleSetList}
         onEdit={openEdit}
         onDelete={handleDelete}

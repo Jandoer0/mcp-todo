@@ -5,28 +5,36 @@ export default function Board({
   lists,
   tags,
   activeFilter,
+  activeTag,
   onSetList,
   onEdit,
   onDelete,
 }) {
   const filterTasks = (allTasks) => {
     if (!allTasks) return []
-    if (activeFilter === 'all') return allTasks
     
-    if (activeFilter === 'todo') {
-      return allTasks.filter((t) => t.list === 'Не начато')
+    let filtered = allTasks
+
+    // Filter by status/date
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'todo') {
+        filtered = filtered.filter((t) => t.list === 'Не начато')
+      } else if (activeFilter === 'done') {
+        filtered = filtered.filter((t) => t.list === 'Готово')
+      } else if (activeFilter === 'in_progress') {
+        filtered = filtered.filter((t) => !['Не начато', 'Готово', 'Архив'].includes(t.list))
+      } else if (activeFilter === 'overdue') {
+        const now = new Date()
+        filtered = filtered.filter((t) => t.deadline && new Date(t.deadline) < now)
+      }
     }
-    if (activeFilter === 'done') {
-      return allTasks.filter((t) => t.list === 'Готово')
+
+    // Filter by tag
+    if (activeTag) {
+      filtered = filtered.filter((t) => t.tags && t.tags.some(tagId => tagId === activeTag))
     }
-    if (activeFilter === 'in_progress') {
-      return allTasks.filter((t) => !['Не начато', 'Готово', 'Архив'].includes(t.list))
-    }
-    if (activeFilter === 'overdue') {
-      const now = new Date()
-      return allTasks.filter((t) => t.deadline && new Date(t.deadline) < now)
-    }
-    return allTasks
+
+    return filtered
   }
 
   const visible = filterTasks(tasks)
