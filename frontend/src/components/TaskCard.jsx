@@ -114,8 +114,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
               return (
                 <span
                   key={idx}
-                  className="px-1.5 py-0 rounded-full text-white truncate text-[10px] whitespace-nowrap"
-                  style={{ backgroundColor: color }}
+                  className="px-2 py-0.5 rounded-full text-xs border border-transparent truncate whitespace-nowrap"
+                  style={{ backgroundColor: color + '20', color }}
                   title={name}
                 >
                   {name}
