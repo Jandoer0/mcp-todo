@@ -15,6 +15,24 @@ def _tag_names(db: Session) -> set:
     return {r[0] for r in db.query(Tag.name).all()}
 
 
+def cleanup_orphan_tags(db: Session) -> int:
+    """Delete tags that are not assigned to any task.
+    Returns the number of removed tags."""
+    from ..models import task_tags
+
+    orphans = (
+        db.query(Tag)
+        .outerjoin(task_tags, Tag.id == task_tags.c.tag_id)
+        .filter(task_tags.c.task_id.is_(None))
+        .all()
+    )
+    for tag in orphans:
+        db.delete(tag)
+    if orphans:
+        db.commit()
+    return len(orphans)
+
+
 @router.get("", response_model=list[schemas.TagResponse])
 def get_tags(
     db: Session = Depends(get_db),

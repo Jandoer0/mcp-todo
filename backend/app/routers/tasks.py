@@ -11,6 +11,7 @@ from ..auth import get_current_user
 from ..board import DONE_LIST, PALETTE, list_colors, list_names, status_for_list
 from ..db import get_db
 from ..models import Tag, Task, TaskList, User, task_dependencies, task_tags
+from .tags import cleanup_orphan_tags
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -254,6 +255,7 @@ def update_task(
 
     if has_tags:
         db_task.tags = ensure_tags(db, tag_names or [])
+        cleanup_orphan_tags(db)
 
     # A task cannot be marked done (moved to "Готово") while still blocked.
     if db_task.status == "done":
@@ -293,4 +295,5 @@ def delete_task(
     )
     db.delete(db_task)
     db.commit()
+    cleanup_orphan_tags(db)
     return {"ok": True}
