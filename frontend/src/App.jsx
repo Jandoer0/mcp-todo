@@ -173,7 +173,10 @@ export default function App() {
           {tags.map((tag) => (
             <button
               key={tag.id}
-              onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
+              onClick={() => {
+                console.log('Tag clicked:', tag.name, 'ID:', tag.id, 'Current activeTag:', activeTag);
+                setActiveTag(activeTag === tag.id ? null : tag.id);
+              }}
               className={`px-2 py-1 rounded-full text-xs transition-all border ${
                 activeTag === tag.id
                   ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-100 border-blue-400'
@@ -187,6 +190,7 @@ export default function App() {
               {tag.name}
             </button>
           ))}
+
           {activeTag && (
             <button
               onClick={() => setActiveTag(null)}

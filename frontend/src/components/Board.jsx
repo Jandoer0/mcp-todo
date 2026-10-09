@@ -14,6 +14,7 @@ export default function Board({
     if (!allTasks) return []
     
     let filtered = allTasks
+    console.log('Filtering tasks. activeFilter:', activeFilter, 'activeTag:', activeTag);
 
     // Filter by status/date
     if (activeFilter !== 'all') {
@@ -31,16 +32,15 @@ export default function Board({
 
     // Filter by tag
     if (activeTag) {
-      // Find the tag name by its ID (ensure type match)
+      console.log('Applying tag filter for activeTag:', activeTag);
       const selectedTag = tags.find(t => String(t.id) === String(activeTag));
+      console.log('Selected tag object:', selectedTag);
+      
       if (selectedTag) {
         filtered = filtered.filter((t) => t.tags && t.tags.includes(selectedTag.name));
+        console.log('Tasks after tag filter:', filtered.length);
       } else {
-        // If tag not found in the list, but activeTag is set, 
-        // we might be in a state where tags are still loading.
-        // But logically, we should only show tasks that match this ID if we can't find the name.
-        // However, TaskResponse.tags contains names, not IDs.
-        // So if selectedTag is not found, no tasks can match by name.
+        console.warn('Tag with ID', activeTag, 'not found in tags list');
       }
     }
 
