@@ -112,6 +112,7 @@ def list_tasks(auth_token: str, status: Optional[str] = None) -> str:
                 {
                     "id": t.id,
                     "title": t.title,
+                    "description": t.description,
                     "status": t.status,
                     "priority": t.priority,
                     "start_date": str(t.start_date) if t.start_date else None,
@@ -220,6 +221,7 @@ def update_task(
     auth_token: str,
     task_id: int,
     title: Optional[str] = None,
+    description: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[int] = None,
     tags: Optional[list[str]] = None,
@@ -252,6 +254,8 @@ def update_task(
             return "Task not found"
         if data.get("title") is not None:
             task.title = data.get("title")
+        if data.get("description") is not None:
+            task.description = data.get("description")
         if data.get("status") is not None:
             task.status = data.get("status")
         if data.get("priority") is not None:
