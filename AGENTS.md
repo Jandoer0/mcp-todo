@@ -47,7 +47,7 @@ frontend/
   - Генерацию MCP-токена для ИИ-агента с возможностью отзыва токена.
   - Разрешить/запретить регистрацию новых пользователей.
 - Совместная работа над задачами не предусмотрена: каждый пользователь работает со своими задачами.
-- MCP-инструменты (все принимают `auth_token` первым аргументом): `list_tasks`, `create_task`, `update_task`, `delete_task`, `search_tasks`, `manage_cycle` (done/skip/stop), `get_project_summary`, `get_my_profile`, `list_all_lists`, `reset_admin_password`.
+- MCP-инструменты (все принимают `auth_token` первым аргументом): `list_tasks`, `create_task`, `update_task`, `delete_task`, `search_tasks`, `manage_cycle` (done/skip/stop), `get_project_summary`, `get_my_profile`, `list_all_lists`.
 - Bulk-операции: `POST /api/tasks/bulk` для массового импорта/обновления задач.
 - Диагностика: `GET /api/health` возвращает статус и версию сборки (`BUILD_VERSION`).
 - Общее оформление: тёмно-синий фон (`#35506b`), тёмно-синяя шапка (`#22384d`) с логотипом и названием, белые скруглённые карточки, теги — цветные чипы с белым полужирным текстом. Режим смены темы удалён, приложение всегда в светлой теме.

@@ -39,7 +39,6 @@
 - `get_project_summary` — сводная статистика
 - `get_my_profile` — ID и роль текущего пользователя
 - `list_all_lists` — список всех списков задач
-- `reset_admin_password` — сброс пароля администратором (без `auth_token`)
 
 ## Локальная разработка
 
