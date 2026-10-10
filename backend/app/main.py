@@ -195,11 +195,19 @@ static_dir = os.getenv("STATIC_DIR", "/app/static")
 
 
 class NoCacheStaticFiles(StaticFiles):
-    """Disable caching for HTML so new frontend builds are always picked up."""
+    """Disable caching for HTML and PWA service-worker files.
+
+    Without no-store on ``sw.js`` the browser heuristically caches the old
+    service worker, never sees the update, and keeps serving a stale precache
+    (which caused the endless version-check reload loop).
+    """
+
+    NO_STORE_SUFFIXES = ("sw.js", "registerSW.js", "manifest.webmanifest")
 
     async def get_response(self, *args, **kwargs):
         resp = await super().get_response(*args, **kwargs)
-        if "text/html" in (resp.media_type or ""):
+        path = kwargs.get("path") or ""
+        if "text/html" in (resp.media_type or "") or path.endswith(self.NO_STORE_SUFFIXES):
             resp.headers["Cache-Control"] = "no-store"
         return resp
 
@@ -208,7 +216,10 @@ async def serve_frontend(request):
     path = request.path_params.get("path", "index.html")
     full = os.path.join(static_dir, path)
     if os.path.exists(full) and os.path.isfile(full):
-        return FileResponse(full)
+        resp = FileResponse(full)
+        if path.endswith(("sw.js", "registerSW.js", "manifest.webmanifest")):
+            resp.headers["Cache-Control"] = "no-store"
+        return resp
     index = os.path.join(static_dir, "index.html")
     if os.path.exists(index):
         return FileResponse(index, media_type="text/html")
