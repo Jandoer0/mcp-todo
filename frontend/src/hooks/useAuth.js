@@ -10,14 +10,23 @@ export function useAuth() {
 
   // Architecture-level cache busting: if the backend build version differs from
   // the one baked into this bundle, reload to pick up the new frontend.
+  // Guarded by a sessionStorage flag: a stale Service Worker may serve the old
+  // bundle even after reload, and without the guard that becomes an endless
+  // reload loop. The SW self-updates in the background, so one reload suffices.
   useEffect(() => {
+    const RELOAD_FLAG = 'app_version_reload'
     healthApi
       .get()
       .then((res) => {
         const serverVersion = res.data?.version
         const clientVersion = import.meta.env.VITE_APP_VERSION
         if (serverVersion && serverVersion !== clientVersion) {
-          window.location.reload()
+          if (!sessionStorage.getItem(RELOAD_FLAG)) {
+            sessionStorage.setItem(RELOAD_FLAG, '1')
+            window.location.reload()
+          }
+        } else {
+          sessionStorage.removeItem(RELOAD_FLAG)
         }
       })
       .catch(() => {})
