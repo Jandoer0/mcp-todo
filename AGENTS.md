@@ -175,9 +175,10 @@ frontend/
 
 **Планы по развитию фронтенда и UX:**
 - **Устранение ошибок в коде** (следующий этап).
-- **Реализация PWA (Progressive Web App)**: поддержка установки приложения на устройство (Standalone mode):
-  - Внедрение `vite-plugin-pwa`.
-  - Настройка `manifest.json` и Service Workers для работы в режиме приложения без адресной строки браузера.
+
+**PWA (реализовано):** приложение устанавливается на устройство как веб-приложение (Standalone mode):
+- `vite-plugin-pwa` (`registerType: autoUpdate`), Service Worker precache статики, `navigateFallback` на `index.html` с исключением `/api`, `/sse`, `/messages`.
+- Манифест: `display: standalone`, цвета `#35506b` / `#22384d`, иконки `pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png` (генерируются из `ico.png`).
 
 ## Механика циклических задач (реализована)
 Повторяющиеся задачи (например, оплата ЖКХ): поля `is_cyclic`, `cycle_period` (daily/weekly/monthly/yearly), `cycle_interval`, `cycle_group_id`, `reminder_days` у модели Task; история в таблице `task_cycle_logs`.
