@@ -260,7 +260,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${priorityDot}`}
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
-          <span className="truncate group-hover:underline decoration-2 underline-offset-[3px] decoration-[#22384d]/25">
+          <span className="truncate group-hover:underline decoration-sky-400 decoration-2 underline-offset-2">
             {task.title}
           </span>
           {task.cycle_dormant && (
