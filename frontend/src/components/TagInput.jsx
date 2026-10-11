@@ -20,13 +20,6 @@ export default function TagInput({ value = [], availableTags = [], takenColors =
     )
   }, [input, availableTags, value])
 
-  // Color for a tag that does not exist in the DB yet: first palette color
-  // not taken by existing tags/lists, mirroring the backend's assignment.
-  const pickColor = (name) => {
-    const existing = new Set([...Object.keys(colorMap).map((n) => colorMap[n]), ...takenColors])
-    return [...existing].find((c) => !existing.has(c)) && PALETTE.find((c) => !existing.has(c)) || PALETTE[0]
-  }
-
   // Colors assigned to tags created in this editor session (not yet in the DB),
   // so several new tags get distinct palette colors immediately.
   const newTagColorsRef = useRef({})
