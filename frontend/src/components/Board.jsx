@@ -84,8 +84,8 @@ export default function Board({
 
   return (
     <div>
-      {/* Desktop: two columns of list groups; mobile: single column. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      {/* Groups stacked vertically as before. */}
+      <div className="space-y-6">
         {groups.map((group) => (
           <section key={group.id}>
             <button
@@ -109,7 +109,7 @@ export default function Board({
               <span className="text-xs text-white/60">({group.items.length})</span>
             </button>
             {!isCollapsed(group.name) && (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
               {group.items.map((task) => (
                 <TaskCard
                   key={task.id}
