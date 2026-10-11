@@ -166,17 +166,17 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     setHistoryOpen(true)
   }
 
-  // Swipe hint shown behind the card while dragging: target list name
-  // (no arrows/quotes so long names fit) or a trash icon for delete.
+  // Swipe hint shown behind the card while dragging: target list name on the
+  // list's own color, or a trash icon for delete. Centered in the revealed area.
   const hint =
     dragX > SWIPE_THRESHOLD
       ? isFirst
         ? { text: '', del: true }
-        : prevList && { text: prevList.name }
+        : prevList && { text: prevList.name, color: prevList.color }
       : dragX < -SWIPE_THRESHOLD
         ? isLast
           ? { text: '', del: true }
-          : nextList && { text: nextList.name }
+          : nextList && { text: nextList.name, color: nextList.color }
         : null
 
   const overdue = task.deadline && new Date(task.deadline) < new Date()
@@ -186,17 +186,17 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
       {/* Swipe hint layer behind the card body */}
       {hint && (
         <div
-          className={`absolute inset-0 flex items-center gap-2 ${
-            (dragX > 0 ? 'justify-start pl-4' : 'justify-end pr-4') +
-            (hint.del ? ' bg-red-50' : ' bg-blue-50')
+          className={`absolute inset-0 flex items-center justify-center ${
+            hint.del ? ' bg-red-50' : ''
           }`}
+          style={!hint.del && hint.color ? { backgroundColor: hint.color } : undefined}
         >
           {hint.del ? (
             <span className="text-red-500">
               <Trash />
             </span>
           ) : (
-            <span className="text-sm font-semibold text-blue-600">{hint.text}</span>
+            <span className="text-sm font-semibold text-white truncate px-2">{hint.text}</span>
           )}
         </div>
       )}
