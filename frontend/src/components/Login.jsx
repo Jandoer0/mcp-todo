@@ -12,8 +12,8 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
 
   const submit = (e) => {
     e.preventDefault()
-    if (mode === 'login') onLogin(username.trim(), password.trim())
-    else onRegister(username.trim(), password.trim())
+    if (mode === 'login') onLogin(username.trim(), password)
+    else onRegister(username.trim(), password)
   }
 
   return (
