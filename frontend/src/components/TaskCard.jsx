@@ -252,13 +252,6 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           )}
         </div>
 
-        {/* Line 2: description, single line, italic allowed */}
-        {task.description && (
-          <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 break-words italic">
-            {task.description}
-          </p>
-        )}
-
         {/* Line 3: start date (left) / deadline (right, red when overdue) */}
         <div className="flex items-center justify-between gap-2 mt-1.5 text-[11px] font-bold text-slate-600">
           <div className="truncate">{task.start_date && formatDate(task.start_date)}</div>
@@ -267,8 +260,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           </div>
         </div>
 
-        {/* Line 4: tags, centered, single line — only fully fitting tags are visible */}
-        {(task.tags || []).length > 0 && (
+        {/* Line 4: tags then blocking tasks, one centered line — only fully
+            fitting chips are visible */}
+        (((task.tags || []).length > 0) ||
+          (task.is_blocked || (task.blocked_by && task.blocked_by.length > 0))) && (
           <div className="mt-1 overflow-hidden">
             <div className="flex justify-center gap-1 whitespace-nowrap">
               {(task.tags || []).map((t, i) => {
@@ -277,7 +272,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                 const color = tagData ? tagData.color : '#64748b'
                 return (
                   <span
-                    key={i}
+                    key={`t${i}`}
                     className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0"
                     style={{ backgroundColor: color }}
                     title={name}
@@ -286,20 +281,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                   </span>
                 )
               })}
-            </div>
-          </div>
-        )}
-
-        {/* Line 5: blocking tasks, centered, single line — only fully fitting are visible */}
-        {(task.is_blocked || (task.blocked_by && task.blocked_by.length > 0)) && (
-          <div className="mt-1 overflow-hidden">
-            <div className="flex justify-center gap-1 whitespace-nowrap">
               {(task.blocked_by || []).map((bid) => {
                 const bTask = allTasks.find((t) => t.id === bid)
                 return (
                   <span
-                    key={bid}
+                    key={`b${bid}`}
                     className="px-1 rounded bg-slate-100 border border-slate-300 text-[10px] text-slate-600 shrink-0"
+                    title={bTask ? bTask.title : bid}
                   >
                     {bTask ? bTask.title : bid}
                   </span>

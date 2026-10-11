@@ -1,5 +1,9 @@
 # OmniTask MCP
 
+<p align="center">
+  <img src="frontend/public/logo.png" alt="OmniTask" width="140" />
+</p>
+
 Веб-приложение для управления задачами со встроенным MCP-сервером для ИИ-агентов.
 
 - **Бэкенд**: FastAPI + SQLAlchemy (SQLite), JWT-аутентификация — по адресу `/api`

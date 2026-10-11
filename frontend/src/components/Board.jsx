@@ -84,7 +84,8 @@ export default function Board({
 
   return (
     <div>
-      <div className="space-y-6">
+      {/* Desktop: two columns of list groups; mobile: single column. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {groups.map((group) => (
           <section key={group.id}>
             <button

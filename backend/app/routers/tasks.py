@@ -303,7 +303,10 @@ def bulk_update_tasks(
                 created += 1
         except Exception as e:
             errors.append({"index": i, "error": str(e)})
-    
+
+    # Tag sets may have been replaced above — drop tags left without tasks.
+    cleanup_orphan_tags(db)
+
     return {"updated": updated, "created": created, "errors": errors}
 
 @router.get("", response_model=list[schemas.TaskResponse])

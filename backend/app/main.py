@@ -20,6 +20,11 @@ from .db import Base, SessionLocal, engine
 from .routers import admin, auth, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
+# Remove orphan tags left by older versions (bulk updates used to skip cleanup).
+from .db import SessionLocal  # noqa: E402
+from .routers.tags import cleanup_orphan_tags  # noqa: E402
+with SessionLocal() as _db:
+    cleanup_orphan_tags(_db)
 
 
 def run_migrations() -> None:
