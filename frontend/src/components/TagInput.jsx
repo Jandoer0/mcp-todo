@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useRef, useState, useMemo } from 'react'
+import { PALETTE } from '../constants'
 
 const FALLBACK_COLOR = '#64748b'
 
-export default function TagInput({ value = [], availableTags = [], onChange }) {
+export default function TagInput({ value = [], availableTags = [], takenColors = [], onChange }) {
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -19,6 +20,30 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
     )
   }, [input, availableTags, value])
 
+  // Color for a tag that does not exist in the DB yet: first palette color
+  // not taken by existing tags/lists, mirroring the backend's assignment.
+  const pickColor = (name) => {
+    const existing = new Set([...Object.keys(colorMap).map((n) => colorMap[n]), ...takenColors])
+    return [...existing].find((c) => !existing.has(c)) && PALETTE.find((c) => !existing.has(c)) || PALETTE[0]
+  }
+
+  // Colors assigned to tags created in this editor session (not yet in the DB),
+  // so several new tags get distinct palette colors immediately.
+  const newTagColorsRef = useRef({})
+
+  // Mirror of the backend's assignment: first palette color not taken by
+  // existing tags, list colors, or other new tags in this session.
+  const assignColor = (name) => {
+    const taken = new Set([
+      ...Object.values(colorMap),
+      ...takenColors,
+      ...Object.values(newTagColorsRef.current),
+    ])
+    const color = PALETTE.find((c) => !taken.has(c)) || PALETTE[0]
+    newTagColorsRef.current[name] = color
+    return color
+  }
+
   const addTag = (raw) => {
     const name = (raw || '').trim()
     if (!name || value.includes(name)) {
@@ -26,6 +51,7 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
       setOpen(false)
       return
     }
+    if (!colorMap[name]) assignColor(name)
     onChange([...value, name])
     setInput('')
     setOpen(false)
@@ -46,7 +72,7 @@ export default function TagInput({ value = [], availableTags = [], onChange }) {
     <div className="relative">
       <div className="flex flex-wrap items-center gap-2 p-2 border rounded min-h-[42px]">
         {value.map((name) => {
-          const color = colorMap[name] || FALLBACK_COLOR
+          const color = colorMap[name] || newTagColorsRef.current[name] || FALLBACK_COLOR
           return (
             <span
               key={name}

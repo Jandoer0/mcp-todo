@@ -246,7 +246,12 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
-            <TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} />
+            <TagInput
+              value={selectedTags}
+              availableTags={tags}
+              takenColors={listOptions.map((l) => l.color)}
+              onChange={setSelectedTags}
+            />
             <p className="text-xs text-gray-500 mt-1">
               Введите название и нажмите Enter. При совпадении появится выпадающий список существующих тегов.
             </p>
