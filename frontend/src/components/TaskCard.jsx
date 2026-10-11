@@ -186,8 +186,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
       {/* Swipe hint layer behind the card body */}
       {hint && (
         <div
-          className={`absolute inset-0 flex items-center justify-center ${
-            hint.del ? ' bg-red-50' : ''
+          className={`absolute inset-0 flex items-center ${
+            (dragX > 0 ? 'justify-start pl-3' : 'justify-end pr-3') +
+            (hint.del ? ' bg-red-50' : '')
           }`}
           style={
             !hint.del && hint.color
@@ -201,7 +202,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             </span>
           ) : (
             <span
-              className="text-sm font-semibold truncate px-2"
+              className="text-sm font-semibold max-w-full truncate"
               style={{ color: hint.color || '#2563eb' }}
             >
               {hint.text}
