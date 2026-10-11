@@ -249,20 +249,18 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           if (!dragging && Math.abs(dragX) < CLICK_SLOP) onEdit(task)
         }}
         style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
-        className={`relative flex-1 min-w-0 py-2 px-2 bg-white group ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
+        className={`relative flex-1 min-w-0 py-2 px-2 bg-white ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
       >
         {/* Line 1: title, bold, single line */}
         <div
-          className="font-bold text-sm text-slate-900 tracking-tight truncate flex items-center gap-1.5"
+          className="font-bold truncate text-sm text-slate-800 flex items-center gap-1.5"
           title={task.title}
         >
           <span
             className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${priorityDot}`}
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
-          <span className="truncate group-hover:underline decoration-sky-400 decoration-2 underline-offset-2">
-            {task.title}
-          </span>
+          <span className="truncate">{task.title}</span>
           {task.cycle_dormant && (
             <span className="text-[10px] font-normal text-slate-400 shrink-0" title="Появится в основных списках ближе к дедлайну">
               (запланирована)
