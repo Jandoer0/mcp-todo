@@ -16,7 +16,6 @@ export default function Board({
     if (!allTasks) return []
     
     let filtered = allTasks
-    console.log('Filtering tasks. activeFilter:', activeFilter, 'activeTag:', activeTag);
 
     // Filter by status/date
     if (activeFilter === 'all') {
@@ -39,15 +38,11 @@ export default function Board({
 
     // Filter by tag
     if (activeTag) {
-      console.log('Applying tag filter for activeTag:', activeTag);
       const selectedTag = tags.find(t => String(t.id) === String(activeTag));
-      console.log('Selected tag object:', selectedTag);
       
       if (selectedTag) {
         filtered = filtered.filter((t) => t.tags && t.tags.includes(selectedTag.name));
-        console.log('Tasks after tag filter:', filtered.length);
       } else {
-        console.warn('Tag with ID', activeTag, 'not found in tags list');
       }
     }
 

@@ -89,9 +89,6 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   // the label size (but never below the swipe threshold, never above MAX_DRAG).
   const hintRef = useRef(null)
   const [hintW, setHintW] = useState(0)
-  useLayoutEffect(() => {
-    setHintW(hintRef.current ? hintRef.current.offsetWidth : 0)
-  }, [hint])
   const dragLimit = Math.min(
     MAX_DRAG,
     Math.max(hintW + 24, SWIPE_THRESHOLD + 8)
@@ -191,6 +188,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           ? { text: '', del: true }
           : nextList && { text: nextList.name, color: nextList.color }
         : null
+
+  // Measure after `hint` is computed (declared above).
+  useLayoutEffect(() => {
+    setHintW(hintRef.current ? hintRef.current.offsetWidth : 0)
+  }, [hint])
 
   const overdue = task.deadline && new Date(task.deadline) < new Date()
 
