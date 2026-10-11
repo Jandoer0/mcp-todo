@@ -31,6 +31,9 @@ function ArrowUp() {
 
 // Swipe thresholds: card must be dragged this far (px) to fire the action.
 const SWIPE_THRESHOLD = 72
+// Hard cap on the drag offset so a very long list name cannot push the
+// card across the whole board.
+const MAX_DRAG = 170
 // Drag shorter than this is treated as a click (opens the editor).
 const CLICK_SLOP = 8
 
@@ -108,10 +111,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     }
     if (d.axis === 'h') {
       e.preventDefault()
-      // Damp the drag near the edges where the gesture means "delete".
-      const max = swipeTarget(dx) ? SWIPE_THRESHOLD + 24 : SWIPE_THRESHOLD + 90
-      const limited = Math.max(-max, Math.min(max, dx))
-      setDragX(limited)
+      setDragX(Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dx)))
     }
   }
 
@@ -183,30 +183,37 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
 
   return (
     <div className={`relative bg-white rounded-md shadow-sm overflow-hidden ${task.cycle_dormant ? 'opacity-60' : ''}`}>
-      {/* Swipe hint layer behind the card body */}
-      {hint && (
+      {/* Swipe hint «window»: a strip as wide as the revealed gap (capped at
+          MAX_DRAG), sliding together with the card edge. The label sits at the
+          card-side edge and slides out with it; long names are truncated. */}
+      {Math.abs(dragX) > 0 && (hint || true) && (
         <div
-          className={`absolute inset-0 flex items-center ${
-            (dragX > 0 ? 'justify-start pl-3' : 'justify-end pr-3') +
-            (hint.del ? ' bg-red-50' : '')
-          }`}
-          style={
-            !hint.del && hint.color
-              ? { backgroundColor: `${hint.color}26` }
-              : undefined
-          }
+          className="absolute inset-y-0 overflow-hidden"
+          style={{
+            width: Math.min(Math.abs(dragX), MAX_DRAG),
+            [dragX > 0 ? 'left' : 'right']: 0,
+            backgroundColor: hint ? (hint.del ? '#fef2f2' : `${hint.color}26`) : 'transparent',
+          }}
         >
-          {hint.del ? (
-            <span className="text-red-500">
-              <Trash />
-            </span>
-          ) : (
-            <span
-              className="text-sm font-semibold max-w-full truncate"
-              style={{ color: hint.color || '#2563eb' }}
+          {hint && (
+            <div
+              className={`absolute inset-y-0 flex items-center ${
+                dragX > 0 ? 'right-0 pr-3' : 'left-0 pl-3'
+              }`}
             >
-              {hint.text}
-            </span>
+              {hint.del ? (
+                <span className="text-red-500">
+                  <Trash />
+                </span>
+              ) : (
+                <span
+                  className="text-sm font-semibold whitespace-nowrap max-w-[150px] truncate"
+                  style={{ color: hint.color || '#2563eb' }}
+                >
+                  {hint.text}
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}
