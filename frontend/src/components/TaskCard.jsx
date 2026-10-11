@@ -262,7 +262,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
 
         {/* Line 4: tags then blocking tasks, one centered line — only fully
             fitting chips are visible */}
-        (((task.tags || []).length > 0) ||
+        {(((task.tags || []).length > 0) ||
           (task.is_blocked || (task.blocked_by && task.blocked_by.length > 0))) && (
           <div className="mt-1 overflow-hidden">
             <div className="flex justify-center gap-1 whitespace-nowrap">
