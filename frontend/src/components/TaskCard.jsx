@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 
@@ -29,38 +29,10 @@ function ArrowUp() {
   )
 }
 
-function Trash() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  )
-}
-
-// Radio-style circle button of the side segments.
-function RadioBtn({ onClick, disabled, title, danger, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`flex items-center justify-center w-11 py-3 ${
-        disabled
-          ? 'opacity-30 cursor-not-allowed'
-          : danger
-            ? 'text-red-500 hover:bg-red-50'
-            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function RadioCircle() {
-  return <span className="w-4 h-4 rounded-full border-2 border-current" />
-}
+// Swipe thresholds: card must be dragged this far (px) to fire the action.
+const SWIPE_THRESHOLD = 72
+// Drag shorter than this is treated as a click (opens the editor).
+const CLICK_SLOP = 8
 
 export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete }) {
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -96,6 +68,63 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     if (confirm(msg)) onDelete(task)
   }
 
+  // ---- Swipe mechanics (replaces the side radio buttons) ----
+  // Swipe right → move to the PREVIOUS (upper) list; in the first list — delete.
+  // Swipe left  → move to the NEXT (lower) list; in the last list — delete.
+  const dragRef = useRef(null) // { x, y, axis } of the active gesture
+  const [dragX, setDragX] = useState(0)
+  const [dragging, setDragging] = useState(false)
+
+  const swipeTarget = (dx) => {
+    if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: prevList, del: isFirst }
+    if (dx < -SWIPE_THRESHOLD) return { dir: 'left', list: nextList, del: isLast }
+    return null
+  }
+
+  const onPointerDown = (e) => {
+    if (e.button && e.button !== 0) return
+    dragRef.current = { x: e.clientX, y: e.clientY, axis: null }
+  }
+
+  const onPointerMove = (e) => {
+    const d = dragRef.current
+    if (!d) return
+    const dx = e.clientX - d.x
+    const dy = e.clientY - d.y
+    if (!d.axis) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
+      // Lock the axis once: horizontal → swipe, vertical → let the page scroll.
+      d.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      if (d.axis === 'h') setDragging(true)
+    }
+    if (d.axis === 'h') {
+      e.preventDefault()
+      // Damp the drag near the edges where the gesture means "delete".
+      const max = swipeTarget(dx) ? SWIPE_THRESHOLD + 24 : SWIPE_THRESHOLD + 90
+      const limited = Math.max(-max, Math.min(max, dx))
+      setDragX(limited)
+    }
+  }
+
+  const onPointerUp = (e) => {
+    const d = dragRef.current
+    dragRef.current = null
+    if (!d || d.axis !== 'h') return
+    const dx = e.clientX - d.x
+    const t = swipeTarget(dx)
+    setDragging(false)
+    setDragX(0)
+    if (!t) return
+    if (t.del) handleDelete()
+    else if (t.list) moveTo(t.list.name)
+  }
+
+  const onPointerCancel = () => {
+    dragRef.current = null
+    setDragging(false)
+    setDragX(0)
+  }
+
   const handleSkip = async () => {
     try {
       await tasksApi.cycleSkip(task.id)
@@ -125,27 +154,50 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     setHistoryOpen(true)
   }
 
+  // Swipe hint shown behind the card while dragging.
+  const hint =
+    dragX > SWIPE_THRESHOLD
+      ? isFirst
+        ? { text: 'Удалить', del: true }
+        : prevList && { text: `«${prevList.name}»` }
+      : dragX < -SWIPE_THRESHOLD
+        ? isLast
+          ? { text: 'Удалить', del: true }
+          : nextList && { text: `«${nextList.name}»` }
+        : null
+
   const overdue = task.deadline && new Date(task.deadline) < new Date()
 
   return (
-    <div className={`flex items-stretch bg-white rounded-md shadow-sm overflow-hidden ${task.cycle_dormant ? 'opacity-60' : ''}`}>
-      {/* Left segment: radio — move to the NEXT (lower) list; in «Архив» (last) — Delete */}
-      {isLast ? (
-        <RadioBtn onClick={handleDelete} title="Удалить задачу" danger>
-          <Trash />
-        </RadioBtn>
-      ) : (
-        <RadioBtn
-          onClick={() => nextList && moveTo(nextList.name)}
-          disabled={!nextList}
-          title={nextList ? `Переместить в «${nextList.name}»` : 'Это последний список'}
+    <div className={`relative bg-white rounded-md shadow-sm overflow-hidden ${task.cycle_dormant ? 'opacity-60' : ''}`}>
+      {/* Swipe hint layer behind the card body */}
+      {hint && (
+        <div
+          className={`absolute inset-0 flex items-center ${
+            (dragX > 0 ? 'justify-start pl-4' : 'justify-end pr-4') +
+            (hint.del ? ' bg-red-50' : ' bg-blue-50')
+          }`}
         >
-          <RadioCircle />
-        </RadioBtn>
+          <span className={`text-sm font-semibold ${hint.del ? 'text-red-500' : 'text-blue-600'}`}>
+            {dragX > 0 ? '→ ' : '← '}
+            {hint.text}
+          </span>
+        </div>
       )}
 
-      {/* Middle segment: open editor */}
-      <div onClick={() => onEdit(task)} className="flex-1 min-w-0 py-2 px-2 cursor-pointer">
+      {/* Card body: draggable horizontally; tap opens the editor */}
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onClick={() => {
+          // A horizontal drag must not open the editor.
+          if (!dragging && Math.abs(dragX) < CLICK_SLOP) onEdit(task)
+        }}
+        style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
+        className={`relative flex-1 min-w-0 py-2 px-2 bg-white ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
+      >
         {/* Line 1: title, bold, single line */}
         <div
           className="font-bold truncate text-sm text-slate-800 flex items-center gap-1.5"
@@ -262,21 +314,6 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           </div>
         )}
       </div>
-
-      {/* Right segment: radio — move to the PREVIOUS (upper) list; in «Не начато» (first) — Delete */}
-      {isFirst ? (
-        <RadioBtn onClick={handleDelete} title="Удалить задачу" danger>
-          <Trash />
-        </RadioBtn>
-      ) : (
-        <RadioBtn
-          onClick={() => prevList && moveTo(prevList.name)}
-          disabled={!prevList}
-          title={prevList ? `Переместить в «${prevList.name}»` : 'Это первый список'}
-        >
-          <RadioCircle />
-        </RadioBtn>
-      )}
 
       <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={`История: ${task.title}`}>
         {history.length === 0 ? (
