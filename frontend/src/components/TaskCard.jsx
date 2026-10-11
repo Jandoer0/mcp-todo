@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 
@@ -31,9 +31,8 @@ function ArrowUp() {
 
 // Swipe thresholds: card must be dragged this far (px) to fire the action.
 const SWIPE_THRESHOLD = 72
-// Hard cap on the drag offset so a very long list name cannot push the
-// card across the whole board.
-const MAX_DRAG = 170
+// Hard cap on the drag offset (fits even long list names, truncated label).
+const MAX_DRAG = 113
 // Drag shorter than this is treated as a click (opens the editor).
 const CLICK_SLOP = 8
 
@@ -86,8 +85,19 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const suppressClickRef = useRef(false) // swallow the click right after a horizontal drag
   const [dragX, setDragX] = useState(0)
   const [dragging, setDragging] = useState(false)
+  // Measured width of the hint label so the reveal window stops exactly at
+  // the label size (but never below the swipe threshold, never above MAX_DRAG).
+  const hintRef = useRef(null)
+  const [hintW, setHintW] = useState(0)
+  useLayoutEffect(() => {
+    setHintW(hintRef.current ? hintRef.current.offsetWidth : 0)
+  }, [hint])
+  const dragLimit = Math.min(
+    MAX_DRAG,
+    Math.max(hintW + 24, SWIPE_THRESHOLD + 8)
+  )
 
-  const swipeTarget = (dx) => {
+  const swipeTarget = (dx, limit = MAX_DRAG) => {
     if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: prevList, del: isFirst }
     if (dx < -SWIPE_THRESHOLD) return { dir: 'left', list: nextList, del: isLast }
     return null
@@ -96,6 +106,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const onPointerDown = (e) => {
     if (e.button && e.button !== 0) return
     dragRef.current = { x: e.clientX, y: e.clientY, axis: null }
+    // Capture the pointer so pointerup is always delivered to the card,
+    // even if the cursor leaves it mid-drag (prevents "stuck" dragging).
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
   }
 
   const onPointerMove = (e) => {
@@ -111,7 +124,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     }
     if (d.axis === 'h') {
       e.preventDefault()
-      setDragX(Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dx)))
+      setDragX(Math.max(-dragLimit, Math.min(dragLimit, dx)))
     }
   }
 
@@ -190,7 +203,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         <div
           className="absolute inset-y-0 overflow-hidden"
           style={{
-            width: Math.min(Math.abs(dragX), MAX_DRAG),
+            width: Math.min(Math.abs(dragX), dragLimit),
             [dragX > 0 ? 'left' : 'right']: 0,
             backgroundColor: hint ? (hint.del ? '#fef2f2' : `${hint.color}26`) : 'transparent',
           }}
@@ -202,12 +215,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
               }`}
             >
               {hint.del ? (
-                <span className="text-red-500">
+                <span ref={hintRef} className="text-red-500">
                   <Trash />
                 </span>
               ) : (
                 <span
-                  className="text-sm font-semibold whitespace-nowrap max-w-[150px] truncate"
+                  ref={hintRef}
+                  className="text-sm font-semibold whitespace-nowrap max-w-[85px] truncate"
                   style={{ color: hint.color || '#2563eb' }}
                 >
                   {hint.text}

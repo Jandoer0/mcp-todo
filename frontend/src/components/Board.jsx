@@ -83,7 +83,7 @@ export default function Board({
     setCollapsed((c) => ({ ...c, [name]: !(c[name] ?? name === 'Архив') }))
 
   return (
-    <div>
+    <div className="select-none">
       {/* Groups stacked vertically as before. */}
       <div className="space-y-6">
         {groups.map((group) => (
