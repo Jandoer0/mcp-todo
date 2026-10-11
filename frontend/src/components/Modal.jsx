@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Mobile-friendly modal: bottom sheet on phones, centered dialog on desktop.
@@ -18,7 +19,10 @@ export default function Modal({ open, onClose, title, children, wide }) {
 
   if (!open) return null
 
-  return (
+  // Render into document.body via portal so the dialog is never trapped in a
+  // stacking/transform context of an ancestor (e.g. a task card) — otherwise
+  // `fixed` positioning breaks and the dialog does not cover the dashboard.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4"
       onMouseDown={(e) => {
@@ -53,6 +57,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
