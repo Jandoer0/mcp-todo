@@ -20,6 +20,11 @@ def cleanup_orphan_tags(db: Session) -> int:
     Returns the number of removed tags."""
     from ..models import task_tags
 
+    # Flush pending changes first: a just-created tag may already be linked to
+    # a task via a dirty relationship — without the flush it looks like an
+    # orphan and gets deleted (the "tag appears only on the second save" bug).
+    db.flush()
+
     orphans = (
         db.query(Tag)
         .outerjoin(task_tags, Tag.id == task_tags.c.tag_id)

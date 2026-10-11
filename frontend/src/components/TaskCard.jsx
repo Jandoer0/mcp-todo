@@ -268,20 +268,23 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           )}
         </div>
 
-        {/* Line 3: start date (left) / deadline (right, red when overdue) */}
-        <div className="flex items-center justify-between gap-2 mt-1.5 text-[11px] font-bold text-slate-600">
+        {/* Line 3: start date (left) / deadline (right, red when overdue).
+            Text height matches the title line. */}
+        <div className="flex items-center justify-between gap-2 mt-1.5 text-sm font-bold text-slate-600">
           <div className="truncate">{task.start_date && formatDate(task.start_date)}</div>
           <div className={`truncate ${overdue ? 'text-red-500' : ''}`}>
             {task.deadline && formatDate(task.deadline)}
           </div>
         </div>
 
-        {/* Line 4: tags then blocking tasks, one centered line — only fully
-            fitting chips are visible */}
+        {/* Line 4: tags then blocking tasks, one centered line. When the row
+            overflows, each half is capped at 50% of the card width so a part
+            of BOTH tags and blockers stays visible (tags show their tail near
+            the center, blockers show their head). */}
         {(((task.tags || []).length > 0) ||
           (task.is_blocked || (task.blocked_by && task.blocked_by.length > 0))) && (
-          <div className="mt-1 overflow-hidden">
-            <div className="flex justify-center gap-1 whitespace-nowrap">
+          <div className="mt-1 flex justify-center gap-1 overflow-hidden">
+            <div className="flex gap-1 min-w-0 max-w-[50%] justify-end overflow-hidden whitespace-nowrap">
               {(task.tags || []).map((t, i) => {
                 const name = typeof t === 'string' ? t : (t.name || t)
                 const tagData = tags.find((tag) => tag.name === name)
@@ -297,6 +300,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                   </span>
                 )
               })}
+            </div>
+            <div className="flex gap-1 min-w-0 max-w-[50%] overflow-hidden whitespace-nowrap">
               {(task.blocked_by || []).map((bid) => {
                 const bTask = allTasks.find((t) => t.id === bid)
                 return (
