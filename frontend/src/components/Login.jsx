@@ -12,8 +12,8 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
 
   const submit = (e) => {
     e.preventDefault()
-    if (mode === 'login') onLogin(username, password)
-    else onRegister(username, password)
+    if (mode === 'login') onLogin(username.trim(), password.trim())
+    else onRegister(username.trim(), password.trim())
   }
 
   return (
@@ -32,6 +32,9 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
           placeholder="Имя пользователя"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           className="w-full p-2 mb-4 border rounded"
         />
         <input
