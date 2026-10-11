@@ -189,14 +189,23 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           className={`absolute inset-0 flex items-center justify-center ${
             hint.del ? ' bg-red-50' : ''
           }`}
-          style={!hint.del && hint.color ? { backgroundColor: hint.color } : undefined}
+          style={
+            !hint.del && hint.color
+              ? { backgroundColor: `${hint.color}26` }
+              : undefined
+          }
         >
           {hint.del ? (
             <span className="text-red-500">
               <Trash />
             </span>
           ) : (
-            <span className="text-sm font-semibold text-white truncate px-2">{hint.text}</span>
+            <span
+              className="text-sm font-semibold truncate px-2"
+              style={{ color: hint.color || '#2563eb' }}
+            >
+              {hint.text}
+            </span>
           )}
         </div>
       )}
