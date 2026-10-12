@@ -196,17 +196,19 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     setHistoryOpen(true)
   }
 
-  // Swipe hint shown behind the card while dragging: target list name on the
-  // list's own color, or a trash icon for delete. Centered in the revealed area.
+  // Swipe hint shown behind the card while dragging. It appears IMMEDIATELY
+  // once the horizontal drag starts (not after the threshold) and behaves like
+  // a STATIC area under the card: the target-list label stays anchored to the
+  // outer edge of the revealed strip while the card slides off it.
   const hint =
-    dragX > SWIPE_THRESHOLD
+    dragX > 0
       ? isFirst
-        ? { text: '', del: true }
-        : prevList && { text: prevList.name, color: prevList.color }
-      : dragX < -SWIPE_THRESHOLD
+        ? { text: '', del: true, committed: dragX > SWIPE_THRESHOLD }
+        : prevList && { text: prevList.name, color: prevList.color, committed: dragX > SWIPE_THRESHOLD }
+      : dragX < 0
         ? isLast
-          ? { text: '', del: true }
-          : nextList && { text: nextList.name, color: nextList.color }
+          ? { text: '', del: true, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
+          : nextList && { text: nextList.name, color: nextList.color, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
         : null
 
   // Measure after `hint` is computed (declared above).
@@ -220,10 +222,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     <div className={`relative bg-white rounded-md shadow-sm overflow-hidden ${
       task.cycle_dormant || isDone ? 'opacity-60' : ''
     }`}>
-      {/* Swipe hint «window»: a strip as wide as the revealed gap (capped at
-          MAX_DRAG), sliding together with the card edge. The label sits at the
-          card-side edge and slides out with it; long names are truncated. */}
-      {Math.abs(dragX) > 0 && (hint || true) && (
+      {/* Static underlay revealed by the sliding card: the strip sits at the
+          card's trailing edge, the label is anchored to the OUTER edge (it
+          does not travel with the card) — so the card reads as a sheet being
+          pulled off a fixed target-list zone. */}
+      {Math.abs(dragX) > 0 && (
         <div
           className="absolute inset-y-0 overflow-hidden"
           style={{
@@ -235,7 +238,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           {hint && (
             <div
               className={`absolute inset-y-0 flex items-center ${
-                dragX > 0 ? 'right-0 pr-3' : 'left-0 pl-3'
+                dragX > 0 ? 'left-0 pl-3' : 'right-0 pr-3'
               }`}
             >
               {hint.del ? (
@@ -245,8 +248,12 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
               ) : (
                 <span
                   ref={hintRef}
-                  className="text-sm font-semibold whitespace-nowrap max-w-[85px] truncate"
-                  style={{ color: hint.color || '#2563eb' }}
+                  className="text-sm font-semibold whitespace-nowrap max-w-[110px] truncate px-1.5 py-0.5 rounded"
+                  style={
+                    hint.committed
+                      ? { backgroundColor: hint.color || '#2563eb', color: '#fff' }
+                      : { color: hint.color || '#2563eb', backgroundColor: `${hint.color}26` }
+                  }
                 >
                   {hint.text}
                 </span>
