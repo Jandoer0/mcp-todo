@@ -133,6 +133,16 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
         </svg>
       </button>
 
+      {/* Invisible blocker: taps outside the calendar only close it and
+          never reach the form underneath (important on mobile). */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {open && (
         <div
           className="fixed z-50 p-3 bg-white border border-slate-300 rounded-lg shadow-xl"
