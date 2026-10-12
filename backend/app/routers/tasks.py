@@ -273,8 +273,12 @@ def bulk_update_tasks(
                 if not db_task:
                     raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
                 
-                # Update fields (excluding ID)
-                update_fields = {k: v for k, v in task_data.items() if k != "id"}
+                # Update fields (excluding ID and protected columns:
+                # user_id must never be settable via the API — otherwise a
+                # user could move their task into another user's account).
+                update_fields = {
+                    k: v for k, v in task_data.items() if k not in ("id", "user_id")
+                }
                 
                 # Resolve list and status
                 if "list" in update_fields:
@@ -300,6 +304,8 @@ def bulk_update_tasks(
                 data["status"] = status_for_list(list_name)
                 
                 tag_names = data.pop("tags", None)
+                data.pop("id", None)
+                data.pop("user_id", None)  # protected: always the caller
                 db_task = Task(user_id=current_user.id, **data)
                 if tag_names is not None:
                     db_task.tags = ensure_tags(db, tag_names, current_user.id)
