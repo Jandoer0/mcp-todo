@@ -10,6 +10,7 @@ from ..board import (
     PROTECTED_LIST_NAMES,
     list_colors,
     list_names,
+    status_for_kind,
 )
 from ..db import get_db
 from ..models import Task, TaskList, User
@@ -51,11 +52,14 @@ def create_list(
     pos = data.position
     if pos is None:
         pos = (db.query(func.max(TaskList.position)).scalar() or 0) + 1
+    if data.kind not in (None, "todo", "progress", "done"):
+        raise HTTPException(status_code=400, detail="Недопустимый статус списка")
     lst = TaskList(
         name=name,
         color=data.color,
         position=pos,
         is_default=False,
+        kind=data.kind,
         user_id=current_user.id,
     )
     db.add(lst)
@@ -79,13 +83,8 @@ def update_list(
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
 
-    if lst.is_default:
-        # Protected lists can change color/order but not name.
-        if data.name is not None and data.name.strip() != lst.name:
-            raise HTTPException(
-                status_code=400, detail="Зарезервированный список нельзя переименовать"
-            )
-    elif data.name is not None and data.name.strip():
+    # All lists are editable: the protected-lists concept is dropped.
+    if data.name is not None and data.name.strip():
         new = data.name.strip()
         if new != lst.name and (
             new in PROTECTED_LIST_NAMES or new in list_names(db, current_user.id)
@@ -104,6 +103,14 @@ def update_list(
         lst.color = data.color
     if data.position is not None:
         lst.position = data.position
+    if data.kind is not None:
+        if data.kind not in ("todo", "progress", "done"):
+            raise HTTPException(status_code=400, detail="Недопустимый статус списка")
+        lst.kind = data.kind
+        # Keep task status consistent with the new list semantics.
+        db.query(Task).filter(
+            Task.list == lst.name, Task.user_id == current_user.id
+        ).update({Task.status: status_for_kind(data.kind)}, synchronize_session=False)
 
     db.commit()
     db.refresh(lst)
@@ -123,10 +130,6 @@ def delete_list(
     )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
-    if lst.is_default:
-        raise HTTPException(
-            status_code=400, detail="Зарезервированный список нельзя удалить"
-        )
     # Reassign only the owner's tasks to the default "not started" list.
     db.query(Task).filter(
         Task.list == lst.name, Task.user_id == current_user.id

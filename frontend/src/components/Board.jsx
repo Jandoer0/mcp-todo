@@ -12,9 +12,12 @@ export default function Board({
   onDelete,
   onRefresh,
 }) {
+  // List semantics are user-editable (kind: todo | progress | done).
+  const kindOf = (name) => lists.find((l) => l.name === name)?.kind || 'todo'
+
   const filterTasks = (allTasks) => {
     if (!allTasks) return []
-    
+
     let filtered = allTasks
 
     // Filter by status/date
@@ -23,11 +26,11 @@ export default function Board({
       filtered = filtered.filter((t) => !t.cycle_dormant)
     } else {
       if (activeFilter === 'todo') {
-        filtered = filtered.filter((t) => t.list === 'Не начато' && !t.cycle_dormant)
+        filtered = filtered.filter((t) => kindOf(t.list) === 'todo' && !t.cycle_dormant)
       } else if (activeFilter === 'done') {
-        filtered = filtered.filter((t) => t.list === 'Готово')
+        filtered = filtered.filter((t) => kindOf(t.list) === 'done')
       } else if (activeFilter === 'in_progress') {
-        filtered = filtered.filter((t) => !['Не начато', 'Готово', 'Архив'].includes(t.list) && !t.cycle_dormant)
+        filtered = filtered.filter((t) => kindOf(t.list) === 'progress' && !t.cycle_dormant)
       } else if (activeFilter === 'overdue') {
         const now = new Date()
         filtered = filtered.filter((t) => t.deadline && new Date(t.deadline) < now && !t.cycle_dormant)

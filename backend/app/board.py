@@ -44,10 +44,20 @@ PROTECTED_LIST_NAMES = {d["name"] for d in DEFAULT_LISTS}
 
 
 def status_for_list(name: str) -> str:
-    """Derive the task status from the list it belongs to."""
+    """Legacy name-based status (used by migrations/seeding only)."""
     if name == DONE_LIST or name == "Архив":
         return "done"
     if name == PROGRESS_LIST:
+        return "in_progress"
+    return "todo"
+
+
+def status_for_kind(kind) -> str:
+    """Task status derived from the list's editable kind.
+    Any list can be marked 'done' (завершено) by the user."""
+    if kind == "done":
+        return "done"
+    if kind == "progress":
         return "in_progress"
     return "todo"
 

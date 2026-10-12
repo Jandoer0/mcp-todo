@@ -62,10 +62,11 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
   const setColor = (list, color) => refresh(listsApi.update(list.id, { color }))
 
   const remove = (list) => {
-    if (list.is_default) return
     if (!confirm(`Удалить список «${list.name}»? Задачи переместятся в «Не начато».`)) return
     refresh(listsApi.remove(list.id))
   }
+
+  const setKind = (list, kind) => refresh(listsApi.update(list.id, { kind }))
 
   const reorder = (list, dir) => {
     const idx = sorted.findIndex((l) => l.id === list.id)
@@ -115,9 +116,8 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
                 />
                 <input
                   defaultValue={list.name}
-                  disabled={list.is_default}
                   onBlur={(e) => rename(list, e.target.value)}
-                  className="flex-1 p-1 border rounded bg-transparent disabled:opacity-60"
+                  className="flex-1 p-1 border rounded bg-transparent"
                 />
                 <button
                   onClick={() => reorder(list, 'up')}
@@ -135,20 +135,24 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
                 >
                   ↓
                 </button>
+                <select
+                  value={list.kind || 'todo'}
+                  onChange={(e) => setKind(list, e.target.value)}
+                  className="text-xs border rounded px-1 py-1 bg-white"
+                  title="Статус списка: задачи в списке со статусом «Завершено» считаются выполненными"
+                >
+                  <option value="todo">К выполнению</option>
+                  <option value="progress">В работе</option>
+                  <option value="done">Завершено</option>
+                </select>
                 <button
                   onClick={() => remove(list)}
-                  disabled={list.is_default}
-                  className="text-red-500 text-xs disabled:opacity-30"
-                  title={list.is_default ? 'Зарезервированный список' : 'Удалить'}
+                  className="text-red-500 text-xs"
+                  title="Удалить"
                 >
                   Удалить
                 </button>
               </div>
-              {list.is_default && (
-                <div className="text-[11px] text-gray-500">
-                  Зарезервированный список (нельзя удалить/переименовать)
-                </div>
-              )}
               {editingColor === list.id && (
                 <div className="mt-2">
                   <Palette value={list.color} onPick={(c) => setColor(list, c)} />

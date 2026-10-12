@@ -80,11 +80,14 @@ class TaskListCreate(BaseModel):
     name: str
     color: Optional[str] = None
     position: Optional[int] = None
+    # 'todo' | 'progress' | 'done' | None (regular list)
+    kind: Optional[str] = None
 
 class TaskListUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     position: Optional[int] = None
+    kind: Optional[str] = None
 
 class TagCreate(BaseModel):
     name: str

@@ -83,8 +83,14 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     3: 'bg-red-500',
   }[task.priority || 2]
 
+  // The user's "done" list is any list with kind='done' (prefer the first
+  // that is not the archive). All lists are user-editable now.
+  const doneListName =
+    (lists.find((l) => l.kind === 'done' && l.name !== 'Архив') || lists.find((l) => l.kind === 'done') || {})
+      .name || 'Готово'
+
   const moveTo = (targetName) => {
-    if (targetName === 'Готово' && task.is_blocked) {
+    if (lists.find((l) => l.name === targetName)?.kind === 'done' && task.is_blocked) {
       alert('Сначала выполните блокирующие задачи')
       return
     }
@@ -345,7 +351,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           >
             <button
               type="button"
-              onClick={() => moveTo('Готово')}
+              onClick={() => moveTo(doneListName)}
               disabled={task.is_blocked}
               title={task.is_blocked ? 'Сначала выполните блокирующие задачи' : 'Отметить выполненной и создать следующую итерацию'}
               className="px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700 disabled:opacity-40"

@@ -11,8 +11,8 @@ from typing import Optional
 from sqlalchemy import delete as sa_delete, func, insert, select
 from sqlalchemy.orm import Session
 
-from ..board import PALETTE, list_colors, list_names, status_for_list
-from ..models import Tag, Task, User, task_dependencies, task_tags
+from ..board import PALETTE, list_colors, list_names, status_for_kind
+from ..models import Tag, Task, TaskList, User, task_dependencies, task_tags
 from ..routers.tags import cleanup_orphan_tags
 import uuid as _uuid
 
@@ -259,7 +259,7 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
         deadline=next_deadline,
         start_date=task.start_date,
         status="todo",
-        list=_resolve_list(db, "Не начато", task.user_id),
+        list=_resolve_list(db, "Не начато", task.user_id)[0],
         is_cyclic=True,
         cycle_period=task.cycle_period,
         cycle_interval=task.cycle_interval,
@@ -297,10 +297,26 @@ def is_cycle_visible(task: Task, now: datetime) -> bool:
 
 
 
-def _resolve_list(db: Session, name: Optional[str], user_id: int) -> str:
-    if name and name in list_names(db, user_id):
-        return name
-    return "Не начато"
+def _resolve_list(db: Session, name: Optional[str], user_id: int) -> tuple[str, str]:
+    """Resolve a list name to (list_name, task_status). The status comes from
+    the list's editable kind; unknown names fall back to the user's
+    'Не начато' list."""
+    row = None
+    if name:
+        row = (
+            db.query(TaskList)
+            .filter(TaskList.user_id == user_id, TaskList.name == name)
+            .first()
+        )
+    if not row:
+        row = (
+            db.query(TaskList)
+            .filter(TaskList.user_id == user_id, TaskList.name == "Не начато")
+            .first()
+        )
+    if not row:
+        return ("Не начато", "todo")
+    return (row.name, status_for_kind(row.kind))
 
 
 def _normalize_cyclic(task: Task, data: dict) -> None:
@@ -339,9 +355,9 @@ def create_task(db: Session, user: User, data: dict) -> Task:
     blocked_by = data.pop("blocked_by", None)
     tag_names = data.pop("tags", None)
 
-    list_name = _resolve_list(db, data.get("list"), user.id)
+    list_name, list_status = _resolve_list(db, data.get("list"), user.id)
     data["list"] = list_name
-    data["status"] = status_for_list(list_name)
+    data["status"] = list_status
 
     if data.get("status") == "done" and compute_is_blocked(db, blocked_by or []):
         raise TaskError("Невозможно выполнить задачу: есть незавершённые блокирующие задачи")
@@ -378,9 +394,9 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     has_tags = "tags" in data
 
     if "list" in data:
-        list_name = _resolve_list(db, data["list"], user.id)
+        list_name, list_status = _resolve_list(db, data["list"], user.id)
         data["list"] = list_name
-        data["status"] = status_for_list(list_name)
+        data["status"] = list_status
 
     for key, value in data.items():
         setattr(task, key, value)
