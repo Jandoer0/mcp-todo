@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
+import DateTimePicker from './DateTimePicker'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
@@ -133,24 +134,22 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата начала</label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               id="task-start-date"
               name="start_date"
               value={form.start_date}
               onChange={update('start_date')}
-              className="w-full p-2 border rounded"
+              placeholder="Не указана"
             />
           </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата завершения</label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               id="task-deadline"
               name="deadline"
               value={form.deadline}
               onChange={update('deadline')}
-              className="w-full p-2 border rounded"
+              placeholder="Не указана"
             />
           </div>
           <div className="md:col-span-2 border-t border-slate-200 pt-3">
