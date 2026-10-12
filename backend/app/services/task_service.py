@@ -396,10 +396,10 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
         raise LookupError("Task not found")
 
     data = {k: v for k, v in data.items() if k not in _PROTECTED_FIELDS}
-    blocked_by = data.pop("blocked_by", None)
     has_blocked_by = "blocked_by" in data
-    tag_names = data.pop("tags", None)
+    blocked_by = data.pop("blocked_by", None)
     has_tags = "tags" in data
+    tag_names = data.pop("tags", None)
 
     if "list" in data:
         list_name, list_status = _resolve_list(db, data["list"], user.id)

@@ -83,7 +83,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       payload.blocked_by = selectedBlockers
     }
 
-    const origTags = (task?.tags || []).map((t) => t.name).sort()
+    const origTags = (task?.tags || []).map((t) => (typeof t === 'string' ? t : t.name)).sort()
     const newTags = [...selectedTags].sort()
     const tagsChanged = JSON.stringify(origTags) !== JSON.stringify(newTags)
 
