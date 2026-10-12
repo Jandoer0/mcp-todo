@@ -140,18 +140,50 @@ def ensure_tags(db: Session, names, user_id: int) -> list:
 
 
 def _attach_state(db: Session, task: Task) -> Task:
-    """Set transient attributes used for serialization."""
-    ids = get_blocker_ids(db, task.id)
-    task.blocked_by = ids
-    task.is_blocked = compute_is_blocked(db, ids)
+    """Set transient attributes used for serialization (single task)."""
+    _attach_state_many(db, [task])
+    return task
+
+
+def _attach_state_many(db: Session, tasks: list[Task]) -> None:
+    """Same as _attach_state but for a batch of tasks: 3 queries total
+    instead of 3 per task (avoids the N+1 problem on list endpoints)."""
+    if not tasks:
+        return
+    ids = [t.id for t in tasks]
+
+    blocker_rows = db.execute(
+        select(
+            task_dependencies.c.blocked_id, task_dependencies.c.blocker_id
+        ).where(task_dependencies.c.blocked_id.in_(ids))
+    ).fetchall()
+    blockers_by_task = {}
+    for blocked_id, blocker_id in blocker_rows:
+        blockers_by_task.setdefault(blocked_id, []).append(blocker_id)
+
+    # Statuses of all referenced blockers, in one query.
+    all_blockers = {b for bl in blockers_by_task.values() for b in bl}
+    statuses = (
+        dict(db.query(Task.id, Task.status).filter(Task.id.in_(all_blockers)).all())
+        if all_blockers
+        else {}
+    )
+
     tag_rows = (
-        db.query(Tag)
-        .join(task_tags, Tag.id == task_tags.c.tag_id)
-        .filter(task_tags.c.task_id == task.id)
+        db.query(task_tags.c.task_id, Tag)
+        .join(Tag, Tag.id == task_tags.c.tag_id)
+        .filter(task_tags.c.task_id.in_(ids))
         .all()
     )
-    task.tags = tag_rows
-    return task
+    tags_by_task = {}
+    for task_id, tag in tag_rows:
+        tags_by_task.setdefault(task_id, []).append(tag)
+
+    for t in tasks:
+        bl = blockers_by_task.get(t.id, [])
+        t.blocked_by = bl
+        t.is_blocked = any(statuses.get(b) != "done" for b in bl)
+        t.tags = sorted(tags_by_task.get(t.id, []), key=lambda g: g.name)
 
 
 def _resolve_list(db: Session, name: Optional[str], user_id: int) -> str:
@@ -315,8 +347,11 @@ def bulk_update_tasks(
                 db.add(db_task)
                 db.commit()
                 created += 1
-        except Exception as e:
-            errors.append({"index": i, "error": str(e)})
+        except HTTPException as e:
+            errors.append({"index": i, "error": e.detail})
+        except Exception:
+            # Never leak internals (SQL/column names) to the client.
+            errors.append({"index": i, "error": "Ошибка обработки элемента"})
 
     # Tag sets may have been replaced above — drop tags left without tasks.
     cleanup_orphan_tags(db, current_user.id)
@@ -336,8 +371,7 @@ def list_tasks(
     if list:
         query = query.filter(Task.list == list)
     tasks = query.all()
-    for t in tasks:
-        _attach_state(db, t)
+    _attach_state_many(db, tasks)
     # Smart visibility: dormant cyclic tasks are marked so the UI can show
     # them in a separate low-noise "Запланировано" section.
     now = datetime.utcnow()

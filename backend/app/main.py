@@ -284,13 +284,31 @@ with SessionLocal() as _db:
 
 # --- JSON API (mounted at /api) ---
 api = FastAPI(title="OmniTask API")
-api.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+
+def _cors_middleware():
+    """CORS only for origins explicitly listed in CORS_ORIGINS env.
+    No wildcard: the app is same-origin (the frontend is served by the same
+    container), so by default CORS is simply disabled."""
+    if not settings["CORS_ORIGINS"]:
+        return None
+    return Middleware(
+        CORSMiddleware,
+        allow_origins=settings["CORS_ORIGINS"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+if (mw := _cors_middleware()) is not None:
+    api.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings["CORS_ORIGINS"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 api.include_router(auth.router)
 api.include_router(tasks.router)
 api.include_router(summary.router)
@@ -346,15 +364,5 @@ starlette_app = Starlette(
         *mcp.mcp_routes,
         Mount("/", app=NoCacheStaticFiles(directory=static_dir, html=True)),
     ],
-    middleware=[
-        # Allow cross-origin access to the SSE/MCP endpoints so browser-based
-        # MCP clients (and the agent's tool_search) can connect from any origin.
-        Middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-    ],
+    middleware=[mw] if mw else [],
 )

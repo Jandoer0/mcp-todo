@@ -16,10 +16,9 @@ from sqlalchemy.orm import Session
 
 from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
-from ..models import Tag, Task, User, task_dependencies, task_tags
+from ..models import Task, User, task_dependencies
 from ..routers.tasks import (
     CYCLE_PERIODS,
-    compute_is_blocked,
     cycle_log,
     ensure_tags,
     is_cycle_visible,
@@ -103,22 +102,13 @@ def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[b
         if cyclic is not None:
             query = query.filter(Task.is_cyclic == cyclic)
         tasks = query.all()
+        from .tasks import _attach_state_many
+
+        _attach_state_many(db, tasks)
         now = datetime.utcnow()
         result = []
         for t in tasks:
-            blocked_by = [
-                r[0]
-                for r in db.execute(
-                    select(task_dependencies.c.blocker_id).where(
-                        task_dependencies.c.blocked_id == t.id
-                    )
-                ).fetchall()
-            ]
-            t_is_blocked = bool(blocked_by) and any(
-                db.get(Task, b) and db.get(Task, b).status != "done"
-                for b in blocked_by
-            )
-            t_is_blocked = compute_is_blocked(db, blocked_by)
+            blocked_by = t.blocked_by
             result.append(
                 {
                     "id": t.id,
@@ -129,13 +119,7 @@ def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[b
                     "start_date": str(t.start_date) if t.start_date else None,
                     "deadline": str(t.deadline) if t.deadline else None,
                     "list": t.list,
-                    "tags": [
-                        tg.name
-                        for tg in db.query(Tag)
-                        .join(task_tags, Tag.id == task_tags.c.tag_id)
-                        .filter(task_tags.c.task_id == t.id)
-                        .all()
-                    ],
+                    "tags": [tg.name for tg in t.tags],
                     "blocked_by": blocked_by,
                     "is_cyclic": bool(t.is_cyclic),
                     "cycle_period": t.cycle_period,

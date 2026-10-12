@@ -33,6 +33,8 @@ class TaskBase(BaseModel):
     deadline: Optional[datetime] = None
     priority: Optional[int] = 1
     tags: Optional[List[str]] = []
+    # Blocking tasks (ids of tasks that must be done before this one)
+    blocked_by: Optional[List[int]] = None
     # Cyclic task settings
     is_cyclic: Optional[bool] = False
     cycle_period: Optional[str] = None  # daily | weekly | monthly | yearly
