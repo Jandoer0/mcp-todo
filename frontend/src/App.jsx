@@ -281,6 +281,7 @@ export default function App() {
         tasks={tasks}
         lists={lists}
         tags={tags}
+        initialTags={activeTag != null ? tags.filter((t) => t.id === activeTag).map((t) => t.name) : []}
       />
 
       <ListsManager

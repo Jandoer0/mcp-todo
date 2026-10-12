@@ -29,7 +29,7 @@ function toDatetimeLocal(value) {
   return local.toISOString().slice(0, 16)
 }
 
-export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [] }) {
+export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [] }) {
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
@@ -59,7 +59,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setSelectedBlockers(task.blocked_by || [])
     } else {
       setForm({ ...EMPTY, list: listOptions[0]?.name || '' })
-      setSelectedTags([])
+      setSelectedTags([...initialTags])
       setSelectedBlockers([])
     }
   }, [open, task, listOptions])
