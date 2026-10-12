@@ -92,11 +92,29 @@ export default function TagInput({ value = [], availableTags = [], takenColors =
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
           onKeyDown={onKeyDown}
+          enterKeyHint="done"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder={value.length ? '' : 'Введите тег и нажмите Enter'}
           className="flex-1 min-w-[8rem] bg-transparent outline-none py-0.5"
         />
+        {/* Explicit add button: on mobile the virtual keyboard's "done" key
+            only blurs the input, so a tap target is required to commit a new tag. */}
+        {input.trim() && !value.includes(input.trim()) && (
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              addTag(input)
+            }}
+            className="shrink-0 px-2 py-1 rounded bg-[#22384d] text-white text-xs font-semibold"
+          >
+            + Добавить
+          </button>
+        )}
       </div>
       {open && suggestions.length > 0 && (
         <ul className="absolute z-10 mt-1 w-full bg-white border rounded shadow max-h-48 overflow-auto">
@@ -104,7 +122,10 @@ export default function TagInput({ value = [], availableTags = [], takenColors =
             <li key={t.id ?? t.name}>
               <button
                 type="button"
-                onMouseDown={(e) => {
+                onPointerDown={(e) => {
+                  // pointerdown fires before the input's blur on touch devices,
+                  // and preventDefault keeps the focus (list stays open long
+                  // enough) — onMouseDown was unreliable on mobile.
                   e.preventDefault()
                   addTag(t.name)
                 }}
