@@ -46,6 +46,10 @@ export function useAuth() {
       setReady(true)
       return
     }
+    // Reset first so downstream hooks (useTasks) re-run their load effect on
+    // every login — otherwise a login without a page reload leaves the
+    // dashboard empty (ready was already true from the login screen).
+    setReady(false)
     summaryApi
       .get()
       .then(() => {
