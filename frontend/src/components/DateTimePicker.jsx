@@ -133,7 +133,7 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
         <div
           className={`absolute z-50 p-3 bg-white border border-slate-300 rounded-lg shadow-xl w-[286px] ${
             dropUp ? 'bottom-full mb-1' : 'mt-1'
-          }`
+          }`}
           role="dialog"
           aria-label="Выбор даты и времени"
         >
