@@ -73,6 +73,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const prevList = idx > 0 ? ordered[idx - 1] : null
   const isFirst = idx === 0
   const isLast = idx === ordered.length - 1
+  // Tasks in "Готово"/"Архив" (kind='done') look faded on the board.
+  const isDone = idx >= 0 && ordered[idx].kind === 'done'
 
   // Priority dot color: 1 Low (Grey), 2 Medium (Blue), 3 High (Red)
   const priorityDot = {
@@ -215,7 +217,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const overdue = task.deadline && new Date(task.deadline) < new Date()
 
   return (
-    <div className={`relative bg-white rounded-md shadow-sm overflow-hidden ${task.cycle_dormant ? 'opacity-60' : ''}`}>
+    <div className={`relative bg-white rounded-md shadow-sm overflow-hidden ${
+      task.cycle_dormant || isDone ? 'opacity-60' : ''
+    }`}>
       {/* Swipe hint «window»: a strip as wide as the revealed gap (capped at
           MAX_DRAG), sliding together with the card edge. The label sits at the
           card-side edge and slides out with it; long names are truncated. */}
