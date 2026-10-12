@@ -2,7 +2,7 @@
 import hashlib
 import secrets
 from datetime import timedelta
-from app.clock import utcnow
+from .clock import utcnow
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

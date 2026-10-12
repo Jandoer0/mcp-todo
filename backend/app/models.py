@@ -1,5 +1,5 @@
 """SQLAlchemy ORM models."""
-from app.clock import utcnow
+from .clock import utcnow
 
 from sqlalchemy import (
     Boolean,
