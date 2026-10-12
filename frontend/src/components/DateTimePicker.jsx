@@ -20,8 +20,11 @@ function formatLabel(value) {
   return `${d.split('-').reverse().join('.')} ${t}`
 }
 
+const PANEL_HEIGHT = 400 // approximate rendered height in px
+
 export default function DateTimePicker({ id, name, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false)
+  const [dropUp, setDropUp] = useState(false)
   const [view, setView] = useState(() => {
     const base = value ? new Date(value) : new Date()
     return { year: base.getFullYear(), month: base.getMonth() }
@@ -49,6 +52,11 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
     const base = val ? new Date(val) : new Date()
     if (!Number.isNaN(base.getTime())) {
       setView({ year: base.getFullYear(), month: base.getMonth() })
+    }
+    // Flip upward when there is not enough room below (e.g. inside a modal).
+    if (rootRef.current) {
+      const rect = rootRef.current.getBoundingClientRect()
+      setDropUp(window.innerHeight - rect.bottom < PANEL_HEIGHT && rect.top > PANEL_HEIGHT)
     }
     setOpen(true)
   }
@@ -123,7 +131,9 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
 
       {open && (
         <div
-          className="absolute z-50 mt-1 p-3 bg-white border border-slate-300 rounded-lg shadow-xl w-[286px]"
+          className={`absolute z-50 p-3 bg-white border border-slate-300 rounded-lg shadow-xl w-[286px] ${
+            dropUp ? 'bottom-full mb-1' : 'mt-1'
+          }`
           role="dialog"
           aria-label="Выбор даты и времени"
         >
