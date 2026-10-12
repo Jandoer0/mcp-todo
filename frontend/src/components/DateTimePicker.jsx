@@ -54,9 +54,19 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
       setView({ year: base.getFullYear(), month: base.getMonth() })
     }
     // Flip upward when there is not enough room below (e.g. inside a modal).
+    // Measure against the nearest scrollable ancestor, not the window.
     if (rootRef.current) {
       const rect = rootRef.current.getBoundingClientRect()
-      setDropUp(window.innerHeight - rect.bottom < PANEL_HEIGHT && rect.top > PANEL_HEIGHT)
+      let box = { bottom: window.innerHeight, top: 0 }
+      let el = rootRef.current.parentElement
+      while (el) {
+        const st = getComputedStyle(el)
+        if (/(auto|scroll)/.test(st.overflowY)) { box = el.getBoundingClientRect(); break }
+        el = el.parentElement
+      }
+      const below = box.bottom - rect.bottom
+      const above = rect.top - box.top
+      setDropUp(below < PANEL_HEIGHT && above > below)
     }
     setOpen(true)
   }
