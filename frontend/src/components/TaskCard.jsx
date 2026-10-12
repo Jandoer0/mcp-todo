@@ -109,8 +109,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const dragLimit = MAX_DRAG
 
   const swipeTarget = (dx, limit = MAX_DRAG) => {
-    if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: prevList, del: isFirst }
-    if (dx < -SWIPE_THRESHOLD) return { dir: 'left', list: nextList, del: isLast }
+    // Swipe right = move FORWARD (to the next list); on the last list — delete.
+    // Swipe left = move BACKWARD (to the previous list); on the first — delete.
+    if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: nextList, del: isLast }
+    if (dx < -SWIPE_THRESHOLD) return { dir: 'left', list: prevList, del: isFirst }
     return null
   }
 
@@ -196,13 +198,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   // outer edge of the revealed strip while the card slides off it.
   const hint =
     dragX > 0
-      ? isFirst
+      ? isLast
         ? { text: '', del: true, committed: dragX > SWIPE_THRESHOLD }
-        : prevList && { text: prevList.name, color: prevList.color, committed: dragX > SWIPE_THRESHOLD }
+        : nextList && { text: nextList.name, color: nextList.color, committed: dragX > SWIPE_THRESHOLD }
       : dragX < 0
-        ? isLast
+        ? isFirst
           ? { text: '', del: true, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
-          : nextList && { text: nextList.name, color: nextList.color, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
+          : prevList && { text: prevList.name, color: prevList.color, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
         : null
 
   // Measure after `hint` is computed (declared above).

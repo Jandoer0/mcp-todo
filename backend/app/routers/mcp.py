@@ -17,12 +17,9 @@ from sqlalchemy.orm import Session
 from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
 from ..models import Task, User, task_dependencies
+from ..services import task_service
 from ..routers.tasks import (
-    CYCLE_PERIODS,
     cycle_log,
-    ensure_tags,
-    is_cycle_visible,
-    regenerate_cycle,
     advance_deadline,
 )
 import uuid as _uuid
@@ -102,13 +99,9 @@ def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[b
         if cyclic is not None:
             query = query.filter(Task.is_cyclic == cyclic)
         tasks = query.all()
-        from .tasks import _attach_state_many
-
-        _attach_state_many(db, tasks)
-        now = datetime.utcnow()
+        tasks = task_service.list_tasks(db, user, status=status)
         result = []
         for t in tasks:
-            blocked_by = t.blocked_by
             result.append(
                 {
                     "id": t.id,
@@ -120,13 +113,13 @@ def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[b
                     "deadline": str(t.deadline) if t.deadline else None,
                     "list": t.list,
                     "tags": [tg.name for tg in t.tags],
-                    "blocked_by": blocked_by,
+                    "blocked_by": t.blocked_by,
                     "is_cyclic": bool(t.is_cyclic),
                     "cycle_period": t.cycle_period,
                     "cycle_interval": t.cycle_interval,
                     "cycle_group_id": t.cycle_group_id,
                     "reminder_days": t.reminder_days,
-                    "cycle_dormant": not is_cycle_visible(t, now),
+                    "cycle_dormant": t.cycle_dormant,
                 }
             )
         return json.dumps(result)
@@ -173,48 +166,10 @@ def create_task(
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        from ..board import list_names, status_for_list
-        valid_lists = list_names(db, user.id)
-        if t_list not in valid_lists:
-            t_list = "Не начато"
-        
-        task = Task(
-            user_id=user.id,
-            title=t_title,
-            description=t_desc,
-            start_date=datetime.fromisoformat(t_start) if t_start else None,
-            deadline=datetime.fromisoformat(t_dead) if t_dead else None,
-            priority=t_prio,
-            list=t_list,
-            status=status_for_list(t_list),
-        )
-        if data.get("is_cyclic"):
-            task.is_cyclic = True
-            task.cycle_period = data.get("cycle_period") if data.get("cycle_period") in CYCLE_PERIODS else "monthly"
-            task.cycle_interval = max(1, int(data.get("cycle_interval") or 1))
-            task.reminder_days = max(0, int(data.get("reminder_days") or 0))
-            task.cycle_group_id = _uuid.uuid4().hex
-        db.add(task)
-        db.commit()
-        db.refresh(task)
-        if t_tags:
-            task.tags = ensure_tags(db, t_tags, user.id)
-            db.commit()
-        if t_blocked:
-            seen = set()
-            for bid in t_blocked:
-                if bid == task.id or bid in seen:
-                    continue
-                seen.add(bid)
-                blocker = db.get(Task, bid)
-                if not blocker or blocker.user_id != user.id:
-                    continue
-                db.execute(
-                    task_dependencies.insert().values(
-                        blocker_id=bid, blocked_id=task.id
-                    )
-                )
-            db.commit()
+        try:
+            task = task_service.create_task(db, user, data)
+        except task_service.TaskError as e:
+            return f"Error: {e.message}"
         return f"Task created with ID {task.id}"
     finally:
         db.close()
@@ -253,72 +208,24 @@ def update_task(
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        task = (
-            db.query(Task)
-            .filter(Task.id == t_id, Task.user_id == user.id)
-            .first()
-        )
-        if not task:
+        update_data = {
+            k: v
+            for k, v in data.items()
+            if k not in ("auth_token", "task_id") and v is not None
+        }
+        # `list` is a builtin name in the tool signature; map it through.
+        try:
+            task = task_service.update_task(db, user, t_id, update_data)
+        except LookupError:
             return "Task not found"
-        if data.get("title") is not None:
-            task.title = data.get("title")
-        if data.get("description") is not None:
-            task.description = data.get("description")
-        if data.get("status") is not None:
-            task.status = data.get("status")
-        if data.get("priority") is not None:
-            task.priority = data.get("priority")
-        if data.get("tags") is not None:
-            task.tags = ensure_tags(db, data.get("tags"), user.id)
-        if data.get("start_date") is not None:
-            task.start_date = datetime.fromisoformat(data.get("start_date")) if data.get("start_date") else None
-        if data.get("deadline") is not None:
-            task.deadline = datetime.fromisoformat(data.get("deadline")) if data.get("deadline") else None
-        if data.get("list") is not None:
-            from ..board import status_for_list, list_names
-            new_list = data.get("list")
-            if new_list in list_names(db, user.id):
-                task.list = new_list
-                task.status = status_for_list(new_list)
-        if data.get("is_cyclic") is not None:
-            task.is_cyclic = bool(data.get("is_cyclic"))
-        if data.get("cycle_period") is not None:
-            task.cycle_period = data.get("cycle_period") if data.get("cycle_period") in CYCLE_PERIODS else "monthly"
-        if data.get("cycle_interval") is not None:
-            task.cycle_interval = max(1, int(data.get("cycle_interval")))
-        if data.get("reminder_days") is not None:
-            task.reminder_days = max(0, int(data.get("reminder_days")))
-        if task.is_cyclic:
-            if task.cycle_period not in CYCLE_PERIODS:
-                task.cycle_period = "monthly"
-            if not task.cycle_group_id:
-                task.cycle_group_id = _uuid.uuid4().hex
-            task.cycle_interval = max(1, task.cycle_interval or 1)
-            task.reminder_days = max(0, task.reminder_days or 0)
-        if data.get("blocked_by") is not None:
-            db.execute(
-                task_dependencies.delete().where(
-                    task_dependencies.c.blocked_id == task.id
-                )
-            )
-            seen = set()
-            for bid in data.get("blocked_by", []):
-                if bid == task.id or bid in seen:
-                    continue
-                seen.add(bid)
-                blocker = db.get(Task, bid)
-                if not blocker or blocker.user_id != user.id:
-                    continue
-                db.execute(
-                    task_dependencies.insert().values(
-                        blocker_id=bid, blocked_id=task.id
-                    )
-                )
-        db.commit()
-        # Cyclic completion via MCP: log the iteration and spawn the next one.
+        except task_service.TaskError as e:
+            return f"Error: {e.message}"
+        # Cyclic completion via MCP: service already spawned the next iteration.
         if task.is_cyclic and task.status == "done":
-            next_task = regenerate_cycle(db, task)
-            return f"Cycle iteration completed. Next iteration created with ID {next_task.id}, deadline {next_task.deadline}"
+            return (
+                f"Cycle iteration completed. Next iteration created with ID "
+                f"{task.id}, deadline {task.deadline}"
+            )
         return f"Task {task.id} updated"
     finally:
         db.close()
@@ -332,36 +239,18 @@ def delete_task(auth_token: str, task_id: int) -> str:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        task = (
-            db.query(Task)
-            .filter(Task.id == task_id, Task.user_id == user.id)
-            .first()
-        )
-        if not task:
-            return "Task not found"
-        group_id = task.cycle_group_id if task.is_cyclic else None
-        chain_ids = [task_id]
-        if group_id:
-            chain = (
+        try:
+            cyclic = (
                 db.query(Task)
-                .filter(Task.user_id == user.id, Task.cycle_group_id == group_id)
-                .all()
+                .filter(Task.id == task_id, Task.user_id == user.id, Task.is_cyclic == True)  # noqa: E712
+                .first()
             )
-            chain_ids = [t.id for t in chain]
-        # Clean up dependencies to avoid orphaned records or constraint issues
-        db.execute(
-            task_dependencies.delete().where(
-                (task_dependencies.c.blocker_id.in_(chain_ids))
-                | (task_dependencies.c.blocked_id.in_(chain_ids))
-            )
-        )
+            group_id = cyclic.cycle_group_id if cyclic else None
+            task_service.delete_task(db, user, task_id)
+        except LookupError:
+            return "Task not found"
         if group_id:
-            db.query(Task).filter(
-                Task.user_id == user.id, Task.cycle_group_id == group_id
-            ).delete(synchronize_session=False)
-            return f"Cyclic task chain deleted ({len(chain_ids)} task(s))"
-        db.delete(task)
-        db.commit()
+            return "Cyclic task chain deleted"
         return f"Task {task_id} deleted"
     finally:
         db.close()
@@ -462,27 +351,8 @@ def get_project_summary(auth_token: str) -> str:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        uid = user.id
-        total = db.query(Task).filter(Task.user_id == uid).count()
-        todo = db.query(Task).filter(Task.user_id == uid, Task.status == "todo").count()
-        in_progress = db.query(Task).filter(
-            Task.user_id == uid, Task.status == "in_progress"
-        ).count()
-        done = db.query(Task).filter(Task.user_id == uid, Task.status == "done").count()
-        overdue = db.query(Task).filter(
-            Task.user_id == uid,
-            Task.deadline < datetime.utcnow(),
-            Task.status != "done",
-        ).count()
-        return json.dumps(
-            {
-                "total": total,
-                "todo": todo,
-                "in_progress": in_progress,
-                "done": done,
-                "overdue": overdue,
-            }
-        )
+        import json as _json
+        return _json.dumps(task_service.count_tasks(db, user))
     finally:
         db.close()
 
