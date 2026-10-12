@@ -2,15 +2,27 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 
+// "12 окт." when the year matches the current one, "12 окт. 2027" otherwise.
 function formatDate(value) {
   if (!value) return ''
-  return new Date(value).toLocaleString('ru-RU', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const d = new Date(value)
+  const opts = { day: 'numeric', month: 'short' }
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric'
+  return d.toLocaleDateString('ru-RU', opts)
+}
+
+// Date rendered as a tag-like chip (see the mock-up): gray by default, red when overdue.
+function DateChip({ value, overdue = false }) {
+  if (!value) return null
+  return (
+    <span
+      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${
+        overdue ? 'bg-red-500' : 'bg-slate-400'
+      }`}
+    >
+      {formatDate(value)}
+    </span>
+  )
 }
 
 function ArrowDown() {
@@ -268,12 +280,14 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           )}
         </div>
 
-        {/* Line 3: start date (left) / deadline (right, red when overdue).
-            Text height matches the title line. */}
-        <div className="flex items-center justify-between gap-2 mt-1.5 text-sm font-bold text-slate-600">
-          <div className="truncate">{task.start_date && formatDate(task.start_date)}</div>
-          <div className={`truncate ${overdue ? 'text-red-500' : ''}`}>
-            {task.deadline && formatDate(task.deadline)}
+        {/* Line 3: start date (left) / deadline (right) as tag chips.
+            The deadline chip turns red when the task is overdue. */}
+        <div className="flex items-center justify-between gap-2 mt-1.5">
+          <div className="min-w-0 truncate">
+            <DateChip value={task.start_date} />
+          </div>
+          <div className="min-w-0 flex justify-end">
+            <DateChip value={task.deadline} overdue={overdue} />
           </div>
         </div>
 
