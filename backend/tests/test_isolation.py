@@ -14,7 +14,7 @@ os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["DATABASE_URL"] = "sqlite:///" + _TMP + "/test.db"
 os.environ["STATIC_DIR"] = _TMP + "/static"
 
-from app.main import starlette_app  # noqa: E402
+from app.main import starlette_app
 
 client = TestClient(starlette_app)
 
@@ -155,13 +155,14 @@ def _mcp_token(auth_header):
 
 def test_mcp_tools_isolated(users):
     import json
+
     from app.routers.mcp import (
-        list_tasks,
         create_task,
-        update_task,
         delete_task,
-        search_tasks,
         get_project_summary,
+        list_tasks,
+        search_tasks,
+        update_task,
     )
     tok_a = _mcp_token(users["alice"])
     tok_b = _mcp_token(users["bob"])

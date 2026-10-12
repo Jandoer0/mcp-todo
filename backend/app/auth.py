@@ -2,7 +2,6 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,7 +10,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .db import SessionLocal, get_db
+from .db import get_db
 from .models import User
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
@@ -28,7 +27,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(pwd)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings["ACCESS_TOKEN_EXPIRE_MINUTES"])
@@ -37,7 +36,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings["SECRET_KEY"], algorithm=settings["ALGORITHM"])
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings["SECRET_KEY"], algorithms=[settings["ALGORITHM"]])
     except JWTError:
@@ -45,7 +44,7 @@ def decode_access_token(token: str) -> Optional[dict]:
 
 
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> User:
     if not credentials or not credentials.credentials:
@@ -89,7 +88,7 @@ def hash_mcp_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def get_user_by_mcp_token(db: Session, token: str) -> Optional[User]:
+def get_user_by_mcp_token(db: Session, token: str) -> User | None:
     """Resolve a user from a long-lived MCP token, or None if it does not match."""
     if not token:
         return None

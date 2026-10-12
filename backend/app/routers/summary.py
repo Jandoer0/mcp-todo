@@ -25,7 +25,7 @@ def get_summary(
     dormant_ids = set()
     for t in db.query(Task).filter(
         Task.user_id == uid,
-        Task.is_cyclic == True,  # noqa: E712
+        Task.is_cyclic == True,
     ).all():
         if t.deadline:
             window = t.deadline - timedelta(days=max(0, t.reminder_days or 0))

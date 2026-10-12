@@ -5,16 +5,24 @@ are thin wrappers around these functions, so behavior can never diverge
 between the two layers. All functions are user-scoped: `user` must be a
 models.User; foreign objects are treated as "not found".
 """
+import uuid as _uuid
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import delete as sa_delete, func, insert, select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from ..board import PALETTE, list_colors, list_names, status_for_kind
-from ..models import Tag, Task, TaskList, User, task_dependencies, task_tags
+from ..models import (
+    Tag,
+    Task,
+    TaskCycleLog,
+    TaskList,
+    User,
+    task_dependencies,
+    task_tags,
+)
 from ..routers.tags import cleanup_orphan_tags
-import uuid as _uuid
 
 _PROTECTED_FIELDS = {"id", "user_id", "auth_token"}  # never settable via payload
 
@@ -195,7 +203,7 @@ def _attach_state_many(db: Session, tasks: list[Task]) -> None:
         t.tags = sorted(tags_by_task.get(t.id, []), key=lambda g: g.name)
 
 
-def _resolve_list(db: Session, name: Optional[str], user_id: int) -> str:
+def _resolve_list(db: Session, name: str | None, user_id: int) -> str:
     """Return one of the user's list names, falling back to the default
     'not started' list."""
     if name and name in list_names(db, user_id):
@@ -205,7 +213,6 @@ def _resolve_list(db: Session, name: Optional[str], user_id: int) -> str:
 
 # ---------------- Cyclic tasks ----------------
 
-import uuid as _uuid
 from datetime import timedelta as _timedelta
 
 CYCLE_PERIODS = {"daily", "weekly", "monthly", "yearly"}
@@ -297,7 +304,7 @@ def is_cycle_visible(task: Task, now: datetime) -> bool:
 
 
 
-def _resolve_list(db: Session, name: Optional[str], user_id: int) -> tuple[str, str]:
+def _resolve_list(db: Session, name: str | None, user_id: int) -> tuple[str, str]:
     """Resolve a list name to (list_name, task_status). The status comes from
     the list's editable kind; unknown names fall back to the user's
     'Не начато' list."""
@@ -335,7 +342,7 @@ def _normalize_cyclic(task: Task, data: dict) -> None:
 
 
 def list_tasks(
-    db: Session, user: User, status: Optional[str] = None, list_name: Optional[str] = None
+    db: Session, user: User, status: str | None = None, list_name: str | None = None
 ) -> list[Task]:
     query = db.query(Task).filter(Task.user_id == user.id)
     if status:

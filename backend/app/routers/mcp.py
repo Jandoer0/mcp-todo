@@ -5,24 +5,20 @@ owning user so tools only ever touch that user's data.
 """
 import json
 import os
-from datetime import datetime
-from typing import Optional, Annotated
-from pydantic import Field
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
-from ..models import Task, User, task_dependencies
-from ..services import task_service
+from ..models import Task, User
 from ..routers.tasks import (
-    cycle_log,
     advance_deadline,
+    cycle_log,
+    regenerate_cycle,
 )
-import uuid as _uuid
+from ..services import task_service
 
 mcp = FastMCP("OmniTask")
 
@@ -31,7 +27,7 @@ def _session() -> Session:
     return SessionLocal()
 
 
-def get_user_from_token(token: str) -> Optional[User]:
+def get_user_from_token(token: str) -> User | None:
     """Resolve a user from either a JWT or a long-lived MCP API key."""
     # Standard JWT first (short-lived, stored statelessly).
     payload = decode_access_token(token)
@@ -85,14 +81,13 @@ def list_all_lists(auth_token: str) -> str:
 
 
 @mcp.tool()
-def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[bool] = None) -> str:
+def list_tasks(auth_token: str, status: str | None = None, cyclic: bool | None = None) -> str:
     """List tasks for the authenticated user. Optional status filter and cyclic filter (True = only cyclic tasks, False = only non-cyclic)."""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        from .tasks import is_cycle_visible
         query = db.query(Task).filter(Task.user_id == user.id)
         if status:
             query = query.filter(Task.status == status)
@@ -131,13 +126,13 @@ def list_tasks(auth_token: str, status: Optional[str] = None, cyclic: Optional[b
 def create_task(
     auth_token: str,
     title: str,
-    description: Optional[str] = None,
-    start_date: Optional[str] = None,
-    deadline: Optional[str] = None,
+    description: str | None = None,
+    start_date: str | None = None,
+    deadline: str | None = None,
     priority: int = 2,
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
     list: str = "Не начато",
-    blocked_by: Optional[list[int]] = None,
+    blocked_by: list[int] | None = None,
     is_cyclic: bool = False,
     cycle_period: str = "monthly",
     cycle_interval: int = 1,
@@ -179,19 +174,19 @@ def create_task(
 def update_task(
     auth_token: str,
     task_id: int,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    status: Optional[str] = None,
-    priority: Optional[int] = None,
-    tags: Optional[list[str]] = None,
-    start_date: Optional[str] = None,
-    deadline: Optional[str] = None,
-    list: Optional[str] = None,
-    blocked_by: Optional[list[int]] = None,
-    is_cyclic: Optional[bool] = None,
-    cycle_period: Optional[str] = None,
-    cycle_interval: Optional[int] = None,
-    reminder_days: Optional[int] = None,
+    title: str | None = None,
+    description: str | None = None,
+    status: str | None = None,
+    priority: int | None = None,
+    tags: list[str] | None = None,
+    start_date: str | None = None,
+    deadline: str | None = None,
+    list: str | None = None,
+    blocked_by: list[int] | None = None,
+    is_cyclic: bool | None = None,
+    cycle_period: str | None = None,
+    cycle_interval: int | None = None,
+    reminder_days: int | None = None,
 ) -> str:
     """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration."""
@@ -242,7 +237,7 @@ def delete_task(auth_token: str, task_id: int) -> str:
         try:
             cyclic = (
                 db.query(Task)
-                .filter(Task.id == task_id, Task.user_id == user.id, Task.is_cyclic == True)  # noqa: E712
+                .filter(Task.id == task_id, Task.user_id == user.id, Task.is_cyclic == True)
                 .first()
             )
             group_id = cyclic.cycle_group_id if cyclic else None
@@ -276,6 +271,8 @@ def manage_cycle(auth_token: str, task_id: int, action: str) -> str:
         if not task.is_cyclic:
             return "Error: Task is not cyclic"
         action = (action or "").lower()
+        if action in ("done", "complete"):  # 'done' kept for backwards compat
+            action = "complete"
         if action == "skip":
             if not task.deadline:
                 return "Error: Task has no deadline to shift"

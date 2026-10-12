@@ -1,5 +1,6 @@
 """Authentication endpoints: register and login."""
 from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 

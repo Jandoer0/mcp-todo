@@ -1,35 +1,38 @@
 """Task CRUD endpoints, scoped to the authenticated user."""
-from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..auth import get_current_user
-from ..board import DONE_LIST, PALETTE, list_colors, list_names, status_for_list
+from ..board import (  # noqa: F401
+    DONE_LIST,
+    PALETTE,
+    list_colors,
+    list_names,
+    status_for_list,
+)
 from ..db import get_db
-from ..models import Tag, Task, TaskCycleLog, TaskList, User, task_dependencies, task_tags
-from .tags import cleanup_orphan_tags  # noqa: F401
+from ..models import Task, TaskCycleLog, User
 from ..services import task_service
-from ..services.task_service import (  # noqa: F401  (re-exported helpers)
+from ..services.task_service import (  # noqa: F401  (re-exported helpers)  # noqa: F401
     CYCLE_PERIODS,
     TaskError,
     _attach_state,
     _attach_state_many,
+    _resolve_list,
     advance_deadline,
-    cleanup_orphan_tags as _svc_cleanup,
     compute_is_blocked,
     cycle_log,
     ensure_tags,
     get_blocker_ids,
     is_cycle_visible,
     regenerate_cycle,
+    repair_tag_colors,
     set_blockers,
+    tag_palette,
 )
-from ..services.task_service import tag_palette, repair_tag_colors  # noqa: F401
+from .tags import cleanup_orphan_tags
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -64,9 +67,11 @@ def bulk_update_tasks(
                 
                 # Resolve list and status
                 if "list" in update_fields:
-                    list_name = _resolve_list(db, update_fields["list"], current_user.id)
+                    list_name, list_status = _resolve_list(
+                        db, update_fields["list"], current_user.id
+                    )
                     update_fields["list"] = list_name
-                    update_fields["status"] = status_for_list(list_name)
+                    update_fields["status"] = list_status
                 
                 # Handle tags
                 tag_names = update_fields.pop("tags", None)
@@ -81,9 +86,9 @@ def bulk_update_tasks(
             else:
                 # Create new
                 data = task_data.copy()
-                list_name = _resolve_list(db, data.get("list"), current_user.id)
+                list_name, list_status = _resolve_list(db, data.get("list"), current_user.id)
                 data["list"] = list_name
-                data["status"] = status_for_list(list_name)
+                data["status"] = list_status
                 
                 tag_names = data.pop("tags", None)
                 data.pop("id", None)
@@ -108,8 +113,8 @@ def bulk_update_tasks(
 
 @router.get("", response_model=list[schemas.TaskResponse])
 def list_tasks(
-    status: Optional[str] = None,
-    list: Optional[str] = None,
+    status: str | None = None,
+    list: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -126,7 +131,7 @@ def create_task(
     try:
         db_task = task_service.create_task(db, current_user, task.model_dump())
     except TaskError as e:
-        raise HTTPException(status_code=400, detail=e.message)
+        raise HTTPException(status_code=400, detail=e.message) from None
     return _attach_state(db, db_task)
 
 
@@ -142,9 +147,9 @@ def update_task(
             db, current_user, task_id, task.model_dump(exclude_unset=True)
         )
     except LookupError:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found") from None
     except TaskError as e:
-        raise HTTPException(status_code=400, detail=e.message)
+        raise HTTPException(status_code=400, detail=e.message) from None
     return _attach_state(db, db_task)
 
 
@@ -157,7 +162,7 @@ def delete_task(
     try:
         task_service.delete_task(db, current_user, task_id)
     except LookupError:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found") from None
     return {"ok": True}
 
 

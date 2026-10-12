@@ -20,7 +20,6 @@ from .db import Base, SessionLocal, engine
 from .routers import admin, auth, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
-from .db import SessionLocal  # noqa: E402
 
 
 def run_migrations() -> None:
@@ -185,7 +184,7 @@ def migrate_legacy_tags(db) -> None:
     from sqlalchemy import text
 
     from .board import PALETTE, list_colors
-    from .models import Tag, Task, task_tags
+    from .models import Tag, task_tags
 
     rows = db.execute(
         text("SELECT id, tag, user_id FROM tasks WHERE tag IS NOT NULL AND tag <> ''")
@@ -278,7 +277,8 @@ run_migrations()
 
 # Remove orphan tags left by older versions (bulk updates used to skip cleanup).
 # Must run after run_migrations(): on old databases tags.user_id does not exist yet.
-from .routers.tags import cleanup_orphan_tags  # noqa: E402
+from .routers.tags import cleanup_orphan_tags
+
 with SessionLocal() as _db:
     cleanup_orphan_tags(_db)
 

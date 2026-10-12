@@ -8,7 +8,6 @@ from ..auth import get_current_user
 from ..board import (
     PALETTE,
     PROTECTED_LIST_NAMES,
-    list_colors,
     list_names,
     status_for_kind,
 )

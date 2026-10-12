@@ -1,13 +1,16 @@
-from pydantic import BaseModel, Field, computed_field, field_validator
-from typing import List, Optional, Dict, Any, Union
+import builtins
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field, computed_field, field_validator
+
 
 class UserResponse(BaseModel):
     id: int
     username: str
     role: str
     # Stored hashed token is never serialized; only expose whether one is set.
-    mcp_token_hash: Optional[str] = Field(default=None, exclude=True)
+    mcp_token_hash: str | None = Field(default=None, exclude=True)
 
     model_config = {"from_attributes": True, "extra": "ignore"}
 
@@ -19,7 +22,7 @@ class UserResponse(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: Optional[str] = "user"
+    role: str | None = "user"
 
 class Token(BaseModel):
     access_token: str
@@ -27,37 +30,37 @@ class Token(BaseModel):
 
 class TaskBase(BaseModel):
     title: str
-    description: Optional[str] = None
-    list: Optional[str] = "Входящие"
-    start_date: Optional[datetime] = None
-    deadline: Optional[datetime] = None
-    priority: Optional[int] = 1
-    tags: Optional[List[str]] = []
+    description: str | None = None
+    list: str | None = "Входящие"
+    start_date: datetime | None = None
+    deadline: datetime | None = None
+    priority: int | None = 1
+    tags: builtins.list[str] | None = []
     # Blocking tasks (ids of tasks that must be done before this one)
-    blocked_by: Optional[List[int]] = None
+    blocked_by: builtins.list[int] | None = None
     # Cyclic task settings
-    is_cyclic: Optional[bool] = False
-    cycle_period: Optional[str] = None  # daily | weekly | monthly | yearly
-    cycle_interval: Optional[int] = 1
-    reminder_days: Optional[int] = 0
+    is_cyclic: bool | None = False
+    cycle_period: str | None = None  # daily | weekly | monthly | yearly
+    cycle_interval: int | None = 1
+    reminder_days: int | None = 0
 
 class TaskCreate(TaskBase):
     pass
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    list: Optional[str] = None
-    start_date: Optional[datetime] = None
-    deadline: Optional[datetime] = None
-    priority: Optional[int] = None
-    tags: Optional[List[str]] = None
-    blocked_by: Optional[List[int]] = None
+    title: str | None = None
+    description: str | None = None
+    list: str | None = None
+    start_date: datetime | None = None
+    deadline: datetime | None = None
+    priority: int | None = None
+    tags: builtins.list[str] | None = None
+    blocked_by: builtins.list[int] | None = None
     # Cyclic task settings
-    is_cyclic: Optional[bool] = None
-    cycle_period: Optional[str] = None
-    cycle_interval: Optional[int] = None
-    reminder_days: Optional[int] = None
+    is_cyclic: bool | None = None
+    cycle_period: str | None = None
+    cycle_interval: int | None = None
+    reminder_days: int | None = None
 
 class TagResponse(BaseModel):
     id: int
@@ -72,49 +75,49 @@ class TaskListResponse(BaseModel):
     color: str
     position: int
     # Semantics of protected default lists: 'todo' | 'progress' | 'done'
-    kind: Optional[str] = None
+    kind: str | None = None
 
     model_config = {"from_attributes": True}
 
 class TaskListCreate(BaseModel):
     name: str
-    color: Optional[str] = None
-    position: Optional[int] = None
+    color: str | None = None
+    position: int | None = None
     # 'todo' | 'progress' | 'done' | None (regular list)
-    kind: Optional[str] = None
+    kind: str | None = None
 
 class TaskListUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-    position: Optional[int] = None
-    kind: Optional[str] = None
+    name: str | None = None
+    color: str | None = None
+    position: int | None = None
+    kind: str | None = None
 
 class TagCreate(BaseModel):
     name: str
     color: str
 
 class TagUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
+    name: str | None = None
+    color: str | None = None
 
 class TaskResponse(BaseModel):
     id: int
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     list: str
-    start_date: Optional[datetime] = None
-    deadline: Optional[datetime] = None
+    start_date: datetime | None = None
+    deadline: datetime | None = None
     priority: int
-    tags: List[str] = []
+    tags: list[str] = []
     created_at: datetime
-    blocked_by: List[int] = []
+    blocked_by: list[int] = []
     is_blocked: bool = False
     # Cyclic task info
     is_cyclic: bool = False
-    cycle_period: Optional[str] = None
-    cycle_interval: Optional[int] = 1
-    cycle_group_id: Optional[str] = None
-    reminder_days: Optional[int] = 0
+    cycle_period: str | None = None
+    cycle_interval: int | None = 1
+    cycle_group_id: str | None = None
+    reminder_days: int | None = 0
     cycle_dormant: bool = False  # cyclic task outside its reminder window
 
     model_config = {"from_attributes": True}
@@ -141,15 +144,15 @@ class CycleLogResponse(BaseModel):
     id: int
     task_title: str
     action: str
-    deadline: Optional[datetime] = None
+    deadline: datetime | None = None
     logged_at: datetime
 
     model_config = {"from_attributes": True}
 
 class TaskBulkUpdate(BaseModel):
-    tasks: List[Dict[str, Any]]
+    tasks: list[dict[str, Any]]
 
 class BulkUpdateResponse(BaseModel):
     updated: int
     created: int
-    errors: List[Dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
