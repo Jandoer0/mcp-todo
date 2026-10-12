@@ -69,6 +69,8 @@ class TaskListResponse(BaseModel):
     name: str
     color: str
     position: int
+    # Semantics of protected default lists: 'todo' | 'progress' | 'done'
+    kind: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
