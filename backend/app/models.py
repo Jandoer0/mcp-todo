@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -109,8 +110,14 @@ class Tag(Base):
     __tablename__ = "tags"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    # Tags are strictly per-user: the same name may exist for different users.
+    name = Column(String, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
     color = Column(String, default="#64748b")
+    __table_args__ = (
+        # Uniqueness of a tag name is scoped to its owner.
+        UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
+    )
 
 
 class Setting(Base):

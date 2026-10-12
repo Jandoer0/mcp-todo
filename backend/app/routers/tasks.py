@@ -73,30 +73,31 @@ def tag_palette(db) -> list:
     return [c for c in PALETTE if c not in used_by_lists]
 
 
-def _pick_tag_color(db) -> str:
+def _pick_tag_color(db, user_id: int) -> str:
     """Pick a color for a new tag: first unused one, otherwise cycle deterministically
     by the count of existing tags (colors repeat when the palette is exhausted)."""
     avail = tag_palette(db)
     if not avail:
         avail = list(PALETTE)
-    used = {t.color for t in db.query(Tag).all()}
+    used = {t.color for t in db.query(Tag).filter(Tag.user_id == user_id).all()}
     color = next((c for c in avail if c not in used), None)
     if color is None:
-        count = db.query(Tag).count()
+        count = db.query(Tag).filter(Tag.user_id == user_id).count()
         color = avail[count % len(avail)]
     return color
 
 
-def repair_tag_colors(db) -> int:
+def repair_tag_colors(db, user_id: int) -> int:
     """Reassign colors to tags that ended up with a color not allowed for tags
     (e.g. the gray fallback colliding with the 'Не начато' list color)."""
     avail = tag_palette(db)
     if not avail:
         avail = list(PALETTE)
     allowed = set(avail)
-    used = {t.color for t in db.query(Tag).all() if t.color in allowed}
+    tags = db.query(Tag).filter(Tag.user_id == user_id).all()
+    used = {t.color for t in tags if t.color in allowed}
     fixed = 0
-    for tag in db.query(Tag).all():
+    for tag in tags:
         if tag.color in allowed:
             continue
         color = next((c for c in avail if c not in used), None)
@@ -110,9 +111,10 @@ def repair_tag_colors(db) -> int:
     return fixed
 
 
-def ensure_tags(db: Session, names) -> list:
+def ensure_tags(db: Session, names, user_id: int) -> list:
     """Ensure Tag rows exist for each name (auto color, never colliding with
     list colors; colors repeat cyclically when the palette is exhausted).
+    Tags are scoped to the given user.
     Returns the list of Tag ORM objects."""
     if not names:
         return []
@@ -122,9 +124,13 @@ def ensure_tags(db: Session, names) -> list:
         name = (name or "").strip()
         if not name:
             continue
-        tag = db.query(Tag).filter(Tag.name == name).first()
+        tag = (
+            db.query(Tag)
+            .filter(Tag.name == name, Tag.user_id == user_id)
+            .first()
+        )
         if not tag:
-            tag = Tag(name=name, color=_pick_tag_color(db))
+            tag = Tag(name=name, color=_pick_tag_color(db, user_id), user_id=user_id)
             db.add(tag)
             db.commit()
             db.refresh(tag)
@@ -282,7 +288,7 @@ def bulk_update_tasks(
                     setattr(db_task, key, value)
                 
                 if tag_names is not None:
-                    db_task.tags = ensure_tags(db, tag_names)
+                    db_task.tags = ensure_tags(db, tag_names, current_user.id)
                 
                 db.commit()
                 updated += 1
@@ -296,7 +302,7 @@ def bulk_update_tasks(
                 tag_names = data.pop("tags", None)
                 db_task = Task(user_id=current_user.id, **data)
                 if tag_names is not None:
-                    db_task.tags = ensure_tags(db, tag_names)
+                    db_task.tags = ensure_tags(db, tag_names, current_user.id)
                 
                 db.add(db_task)
                 db.commit()
@@ -305,7 +311,7 @@ def bulk_update_tasks(
             errors.append({"index": i, "error": str(e)})
 
     # Tag sets may have been replaced above — drop tags left without tasks.
-    cleanup_orphan_tags(db)
+    cleanup_orphan_tags(db, current_user.id)
 
     return {"updated": updated, "created": created, "errors": errors}
 
@@ -352,7 +358,7 @@ def create_task(
         )
     db_task = Task(user_id=current_user.id, **data)
     if tag_names is not None:
-        db_task.tags = ensure_tags(db, tag_names)
+        db_task.tags = ensure_tags(db, tag_names, current_user.id)
     # A new cyclic task gets a fresh iteration-chain id.
     if db_task.is_cyclic:
         if db_task.cycle_period not in CYCLE_PERIODS:
@@ -411,8 +417,8 @@ def update_task(
         db_task.reminder_days = max(0, db_task.reminder_days or 0)
 
     if has_tags:
-        db_task.tags = ensure_tags(db, tag_names or [])
-        cleanup_orphan_tags(db)
+        db_task.tags = ensure_tags(db, tag_names or [], current_user.id)
+        cleanup_orphan_tags(db, current_user.id)
 
     # A task cannot be marked done (moved to "Готово") while still blocked.
     if db_task.status == "done":
@@ -476,7 +482,7 @@ def delete_task(
     else:
         db.delete(db_task)
     db.commit()
-    cleanup_orphan_tags(db)
+    cleanup_orphan_tags(db, current_user.id)
     return {"ok": True}
 
 

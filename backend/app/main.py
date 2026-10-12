@@ -20,11 +20,7 @@ from .db import Base, SessionLocal, engine
 from .routers import admin, auth, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
-# Remove orphan tags left by older versions (bulk updates used to skip cleanup).
 from .db import SessionLocal  # noqa: E402
-from .routers.tags import cleanup_orphan_tags  # noqa: E402
-with SessionLocal() as _db:
-    cleanup_orphan_tags(_db)
 
 
 def run_migrations() -> None:
@@ -69,6 +65,67 @@ def run_migrations() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN mcp_token_hash VARCHAR"))
             conn.commit()
 
+    # Per-user tags: add user_id to tags, backfill it from the owning task
+    # and rebuild the table if it still has a global UNIQUE(name) constraint.
+    if "tags" in existing_tables:
+        tag_cols = {c["name"] for c in inspector.get_columns("tags")}
+        with engine.connect() as conn:
+            needs_rebuild = "user_id" not in tag_cols
+            if needs_rebuild:
+                conn.execute(text("ALTER TABLE tags ADD COLUMN user_id INTEGER"))
+                conn.commit()
+            # Backfill user_id from any task carrying the tag.
+            conn.execute(
+                text(
+                    "UPDATE tags SET user_id = ("
+                    "  SELECT t.user_id FROM task_tags tt"
+                    "  JOIN tasks t ON t.id = tt.task_id"
+                    "  WHERE tt.tag_id = tags.id LIMIT 1)"
+                    " WHERE user_id IS NULL"
+                )
+            )
+            conn.commit()
+        # SQLite cannot drop a UNIQUE(name) constraint without a table rebuild.
+        # The old schema had a column-level UNIQUE, implemented via an unnamed
+        # auto-index invisible to the inspector — so whenever the migration
+        # added user_id, we rebuild unconditionally.
+        if needs_rebuild:
+            with engine.begin() as conn:
+                conn.execute(text("DROP TABLE IF EXISTS tags_new"))
+                conn.execute(
+                    text(
+                        "CREATE TABLE tags_new ("
+                        "id INTEGER PRIMARY KEY, "
+                        "name VARCHAR, "
+                        "user_id INTEGER REFERENCES users (id), "
+                        "color VARCHAR DEFAULT '#64748b')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tags_new (id, name, user_id, color) "
+                        "SELECT id, name, user_id, color FROM tags"
+                    )
+                )
+                conn.execute(text("DROP INDEX IF EXISTS ix_tags_name"))
+                conn.execute(text("DROP TABLE tags"))
+                conn.execute(text("ALTER TABLE tags_new RENAME TO tags"))
+                conn.execute(
+                    text("CREATE INDEX ix_tags_name ON tags (name)")
+                )
+                conn.execute(
+                    text("CREATE INDEX ix_tags_user_id ON tags (user_id)")
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX uq_tags_user_name "
+                        "ON tags (user_id, name)"
+                    )
+                )
+            # Drop tags left without an owner (orphans predating the migration).
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM tags WHERE user_id IS NULL"))
+
     db = SessionLocal()
     try:
         ensure_setting(db, "allow_registration", "true")
@@ -87,14 +144,21 @@ def migrate_legacy_tags(db) -> None:
     from .models import Tag, Task, task_tags
 
     rows = db.execute(
-        text("SELECT id, tag FROM tasks WHERE tag IS NOT NULL AND tag <> ''")
+        text("SELECT id, tag, user_id FROM tasks WHERE tag IS NOT NULL AND tag <> ''")
     ).fetchall()
-    for task_id, tag_name in rows:
-        tag = db.query(Tag).filter(Tag.name == tag_name).first()
+    for task_id, tag_name, task_user_id in rows:
+        tag = (
+            db.query(Tag)
+            .filter(Tag.name == tag_name, Tag.user_id == task_user_id)
+            .first()
+        )
         if not tag:
-            used = list_colors(db) | {t.color for t in db.query(Tag).all()}
+            used = list_colors(db) | {
+                t.color
+                for t in db.query(Tag).filter(Tag.user_id == task_user_id).all()
+            }
             color = next((c for c in PALETTE if c not in used), "#64748b")
-            tag = Tag(name=tag_name, color=color)
+            tag = Tag(name=tag_name, color=color, user_id=task_user_id)
             db.add(tag)
             db.commit()
             db.refresh(tag)
@@ -172,6 +236,12 @@ def ensure_admin(db) -> None:
 
 
 run_migrations()
+
+# Remove orphan tags left by older versions (bulk updates used to skip cleanup).
+# Must run after run_migrations(): on old databases tags.user_id does not exist yet.
+from .routers.tags import cleanup_orphan_tags  # noqa: E402
+with SessionLocal() as _db:
+    cleanup_orphan_tags(_db)
 
 # --- JSON API (mounted at /api) ---
 api = FastAPI(title="OmniTask API")

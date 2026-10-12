@@ -214,7 +214,7 @@ def create_task(
         db.commit()
         db.refresh(task)
         if t_tags:
-            task.tags = ensure_tags(db, t_tags)
+            task.tags = ensure_tags(db, t_tags, user.id)
             db.commit()
         if t_blocked:
             seen = set()
@@ -285,7 +285,7 @@ def update_task(
         if data.get("priority") is not None:
             task.priority = data.get("priority")
         if data.get("tags") is not None:
-            task.tags = ensure_tags(db, data.get("tags"))
+            task.tags = ensure_tags(db, data.get("tags"), user.id)
         if data.get("start_date") is not None:
             task.start_date = datetime.fromisoformat(data.get("start_date")) if data.get("start_date") else None
         if data.get("deadline") is not None:

@@ -11,12 +11,16 @@ from ..models import Tag, User
 router = APIRouter(prefix="/tags", tags=["tags"])
 
 
-def _tag_names(db: Session) -> set:
-    return {r[0] for r in db.query(Tag.name).all()}
+def _tag_names(db: Session, user_id: int) -> set:
+    return {
+        r[0]
+        for r in db.query(Tag.name).filter(Tag.user_id == user_id).all()
+    }
 
 
-def cleanup_orphan_tags(db: Session) -> int:
+def cleanup_orphan_tags(db: Session, user_id: int | None = None) -> int:
     """Delete tags that are not assigned to any task.
+    When user_id is given, only that user's tags are cleaned up.
     Returns the number of removed tags."""
     from ..models import task_tags
 
@@ -25,12 +29,14 @@ def cleanup_orphan_tags(db: Session) -> int:
     # orphan and gets deleted (the "tag appears only on the second save" bug).
     db.flush()
 
-    orphans = (
+    q = (
         db.query(Tag)
         .outerjoin(task_tags, Tag.id == task_tags.c.tag_id)
         .filter(task_tags.c.task_id.is_(None))
-        .all()
     )
+    if user_id is not None:
+        q = q.filter(Tag.user_id == user_id)
+    orphans = q.all()
     for tag in orphans:
         db.delete(tag)
     if orphans:
@@ -43,7 +49,7 @@ def get_tags(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Tag).order_by(Tag.name).all()
+    return db.query(Tag).filter(Tag.user_id == current_user.id).order_by(Tag.name).all()
 
 
 @router.post("", response_model=schemas.TagResponse, status_code=201)
@@ -55,7 +61,7 @@ def create_tag(
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Укажите название тега")
-    if name in _tag_names(db):
+    if name in _tag_names(db, current_user.id):
         raise HTTPException(status_code=400, detail="Тег с таким именем уже есть")
     if data.color not in PALETTE:
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
@@ -64,7 +70,7 @@ def create_tag(
             status_code=400,
             detail="Цвет тега не должен совпадать с цветом списка",
         )
-    tag = Tag(name=name, color=data.color)
+    tag = Tag(name=name, color=data.color, user_id=current_user.id)
     db.add(tag)
     db.commit()
     db.refresh(tag)
@@ -78,12 +84,16 @@ def update_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tag = db.get(Tag, tag_id)
+    tag = (
+        db.query(Tag)
+        .filter(Tag.id == tag_id, Tag.user_id == current_user.id)
+        .first()
+    )
     if not tag:
         raise HTTPException(status_code=404, detail="Тег не найден")
     if data.name is not None and data.name.strip():
         new = data.name.strip()
-        if new != tag.name and new in _tag_names(db):
+        if new != tag.name and new in _tag_names(db, current_user.id):
             raise HTTPException(status_code=400, detail="Имя тега занято")
         tag.name = new
     if data.color is not None:
@@ -106,7 +116,11 @@ def delete_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tag = db.get(Tag, tag_id)
+    tag = (
+        db.query(Tag)
+        .filter(Tag.id == tag_id, Tag.user_id == current_user.id)
+        .first()
+    )
     if not tag:
         raise HTTPException(status_code=404, detail="Тег не найден")
     # Detach the tag from tasks.
