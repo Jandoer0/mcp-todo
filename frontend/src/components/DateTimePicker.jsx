@@ -20,7 +20,8 @@ function formatLabel(value) {
   return `${d.split('-').reverse().join('.')} ${t}`
 }
 
-const PANEL_HEIGHT = 400 // approximate rendered height in px
+const PANEL_HEIGHT = 350 // approximate rendered height in px
+const PANEL_WIDTH = 286
 
 export default function DateTimePicker({ id, name, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false)
@@ -57,15 +58,8 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
     // Measure against the nearest scrollable ancestor, not the window.
     if (rootRef.current) {
       const rect = rootRef.current.getBoundingClientRect()
-      let box = { bottom: window.innerHeight, top: 0 }
-      let el = rootRef.current.parentElement
-      while (el) {
-        const st = getComputedStyle(el)
-        if (/(auto|scroll)/.test(st.overflowY)) { box = el.getBoundingClientRect(); break }
-        el = el.parentElement
-      }
-      const below = box.bottom - rect.bottom
-      const above = rect.top - box.top
+      const below = window.innerHeight - rect.bottom
+      const above = rect.top
       setDropUp(below < PANEL_HEIGHT && above > below)
     }
     setOpen(true)
@@ -141,9 +135,19 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
 
       {open && (
         <div
-          className={`absolute z-50 p-3 bg-white border border-slate-300 rounded-lg shadow-xl w-[286px] ${
-            dropUp ? 'bottom-full mb-1' : 'mt-1'
-          }`}
+          className="fixed z-50 p-3 bg-white border border-slate-300 rounded-lg shadow-xl"
+          style={
+            rootRef.current
+            ? (() => {
+                const r = rootRef.current.getBoundingClientRect()
+                const left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8))
+                const top = dropUp
+                  ? Math.max(8, r.top - PANEL_HEIGHT - 4)
+                  : Math.min(r.bottom + 4, window.innerHeight - PANEL_HEIGHT - 8)
+                return { top, left, width: PANEL_WIDTH }
+              })()
+            : undefined
+          }
           role="dialog"
           aria-label="Выбор даты и времени"
         >
