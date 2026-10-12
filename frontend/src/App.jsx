@@ -218,6 +218,14 @@ export default function App() {
               {FILTERS.find((f) => f.id === activeFilter)?.label || 'Фильтры'}
               <span className={`text-[10px] transition-transform ${filterMenuOpen ? 'rotate-180' : ''}`}>▼</span>
             </button>
+            {/* Full-screen invisible overlay: closes the menu on any tap
+                outside of it and blocks the dashboard underneath. */}
+            {filterMenuOpen && (
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setFilterMenuOpen(false)}
+              />
+            )}
             {filterMenuOpen && (
               <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded shadow-lg py-1 min-w-[12rem]">
                 {FILTERS.map((f) => (
