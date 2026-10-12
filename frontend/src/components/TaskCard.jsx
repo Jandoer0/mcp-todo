@@ -11,14 +11,20 @@ function formatDate(value) {
   return d.toLocaleDateString('ru-RU', opts)
 }
 
-// Date rendered as a tag-like chip (see the mock-up): gray by default, red when overdue.
-function DateChip({ value, overdue = false }) {
+// Date rendered as a tag-like chip: gray when the day hasn't come yet,
+// orange when it is today, red when the date has passed.
+function DateChip({ value }) {
   if (!value) return null
+  const day = (v) => {
+    const d = new Date(v)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  const diff = day(value).getTime() - day(new Date()).getTime()
+  const bg = diff > 0 ? 'bg-slate-400' : diff === 0 ? 'bg-orange-500' : 'bg-red-500'
   return (
     <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${
-        overdue ? 'bg-red-500' : 'bg-slate-400'
-      }`}
+      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${bg}`}
     >
       {formatDate(value)}
     </span>
@@ -287,7 +293,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             <DateChip value={task.start_date} />
           </div>
           <div className="min-w-0 flex justify-end">
-            <DateChip value={task.deadline} overdue={overdue} />
+            <DateChip value={task.deadline} />
           </div>
         </div>
 
