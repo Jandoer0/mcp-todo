@@ -12,6 +12,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
+from ..clock import utcnow
 from ..board import PALETTE, list_colors, list_names, status_for_kind
 from ..models import (
     Tag,
@@ -351,7 +352,7 @@ def list_tasks(
         query = query.filter(Task.list == list_name)
     tasks = query.all()
     _attach_state_many(db, tasks)
-    now = datetime.utcnow()
+    now = utcnow()
     for t in tasks:
         t.cycle_dormant = not is_cycle_visible(t, now)
     return tasks
@@ -476,7 +477,7 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
 def count_tasks(db: Session, user: User) -> dict:
     """Lightweight counters for MCP get_project_summary."""
     uid = user.id
-    now = datetime.utcnow()
+    now = utcnow()
     return {
         "total": db.query(Task).filter(Task.user_id == uid).count(),
         "todo": db.query(Task).filter(Task.user_id == uid, Task.status == "todo").count(),

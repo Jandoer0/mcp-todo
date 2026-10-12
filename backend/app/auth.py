@@ -1,7 +1,8 @@
 """Authentication: password hashing, JWT creation/validation, dependencies."""
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.clock import utcnow
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -29,7 +30,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = utcnow() + (
         expires_delta or timedelta(minutes=settings["ACCESS_TOKEN_EXPIRE_MINUTES"])
     )
     to_encode.update({"exp": expire})

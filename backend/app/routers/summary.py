@@ -1,5 +1,6 @@
 """Task summary statistics for the authenticated user."""
-from datetime import datetime, timedelta
+from datetime import timedelta
+from ..clock import utcnow
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -21,7 +22,7 @@ def get_summary(
 
     # Dormant cyclic tasks (outside their reminder window) are excluded from
     # the headline statistics — they are only counted in 'planned'.
-    now = datetime.utcnow()
+    now = utcnow()
     dormant_ids = set()
     for t in db.query(Task).filter(
         Task.user_id == uid,

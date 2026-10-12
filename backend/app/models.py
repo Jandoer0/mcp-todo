@@ -1,5 +1,5 @@
 """SQLAlchemy ORM models."""
-from datetime import datetime
+from app.clock import utcnow
 
 from sqlalchemy import (
     Boolean,
@@ -60,7 +60,7 @@ class Task(Base):
     status = Column(String, default="todo")  # todo | in_progress | done
     tag = Column(String, nullable=True)  # legacy single-tag column (unused)
     list = Column(String, default="Входящие")  # задел под Канбан-доску
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     # Cyclic task support: a repeating task regenerates itself on completion.
     is_cyclic = Column(Boolean, default=False)
@@ -89,7 +89,7 @@ class TaskCycleLog(Base):
     task_title = Column(String)
     action = Column(String)  # completed | stopped
     deadline = Column(DateTime, nullable=True)  # deadline of that iteration
-    logged_at = Column(DateTime, default=datetime.utcnow)
+    logged_at = Column(DateTime, default=utcnow)
 
 
 class TaskList(Base):
