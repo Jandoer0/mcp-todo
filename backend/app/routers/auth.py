@@ -36,6 +36,10 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    # Lists are per-user: give the newcomer their protected default lists.
+    from ..board import ensure_default_lists
+
+    ensure_default_lists(db, db_user.id)
     return db_user
 
 

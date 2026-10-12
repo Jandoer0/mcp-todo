@@ -93,17 +93,23 @@ class TaskCycleLog(Base):
 
 
 class TaskList(Base):
-    """A board column. The task's `list` field stores the list name."""
+    """A board column. The task's `list` field stores the list name.
+    Lists are strictly per-user; the same name may exist for different users."""
 
     __tablename__ = "task_lists"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
     color = Column(String, default="#64748b")
     position = Column(Integer, default=0)
     is_default = Column(Boolean, default=False)
     # 'done' | 'progress' | 'todo' — semantics of the protected default lists
     kind = Column(String, nullable=True)
+    __table_args__ = (
+        # Uniqueness of a list name is scoped to its owner.
+        UniqueConstraint("user_id", "name", name="uq_task_lists_user_name"),
+    )
 
 
 class Tag(Base):

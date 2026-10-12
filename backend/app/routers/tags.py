@@ -65,7 +65,7 @@ def create_tag(
         raise HTTPException(status_code=400, detail="Тег с таким именем уже есть")
     if data.color not in PALETTE:
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
-    if data.color in list_colors(db):
+    if data.color in list_colors(db, current_user.id):
         raise HTTPException(
             status_code=400,
             detail="Цвет тега не должен совпадать с цветом списка",
@@ -99,7 +99,7 @@ def update_tag(
     if data.color is not None:
         if data.color not in PALETTE:
             raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
-        if data.color in list_colors(db):
+        if data.color in list_colors(db, current_user.id):
             raise HTTPException(
                 status_code=400,
                 detail="Цвет тега не должен совпадать с цветом списка",

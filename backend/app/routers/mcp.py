@@ -80,7 +80,7 @@ def list_all_lists(auth_token: str) -> str:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        names = list_names(db)
+        names = list_names(db, user.id)
         mapping = {name: status_for_list(name) for name in names}
         lists_str = "\n".join([f"- {name} (status: {status})" for name, status in mapping.items()])
         return f"Available lists:\n{lists_str}"
@@ -190,7 +190,7 @@ def create_task(
     db = _session()
     try:
         from ..board import list_names, status_for_list
-        valid_lists = list_names(db)
+        valid_lists = list_names(db, user.id)
         if t_list not in valid_lists:
             t_list = "Не начато"
         
@@ -293,7 +293,7 @@ def update_task(
         if data.get("list") is not None:
             from ..board import status_for_list, list_names
             new_list = data.get("list")
-            if new_list in list_names(db):
+            if new_list in list_names(db, user.id):
                 task.list = new_list
                 task.status = status_for_list(new_list)
         if data.get("is_cyclic") is not None:
@@ -333,7 +333,6 @@ def update_task(
         db.commit()
         # Cyclic completion via MCP: log the iteration and spawn the next one.
         if task.is_cyclic and task.status == "done":
-            from ..board import _resolve_list
             next_task = regenerate_cycle(db, task)
             return f"Cycle iteration completed. Next iteration created with ID {next_task.id}, deadline {next_task.deadline}"
         return f"Task {task.id} updated"

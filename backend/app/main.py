@@ -126,6 +126,50 @@ def run_migrations() -> None:
             with engine.begin() as conn:
                 conn.execute(text("DELETE FROM tags WHERE user_id IS NULL"))
 
+    # Per-user board lists: task_lists historically was a global table with a
+    # UNIQUE(name) constraint. Add user_id, copy each existing list for every
+    # user and rebuild the table to drop the global uniqueness.
+    if "task_lists" in existing_tables:
+        tl_cols = {c["name"] for c in inspector.get_columns("task_lists")}
+        if "user_id" not in tl_cols:
+            with engine.begin() as conn:
+                conn.execute(text("DROP TABLE IF EXISTS task_lists_new"))
+                conn.execute(
+                    text(
+                        "CREATE TABLE task_lists_new ("
+                        "id INTEGER PRIMARY KEY, "
+                        "name VARCHAR, "
+                        "user_id INTEGER REFERENCES users (id), "
+                        "color VARCHAR DEFAULT '#64748b', "
+                        "position INTEGER DEFAULT 0, "
+                        "is_default BOOLEAN DEFAULT 0, "
+                        "kind VARCHAR)"
+                    )
+                )
+                # Copy every global list for every user.
+                conn.execute(
+                    text(
+                        "INSERT INTO task_lists_new (name, user_id, color, position, is_default, kind) "
+                        "SELECT l.name, u.id, l.color, l.position, l.is_default, l.kind "
+                        "FROM task_lists l CROSS JOIN users u"
+                    )
+                )
+                conn.execute(text("DROP INDEX IF EXISTS ix_task_lists_name"))
+                conn.execute(text("DROP TABLE task_lists"))
+                conn.execute(text("ALTER TABLE task_lists_new RENAME TO task_lists"))
+                conn.execute(
+                    text("CREATE INDEX ix_task_lists_name ON task_lists (name)")
+                )
+                conn.execute(
+                    text("CREATE INDEX ix_task_lists_user_id ON task_lists (user_id)")
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX uq_task_lists_user_name "
+                        "ON task_lists (user_id, name)"
+                    )
+                )
+
     db = SessionLocal()
     try:
         ensure_setting(db, "allow_registration", "true")
@@ -153,7 +197,7 @@ def migrate_legacy_tags(db) -> None:
             .first()
         )
         if not tag:
-            used = list_colors(db) | {
+            used = list_colors(db, task_user_id) | {
                 t.color
                 for t in db.query(Tag).filter(Tag.user_id == task_user_id).all()
             }
@@ -172,28 +216,23 @@ def migrate_legacy_tags(db) -> None:
 
 
 def seed_lists(db) -> None:
-    """Create the protected default board lists on first run."""
-    from .board import DEFAULT_LISTS, status_for_list
-    from .models import Task, TaskList
+    """Ensure every user has their own protected default board lists, and
+    backfill tasks whose list does not reference one of the owner's lists."""
+    from .board import ensure_default_lists, status_for_list
+    from .models import Task, TaskList, User
 
-    existing = {l.name for l in db.query(TaskList.name).all()}
-    for spec in DEFAULT_LISTS:
-        if spec["name"] not in existing:
-            db.add(
-                TaskList(
-                    name=spec["name"],
-                    color=spec["color"],
-                    position=spec["position"],
-                    is_default=True,
-                    kind=spec["kind"],
-                )
-            )
-    db.commit()
-    # Backfill tasks whose list does not reference an existing list, and
-    # keep status consistent with the (new) list.
-    valid = {l.name for l in db.query(TaskList.name).all()}
+    for user in db.query(User).all():
+        ensure_default_lists(db, user.id)
+
+    # Backfill tasks whose list does not reference one of the owner's lists,
+    # and keep status consistent with the (new) list.
     for task in db.query(Task).all():
-        if task.list not in valid:
+        owned = (
+            db.query(TaskList)
+            .filter(TaskList.user_id == task.user_id, TaskList.name == task.list)
+            .first()
+        )
+        if not owned:
             task.list = "Не начато"
         task.status = status_for_list(task.list)
     db.commit()

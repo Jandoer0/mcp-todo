@@ -22,7 +22,12 @@ def get_lists(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(TaskList).order_by(TaskList.position).all()
+    return (
+        db.query(TaskList)
+        .filter(TaskList.user_id == current_user.id)
+        .order_by(TaskList.position)
+        .all()
+    )
 
 
 @router.post("", response_model=schemas.TaskListResponse, status_code=201)
@@ -39,14 +44,20 @@ def create_list(
             status_code=400,
             detail="Нельзя создать список с зарезервированным именем",
         )
-    if name in list_names(db):
+    if name in list_names(db, current_user.id):
         raise HTTPException(status_code=400, detail="Список с таким именем уже есть")
     if data.color not in PALETTE:
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
     pos = data.position
     if pos is None:
         pos = (db.query(func.max(TaskList.position)).scalar() or 0) + 1
-    lst = TaskList(name=name, color=data.color, position=pos, is_default=False)
+    lst = TaskList(
+        name=name,
+        color=data.color,
+        position=pos,
+        is_default=False,
+        user_id=current_user.id,
+    )
     db.add(lst)
     db.commit()
     db.refresh(lst)
@@ -60,7 +71,11 @@ def update_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    lst = db.get(TaskList, list_id)
+    lst = (
+        db.query(TaskList)
+        .filter(TaskList.id == list_id, TaskList.user_id == current_user.id)
+        .first()
+    )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
 
@@ -72,9 +87,16 @@ def update_list(
             )
     elif data.name is not None and data.name.strip():
         new = data.name.strip()
-        if new != lst.name and (new in PROTECTED_LIST_NAMES or new in list_names(db)):
+        if new != lst.name and (
+            new in PROTECTED_LIST_NAMES or new in list_names(db, current_user.id)
+        ):
             raise HTTPException(status_code=400, detail="Имя списка занято")
+        old = lst.name
         lst.name = new
+        # Keep the owner's tasks pointing at the renamed list.
+        db.query(Task).filter(
+            Task.list == old, Task.user_id == current_user.id
+        ).update({Task.list: new}, synchronize_session=False)
 
     if data.color is not None:
         if data.color not in PALETTE:
@@ -94,15 +116,21 @@ def delete_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    lst = db.get(TaskList, list_id)
+    lst = (
+        db.query(TaskList)
+        .filter(TaskList.id == list_id, TaskList.user_id == current_user.id)
+        .first()
+    )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
     if lst.is_default:
         raise HTTPException(
             status_code=400, detail="Зарезервированный список нельзя удалить"
         )
-    # Reassign affected tasks to the default "not started" list.
-    db.query(Task).filter(Task.list == lst.name).update(
+    # Reassign only the owner's tasks to the default "not started" list.
+    db.query(Task).filter(
+        Task.list == lst.name, Task.user_id == current_user.id
+    ).update(
         {Task.list: "Не начато"}, synchronize_session=False
     )
     db.delete(lst)

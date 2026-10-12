@@ -51,6 +51,10 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    # Lists are per-user: seed the protected defaults for the new account.
+    from ..board import ensure_default_lists
+
+    ensure_default_lists(db, user.id)
     return user
 
 @router.put("/users/{user_id}")

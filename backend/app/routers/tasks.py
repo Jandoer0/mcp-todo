@@ -66,17 +66,18 @@ def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int) -> None:
         )
 
 
-def tag_palette(db) -> list:
-    """Colors available for tags: the full PALETTE minus colors taken by lists.
-    Per AGENTS.md there are 18 presets; when they run out, colors repeat."""
-    used_by_lists = list_colors(db)
+def tag_palette(db, user_id: int) -> list:
+    """Colors available for tags: the full PALETTE minus colors taken by the
+    user's own lists. Per AGENTS.md there are 18 presets; when they run out,
+    colors repeat."""
+    used_by_lists = list_colors(db, user_id)
     return [c for c in PALETTE if c not in used_by_lists]
 
 
 def _pick_tag_color(db, user_id: int) -> str:
     """Pick a color for a new tag: first unused one, otherwise cycle deterministically
     by the count of existing tags (colors repeat when the palette is exhausted)."""
-    avail = tag_palette(db)
+    avail = tag_palette(db, user_id)
     if not avail:
         avail = list(PALETTE)
     used = {t.color for t in db.query(Tag).filter(Tag.user_id == user_id).all()}
@@ -90,7 +91,7 @@ def _pick_tag_color(db, user_id: int) -> str:
 def repair_tag_colors(db, user_id: int) -> int:
     """Reassign colors to tags that ended up with a color not allowed for tags
     (e.g. the gray fallback colliding with the 'Не начато' list color)."""
-    avail = tag_palette(db)
+    avail = tag_palette(db, user_id)
     if not avail:
         avail = list(PALETTE)
     allowed = set(avail)
@@ -153,9 +154,10 @@ def _attach_state(db: Session, task: Task) -> Task:
     return task
 
 
-def _resolve_list(db: Session, name: Optional[str]) -> str:
-    """Return a valid list name, falling back to the default 'not started' list."""
-    if name and name in list_names(db):
+def _resolve_list(db: Session, name: Optional[str], user_id: int) -> str:
+    """Return one of the user's list names, falling back to the default
+    'not started' list."""
+    if name and name in list_names(db, user_id):
         return name
     return "Не начато"
 
@@ -216,7 +218,7 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
         deadline=next_deadline,
         start_date=task.start_date,
         status="todo",
-        list=_resolve_list(db, "Не начато"),
+        list=_resolve_list(db, "Не начато", task.user_id),
         is_cyclic=True,
         cycle_period=task.cycle_period,
         cycle_interval=task.cycle_interval,
@@ -282,7 +284,7 @@ def bulk_update_tasks(
                 
                 # Resolve list and status
                 if "list" in update_fields:
-                    list_name = _resolve_list(db, update_fields["list"])
+                    list_name = _resolve_list(db, update_fields["list"], current_user.id)
                     update_fields["list"] = list_name
                     update_fields["status"] = status_for_list(list_name)
                 
@@ -299,7 +301,7 @@ def bulk_update_tasks(
             else:
                 # Create new
                 data = task_data.copy()
-                list_name = _resolve_list(db, data.get("list"))
+                list_name = _resolve_list(db, data.get("list"), current_user.id)
                 data["list"] = list_name
                 data["status"] = status_for_list(list_name)
                 
@@ -353,7 +355,7 @@ def create_task(
     data = task.model_dump()
     blocked_by = data.pop("blocked_by", None)
     tag_names = data.pop("tags", None)
-    list_name = _resolve_list(db, data.get("list"))
+    list_name = _resolve_list(db, data.get("list"), current_user.id)
     data["list"] = list_name
     data["status"] = status_for_list(list_name)
     # A task cannot be created already "Готово" while still blocked.
@@ -406,7 +408,7 @@ def update_task(
 
     # Resolve the new list name (if provided) and derive the resulting status.
     if "list" in update_data:
-        list_name = _resolve_list(db, update_data["list"])
+        list_name = _resolve_list(db, update_data["list"], current_user.id)
         update_data["list"] = list_name
         update_data["status"] = status_for_list(list_name)
 
