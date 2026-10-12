@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 
@@ -105,14 +105,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const suppressClickRef = useRef(false) // swallow the click right after a horizontal drag
   const [dragX, setDragX] = useState(0)
   const [dragging, setDragging] = useState(false)
-  // Measured width of the hint label so the reveal window stops exactly at
-  // the label size (but never below the swipe threshold, never above MAX_DRAG).
-  const hintRef = useRef(null)
-  const [hintW, setHintW] = useState(0)
-  const dragLimit = Math.min(
-    MAX_DRAG,
-    Math.max(hintW + 24, SWIPE_THRESHOLD + 8)
-  )
+  // Hard cap on the drag offset (fits even long list names, truncated label).
+  const dragLimit = MAX_DRAG
 
   const swipeTarget = (dx, limit = MAX_DRAG) => {
     if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: prevList, del: isFirst }
@@ -212,58 +206,50 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         : null
 
   // Measure after `hint` is computed (declared above).
-  useLayoutEffect(() => {
-    setHintW(hintRef.current ? hintRef.current.offsetWidth : 0)
-  }, [hint])
 
   const overdue = task.deadline && new Date(task.deadline) < new Date()
 
   return (
-    <div className={`relative bg-white rounded-md shadow-sm overflow-hidden ${
-      task.cycle_dormant || isDone ? 'opacity-60' : ''
-    }`}>
-      {/* Static underlay revealed by the sliding card: the strip sits at the
-          card's trailing edge, the label is anchored to the OUTER edge (it
-          does not travel with the card) — so the card reads as a sheet being
-          pulled off a fixed target-list zone. */}
-      {Math.abs(dragX) > 0 && (
+    <div className={`relative ${task.cycle_dormant || isDone ? 'opacity-60' : ''}`}>
+      {/* Static underlay ON THE DASHBOARD BACKGROUND, revealed by the sliding
+          card: a rounded tinted area with the target-list label anchored to
+          the outer edge. The label text flashes (white, pulsing) once the
+          swipe passes the action threshold. */}
+      {Math.abs(dragX) > 0 && hint && (
         <div
-          className="absolute inset-y-0 overflow-hidden"
+          className="absolute inset-y-0 flex items-center rounded-md"
           style={{
-            width: Math.min(Math.abs(dragX), dragLimit),
+            width: Math.min(Math.abs(dragX) + 8, dragLimit + 8),
             [dragX > 0 ? 'left' : 'right']: 0,
-            backgroundColor: hint ? (hint.del ? '#fef2f2' : `${hint.color}26`) : 'transparent',
+            backgroundColor: hint.del ? '#f8717133' : `${hint.color}33`,
           }}
         >
-          {hint && (
-            <div
-              className={`absolute inset-y-0 flex items-center ${
-                dragX > 0 ? 'left-0 pl-3' : 'right-0 pr-3'
-              }`}
-            >
-              {hint.del ? (
-                <span ref={hintRef} className="text-red-500">
-                  <Trash />
-                </span>
-              ) : (
-                <span
-                  ref={hintRef}
-                  className="text-sm font-semibold whitespace-nowrap max-w-[110px] truncate px-1.5 py-0.5 rounded"
-                  style={
-                    hint.committed
-                      ? { backgroundColor: hint.color || '#2563eb', color: '#fff' }
-                      : { color: hint.color || '#2563eb', backgroundColor: `${hint.color}26` }
-                  }
-                >
-                  {hint.text}
-                </span>
-              )}
-            </div>
-          )}
+          <div
+            className={`absolute inset-y-0 flex items-center ${
+              dragX > 0 ? 'left-0 pl-3' : 'right-0 pr-3'
+            }`}
+          >
+            {hint.del ? (
+              <span className="text-red-400">
+                <Trash />
+              </span>
+            ) : (
+              <span
+                className={`text-sm font-semibold whitespace-nowrap truncate ${
+                  hint.committed ? 'text-white animate-pulse' : ''
+                }`}
+                style={hint.committed ? {} : { color: hint.color }}
+              >
+                {hint.text}
+              </span>
+            )
+            }
+          </div>
         </div>
       )}
 
-      {/* Card body: draggable horizontally; tap opens the editor */}
+      {/* Card body: the white rounded sheet itself slides off the underlay;
+          tap opens the editor */}
       <div
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -278,7 +264,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           if (!dragging && Math.abs(dragX) < CLICK_SLOP) onEdit(task)
         }}
         style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
-        className={`relative flex-1 min-w-0 py-2 px-2 bg-white ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
+        className={`relative bg-white rounded-md shadow-sm overflow-hidden py-2 px-2 ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
       >
         {/* Line 1: title, bold, single line */}
         <div
