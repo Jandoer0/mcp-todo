@@ -64,7 +64,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
   // `fixed` positioning breaks and the dialog does not cover the dashboard.
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center sm:p-4 ${
+      className={`fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-start sm:pt-[6vh] justify-center sm:p-4 ${
         closing ? 'modal-overlay-out' : 'modal-overlay-in'
       }`}
       onMouseDown={(e) => {
