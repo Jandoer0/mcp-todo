@@ -54,6 +54,7 @@ export const adminApi = {
   updateUser: (id, data) => api.put(`${API_URL}/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`${API_URL}/admin/users/${id}`),
   getSettings: () => api.get(`${API_URL}/admin/settings`),
+  getStats: () => api.get(`${API_URL}/admin/stats`),
   setRegistration: (enabled) =>
     api.put(`${API_URL}/admin/settings/allow_registration?enabled=${enabled}`),
   mcpToken: {
@@ -67,6 +68,8 @@ export const adminApi = {
     remove: (id) => api.delete(`${API_URL}/admin/webhooks/${id}`),
     test: (id) => api.post(`${API_URL}/admin/webhooks/${id}/test`),
   },
+  setDbSizeLimit: (mb) =>
+    api.put(`${API_URL}/admin/settings/db_size_limit_mb?limit_mb=${mb}`),
   userBoards: (userId) => api.get(`${API_URL}/admin/users/${userId}/boards`),
 }
 

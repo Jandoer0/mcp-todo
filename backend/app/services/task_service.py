@@ -390,6 +390,11 @@ def list_tasks(
 
 
 def create_task(db: Session, user: User, data: dict) -> Task:
+    from . import server_stats
+
+    if server_stats.db_size_exceeded(db):
+        raise TaskError(server_stats.quota_error_message())
+
     data = {k: v for k, v in data.items() if k not in _PROTECTED_FIELDS}
     blocked_by = data.pop("blocked_by", None)
     tag_names = data.pop("tags", None)

@@ -12,6 +12,7 @@ from ..auth import (
 from ..db import get_db
 from ..models import User, Webhook
 from ..services.notification_service import EVENTS
+from ..services import server_stats as server_stats_service
 from ..site_settings import get_bool, set_setting
 
 router = APIRouter(
@@ -23,13 +24,32 @@ router = APIRouter(
 
 @router.get("/settings", response_model=schemas.SettingsResponse)
 def get_settings(db: Session = Depends(get_db)):
-    return {"allow_registration": get_bool(db, "allow_registration", True)}
+    return {
+        "allow_registration": get_bool(db, "allow_registration", True),
+        "db_size_limit_mb": server_stats_service.get_db_size_limit_mb(db),
+    }
 
 
 @router.put("/settings/allow_registration", response_model=schemas.SettingsResponse)
 def set_registration(enabled: bool, db: Session = Depends(get_db)):
     set_setting(db, "allow_registration", "true" if enabled else "false")
-    return {"allow_registration": enabled}
+    return {
+        "allow_registration": enabled,
+        "db_size_limit_mb": server_stats_service.get_db_size_limit_mb(db),
+    }
+
+
+@router.put("/settings/db_size_limit_mb", response_model=schemas.SettingsResponse)
+def set_db_size_limit(limit_mb: int, db: Session = Depends(get_db)):
+    return {
+        "allow_registration": get_bool(db, "allow_registration", True),
+        "db_size_limit_mb": server_stats_service.set_db_size_limit_mb(db, limit_mb),
+    }
+
+
+@router.get("/stats", response_model=schemas.ServerStatsResponse)
+def get_stats(db: Session = Depends(get_db)):
+    return server_stats_service.get_server_stats(db)
 
 
 @router.get("/users", response_model=list[schemas.UserResponse])

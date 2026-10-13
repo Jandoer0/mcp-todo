@@ -10,6 +10,7 @@ from ..config import settings
 from ..db import get_db
 from ..models import User
 from ..site_settings import get_bool
+from ..services import server_stats
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -35,6 +36,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         )
     if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already registered")
+    if server_stats.db_size_exceeded(db):
+        raise HTTPException(status_code=403, detail=server_stats.quota_error_message())
     db_user = User(
         username=user.username,
         hashed_password=get_password_hash(user.password),

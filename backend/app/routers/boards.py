@@ -44,6 +44,10 @@ def create_board(
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Укажите название доски")
+    from ..services import server_stats
+
+    if server_stats.db_size_exceeded(db):
+        raise HTTPException(status_code=400, detail=server_stats.quota_error_message())
     if len(name) > MAX_NAME_LEN:
         raise HTTPException(
             status_code=400, detail=f"Название доски не длиннее {MAX_NAME_LEN} символов"

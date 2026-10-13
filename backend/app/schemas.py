@@ -162,6 +162,16 @@ class SummaryResponse(BaseModel):
 
 class SettingsResponse(BaseModel):
     allow_registration: bool
+    db_size_limit_mb: int = 0
+
+
+class ServerStatsResponse(BaseModel):
+    db: int
+    wal: int
+    total: int
+    db_size_limit_mb: int
+    uptime_seconds: int
+    counts: dict[str, int]
 
 class TaskChangeLogResponse(BaseModel):
     id: int
