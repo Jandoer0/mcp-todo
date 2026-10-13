@@ -10,7 +10,8 @@ from ..auth import (
     hash_mcp_token,
 )
 from ..db import get_db
-from ..models import User
+from ..models import User, Webhook
+from ..services.notification_service import EVENTS
 from ..site_settings import get_bool, set_setting
 
 router = APIRouter(
@@ -95,6 +96,70 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
+    db.commit()
+    return {"ok": True}
+
+
+# --- Webhooks ---
+
+
+def _validate_events(events: list[str], excluded: list[str]) -> None:
+    unknown = [e for e in (*events, *excluded) if e not in EVENTS]
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неизвестные события: {', '.join(unknown)}",
+        )
+
+
+@router.get("/webhooks", response_model=list[schemas.WebhookResponse])
+def list_webhooks(user_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(Webhook)
+    if user_id is not None:
+        query = query.filter(Webhook.user_id == user_id)
+    return query.order_by(Webhook.id).all()
+
+
+@router.post("/webhooks", response_model=schemas.WebhookResponse, status_code=status.HTTP_201_CREATED)
+def create_webhook(data: schemas.WebhookCreate, db: Session = Depends(get_db)):
+    if not db.query(User).filter(User.id == data.user_id).first():
+        raise HTTPException(status_code=404, detail="User not found")
+    _validate_events(data.events, data.excluded_events)
+    webhook = Webhook(**data.model_dump())
+    db.add(webhook)
+    db.commit()
+    db.refresh(webhook)
+    return webhook
+
+
+@router.put("/webhooks/{webhook_id}", response_model=schemas.WebhookResponse)
+def update_webhook(
+    webhook_id: int,
+    data: schemas.WebhookUpdate,
+    db: Session = Depends(get_db),
+):
+    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    payload = data.model_dump(exclude_unset=True)
+    if "events" in payload or "excluded_events" in payload:
+        _validate_events(
+            payload.get("events", webhook.events or []),
+            payload.get("excluded_events", webhook.excluded_events or []),
+        )
+    for key, value in payload.items():
+        setattr(webhook, key, value)
+    db.commit()
+    db.refresh(webhook)
+    return webhook
+
+
+@router.delete("/webhooks/{webhook_id}")
+def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    db.delete(webhook)
     db.commit()
     return {"ok": True}
 

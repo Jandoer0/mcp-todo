@@ -24,6 +24,7 @@ from ..models import (
     task_tags,
 )
 from ..routers.tags import cleanup_orphan_tags
+from . import notification_service
 
 _PROTECTED_FIELDS = {"id", "user_id", "auth_token"}  # never settable via payload
 
@@ -383,6 +384,8 @@ def create_task(db: Session, user: User, data: dict) -> Task:
         set_blockers(db, task.id, blocked_by, user.id)
         db.commit()
         db.refresh(task)
+
+    notification_service.dispatch_event(db, user.id, task, "task_created")
     return task
 
 
@@ -394,6 +397,9 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     )
     if not task:
         raise LookupError("Task not found")
+
+    old_priority = task.priority
+    old_status = task.status
 
     data = {k: v for k, v in data.items() if k not in _PROTECTED_FIELDS}
     has_blocked_by = "blocked_by" in data
@@ -433,6 +439,20 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
         db.commit()
     db.refresh(task)
 
+    # Webhook events (before the cyclic regeneration below, which deletes
+    # the current iteration and would detach the object).
+    if task.is_cyclic and task.status == "done":
+        notification_service.dispatch_event(db, user.id, task, "task_completed")
+    else:
+        if task.status == "done" and old_status != "done":
+            notification_service.dispatch_event(db, user.id, task, "task_completed")
+        else:
+            notification_service.dispatch_event(db, user.id, task, "task_updated")
+            if task.priority != old_priority:
+                notification_service.dispatch_event(
+                    db, user.id, task, "priority_changed"
+                )
+
     # Cyclic task completed: log the iteration and spawn the next one.
     if task.is_cyclic and task.status == "done":
         return regenerate_cycle(db, task)
@@ -447,6 +467,10 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
     )
     if not task:
         raise LookupError("Task not found")
+
+    # Snapshot for the webhook event: after the commit below the object may
+    # already be detached (cyclic chains are bulk-deleted).
+    snapshot = (task.id, task.title, task.deadline)
 
     group_id = task.cycle_group_id if task.is_cyclic else None
     chain_ids = [task_id]
@@ -472,6 +496,7 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
         db.delete(task)
     db.commit()
     cleanup_orphan_tags(db, user.id)
+    notification_service.dispatch_snapshot(db, user.id, *snapshot, "task_deleted")
 
 
 def count_tasks(db: Session, user: User) -> dict:

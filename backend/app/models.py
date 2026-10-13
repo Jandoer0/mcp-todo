@@ -2,6 +2,7 @@
 from .clock import utcnow
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -124,6 +125,32 @@ class Tag(Base):
         # Uniqueness of a tag name is scoped to its owner.
         UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
     )
+
+
+class Webhook(Base):
+    """Outgoing webhook: POSTs task-event notifications to an external
+    receiver (e.g. the Hermes Agent Gateway). Owned by a user; only that
+    user's task events are dispatched to it."""
+
+    __tablename__ = "webhooks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    name = Column(String)  # internal label, e.g. "Уведомления Лоры"
+    url = Column(String)  # receiver endpoint
+    token = Column(String, nullable=True)  # optional auth token for the receiver
+    chat_id = Column(String)  # Telegram target chat id
+    thread_id = Column(String, nullable=True)  # Telegram topic/thread id
+    events = Column(JSON, default=list)  # enabled event types
+    excluded_events = Column(JSON, default=list)  # always ignored event types
+    created_at = Column(DateTime, default=utcnow)
+
+    def event_enabled(self, event: str) -> bool:
+        """Excluded events always win over the enabled set."""
+        excluded = self.excluded_events or []
+        if event in excluded:
+            return False
+        return event in (self.events or [])
 
 
 class Setting(Base):

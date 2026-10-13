@@ -8,3 +8,5 @@ python-multipart
 mcp<2
 sse-starlette
 pydantic>=2.0
+apscheduler
+httpx

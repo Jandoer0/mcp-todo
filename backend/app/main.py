@@ -4,6 +4,7 @@ Builds a FastAPI app (the JSON API mounted at /api), adds the MCP SSE routes
 and serves the built frontend as static files. The Starlette app exposed as
 ``starlette_app`` is what the container runs.
 """
+import asyncio
 import os
 
 from fastapi import FastAPI
@@ -320,6 +321,27 @@ api.include_router(tags.router)
 @api.get("/health")
 def health():
     return {"status": "ok", "version": settings["BUILD_VERSION"]}
+
+
+@api.on_event("startup")
+async def start_scheduler():
+    """Capture the running loop for threadsafe webhook dispatch and start
+    the background job that checks overdue / approaching deadlines."""
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+    from .services import notification_service
+
+    notification_service.set_main_loop(asyncio.get_running_loop())
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    scheduler.add_job(
+        notification_service.check_due_tasks,
+        trigger="interval",
+        minutes=30,
+        id="check_due_tasks",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.start()
 
 
 # --- Static frontend serving ---

@@ -48,6 +48,12 @@ export const adminApi = {
     regenerate: (id) => api.post(`${API_URL}/admin/users/${id}/mcp-token`),
     revoke: (id) => api.delete(`${API_URL}/admin/users/${id}/mcp-token`),
   },
+  webhooks: {
+    list: () => api.get(`${API_URL}/admin/webhooks`),
+    create: (data) => api.post(`${API_URL}/admin/webhooks`, data),
+    update: (id, data) => api.put(`${API_URL}/admin/webhooks/${id}`, data),
+    remove: (id) => api.delete(`${API_URL}/admin/webhooks/${id}`),
+  },
 }
 
 export const listsApi = {

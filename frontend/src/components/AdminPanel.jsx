@@ -2,6 +2,49 @@ import { useState } from 'react'
 import { adminApi } from '../api/client'
 import Modal from './Modal'
 
+const WEBHOOK_EVENTS = [
+  ['task_created', 'Создание задачи'],
+  ['task_updated', 'Изменение задачи'],
+  ['task_completed', 'Выполнение задачи'],
+  ['task_deleted', 'Удаление задачи'],
+  ['priority_changed', 'Изменение приоритета'],
+  ['deadline_approaching', 'Приближение дедлайна (<24ч)'],
+  ['task_overdue', 'Просрочка задачи'],
+]
+
+const EMPTY_WEBHOOK = {
+  user_id: '',
+  name: '',
+  url: '',
+  token: '',
+  chat_id: '',
+  thread_id: '',
+  events: [],
+  excluded_events: [],
+}
+
+function EventMultiSelect({ value, onChange }) {
+  const toggle = (ev) => {
+    onChange(
+      value.includes(ev) ? value.filter((e) => e !== ev) : [...value, ev]
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border rounded p-2 max-h-40 overflow-y-auto">
+      {WEBHOOK_EVENTS.map(([ev, label]) => (
+        <label key={ev} className="flex items-center gap-2 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={value.includes(ev)}
+            onChange={() => toggle(ev)}
+          />
+          <span>{label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 export default function AdminPanel({
   users,
   onUpdateRole,
@@ -12,14 +55,33 @@ export default function AdminPanel({
   onChanged,
   open,
 }) {
-  if (!open) return null
-
+  const [tab, setTab] = useState('users')
   const allowRegistration = settings?.allow_registration !== false
   const [isEditing, setIsEditing] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [formData, setFormData] = useState({ username: '', password: '', role: 'user' })
   const [mcpToken, setMcpToken] = useState(null)
   const [copied, setCopied] = useState(false)
+
+  // Webhooks state
+  const [webhooks, setWebhooks] = useState(null)
+  const [hookEditing, setHookEditing] = useState(false)
+  const [currentHook, setCurrentHook] = useState(null)
+  const [hookData, setHookData] = useState(EMPTY_WEBHOOK)
+
+  if (!open) return null
+
+  const loadWebhooks = () => {
+    adminApi.webhooks
+      .list()
+      .then((r) => setWebhooks(r.data))
+      .catch(() => setWebhooks([]))
+  }
+
+  const openTab = (t) => {
+    setTab(t)
+    if (t === 'webhooks' && webhooks === null) loadWebhooks()
+  }
 
   const handleOpenCreate = () => {
     setCurrentUser(null)
@@ -77,91 +139,234 @@ export default function AdminPanel({
         await adminApi.createUser(formData)
       }
       setIsEditing(false)
-      // We need to refresh the users list in App.jsx. 
-      // Since we don't have a direct refresh function passed, 
-      // the easiest way is to trigger onBack and then reopen or rely on the parent's update.
-      // But better: we call onBack to close and let parent handle it? 
-      // No, the parent needs to reload. Let's assume onBack also refreshes.
       onBack()
     } catch (err) {
       alert(err?.response?.data?.detail || 'Ошибка при сохранении пользователя')
     }
   }
 
+  // --- Webhooks handlers ---
+
+  const handleOpenHookCreate = () => {
+    setCurrentHook(null)
+    setHookData({ ...EMPTY_WEBHOOK, user_id: users[0]?.id ?? '' })
+    setHookEditing(true)
+  }
+
+  const handleOpenHookEdit = (w) => {
+    setCurrentHook(w)
+    setHookData({
+      user_id: w.user_id,
+      name: w.name,
+      url: w.url,
+      token: w.token || '',
+      chat_id: w.chat_id,
+      thread_id: w.thread_id || '',
+      events: w.events || [],
+      excluded_events: w.excluded_events || [],
+    })
+    setHookEditing(true)
+  }
+
+  const handleSaveHook = async (e) => {
+    e.preventDefault()
+    try {
+      if (currentHook) {
+        await adminApi.webhooks.update(currentHook.id, hookData)
+      } else {
+        await adminApi.webhooks.create(hookData)
+      }
+      setHookEditing(false)
+      loadWebhooks()
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Ошибка при сохранении веб-хука')
+    }
+  }
+
+  const handleDeleteHook = async (id) => {
+    if (!confirm('Удалить веб-хук?')) return
+    try {
+      await adminApi.webhooks.remove(id)
+      loadWebhooks()
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Ошибка при удалении веб-хука')
+    }
+  }
+
+  const hookLabel = (event) => WEBHOOK_EVENTS.find(([e]) => e === event)?.[1] || event
+  const userName = (id) => users.find((u) => u.id === id)?.username || `#${id}`
+
   return (
     <Modal open={open} onClose={onBack} title="Панель администратора" wide>
       <div>
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={handleOpenCreate}
-            className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
-          >
-            + Создать пользователя
-          </button>
+        {/* Tabs */}
+        <div className="flex gap-1 mb-4 border-b border-gray-200">
+          {[
+            ['users', 'Пользователи'],
+            ['webhooks', 'Веб-хуки'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => openTab(key)}
+              className={`px-4 py-2 text-sm font-medium rounded-t transition-colors ${
+                tab === key
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-          <section className="bg-gray-50/50 rounded-lg p-4 mb-6 border">
-            <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">Настройки сервера</h2>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allowRegistration}
-                onChange={(e) => onToggleRegistration(e.target.checked)}
-                className="w-5 h-5"
-              />
-              <span className="text-sm">
-                Разрешить регистрацию новых пользователей
-                <span className="block text-xs text-gray-500">
-                  Если выключено, новые пользователи не смогут создать аккаунт.
-                </span>
-              </span>
-            </label>
-          </section>
 
-          <div className="bg-white rounded-lg border overflow-hidden">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50">
-                <tr className="text-xs uppercase text-gray-500">
-                  <th className="p-4">Пользователь</th>
-                  <th className="p-4">Роль</th>
-                  <th className="p-2 sm:p-4 text-right">Действия</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50">
-                    <td className="p-2 sm:p-4 font-medium">{u.username}</td>
-                    <td className="p-2 sm:p-4">
-                      <select
-                        value={u.role}
-                        onChange={(e) => onUpdateRole(u.id, e.target.value)}
-                        className="bg-gray-100 border-none rounded text-xs p-1 outline-none max-w-[9rem]"
-                      >
-                        <option value="user">Пользователь</option>
-                        <option value="admin">Администратор</option>
-                      </select>
-                    </td>
-                    <td className="p-2 sm:p-4 text-right">
-                      <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(u)}
-                          className="text-blue-500 text-xs hover:underline whitespace-nowrap"
-                        >
-                          Изменить
-                        </button>
-                        <button
-                          onClick={() => onDeleteUser(u.id)}
-                          className="text-red-500 text-xs hover:underline whitespace-nowrap"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {tab === 'users' && (
+          <div>
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleOpenCreate}
+                className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
+              >
+                + Создать пользователя
+              </button>
+            </div>
+              <section className="bg-gray-50/50 rounded-lg p-4 mb-6 border">
+                <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">Настройки сервера</h2>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowRegistration}
+                    onChange={(e) => onToggleRegistration(e.target.checked)}
+                    className="w-5 h-5"
+                  />
+                  <span className="text-sm">
+                    Разрешить регистрацию новых пользователей
+                    <span className="block text-xs text-gray-500">
+                      Если выключено, новые пользователи не смогут создать аккаунт.
+                    </span>
+                  </span>
+                </label>
+              </section>
+
+              <div className="bg-white rounded-lg border overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50">
+                    <tr className="text-xs uppercase text-gray-500">
+                      <th className="p-4">Пользователь</th>
+                      <th className="p-4">Роль</th>
+                      <th className="p-2 sm:p-4 text-right">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {users.map((u) => (
+                      <tr key={u.id} className="hover:bg-gray-50">
+                        <td className="p-2 sm:p-4 font-medium">{u.username}</td>
+                        <td className="p-2 sm:p-4">
+                          <select
+                            value={u.role}
+                            onChange={(e) => onUpdateRole(u.id, e.target.value)}
+                            className="bg-gray-100 border-none rounded text-xs p-1 outline-none max-w-[9rem]"
+                          >
+                            <option value="user">Пользователь</option>
+                            <option value="admin">Администратор</option>
+                          </select>
+                        </td>
+                        <td className="p-2 sm:p-4 text-right">
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
+                            <button
+                              onClick={() => handleOpenEdit(u)}
+                              className="text-blue-500 text-xs hover:underline whitespace-nowrap"
+                            >
+                              Изменить
+                            </button>
+                            <button
+                              onClick={() => onDeleteUser(u.id)}
+                              className="text-red-500 text-xs hover:underline whitespace-nowrap"
+                            >
+                              Удалить
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
           </div>
-        
+        )}
+
+        {tab === 'webhooks' && (
+          <div>
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleOpenHookCreate}
+                className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
+              >
+                + Создать веб-хук
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Веб-хуки отправляют уведомления о событиях задач пользователя во
+              внешние системы (POST JSON). Токен передаётся в заголовке
+              Authorization.
+            </p>
+            <div className="bg-white rounded-lg border overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50">
+                  <tr className="text-xs uppercase text-gray-500">
+                    <th className="p-4">Название</th>
+                    <th className="p-4">Пользователь</th>
+                    <th className="p-4">URL</th>
+                    <th className="p-4">События</th>
+                    <th className="p-2 sm:p-4 text-right">Действия</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {(webhooks || []).map((w) => (
+                    <tr key={w.id} className="hover:bg-gray-50">
+                      <td className="p-2 sm:p-4 font-medium">{w.name}</td>
+                      <td className="p-2 sm:p-4">{userName(w.user_id)}</td>
+                      <td className="p-2 sm:p-4 text-xs text-gray-500 max-w-[14rem] truncate">{w.url}</td>
+                      <td className="p-2 sm:p-4 text-xs max-w-[16rem]">
+                        <span className="block truncate">
+                          {(w.events || []).map(hookLabel).join(', ') || '—'}
+                        </span>
+                        {(w.excluded_events || []).length > 0 && (
+                          <span className="block truncate text-red-400">
+                            кроме: {(w.excluded_events || []).map(hookLabel).join(', ')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 sm:p-4 text-right">
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
+                          <button
+                            onClick={() => handleOpenHookEdit(w)}
+                            className="text-blue-500 text-xs hover:underline whitespace-nowrap"
+                          >
+                            Изменить
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHook(w.id)}
+                            className="text-red-500 text-xs hover:underline whitespace-nowrap"
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {webhooks !== null && webhooks.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-sm text-gray-400 text-center">
+                        Веб-хуков пока нет.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {isEditing && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 relative">
@@ -254,6 +459,118 @@ export default function AdminPanel({
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 text-gray-500 hover:text-gray-700"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {hookEditing && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
+              <h2 className="text-lg font-bold mb-4">
+                {currentHook ? 'Редактировать веб-хук' : 'Создать веб-хук'}
+              </h2>
+              <form onSubmit={handleSaveHook} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Пользователь</label>
+                  <select
+                    value={hookData.user_id}
+                    onChange={(e) => setHookData({ ...hookData, user_id: Number(e.target.value) })}
+                    className="w-full p-2 border rounded"
+                    required
+                  >
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>{u.username}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Название</label>
+                  <input
+                    type="text"
+                    value={hookData.name}
+                    onChange={(e) => setHookData({ ...hookData, name: e.target.value })}
+                    className="w-full p-2 border rounded"
+                    placeholder="Уведомления Лоры"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">URL</label>
+                  <input
+                    type="url"
+                    value={hookData.url}
+                    onChange={(e) => setHookData({ ...hookData, url: e.target.value })}
+                    className="w-full p-2 border rounded"
+                    placeholder="https://…"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Токен доступа</label>
+                  <input
+                    type="text"
+                    value={hookData.token}
+                    onChange={(e) => setHookData({ ...hookData, token: e.target.value })}
+                    className="w-full p-2 border rounded"
+                    placeholder="необязательно"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Telegram Chat ID</label>
+                    <input
+                      type="text"
+                      value={hookData.chat_id}
+                      onChange={(e) => setHookData({ ...hookData, chat_id: e.target.value })}
+                      className="w-full p-2 border rounded"
+                      placeholder="-1003955112993"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Thread ID</label>
+                    <input
+                      type="text"
+                      value={hookData.thread_id}
+                      onChange={(e) => setHookData({ ...hookData, thread_id: e.target.value })}
+                      className="w-full p-2 border rounded"
+                      placeholder="необязательно"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">События</label>
+                  <EventMultiSelect
+                    value={hookData.events}
+                    onChange={(events) => setHookData({ ...hookData, events })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Исключённые события</label>
+                  <EventMultiSelect
+                    value={hookData.excluded_events}
+                    onChange={(excluded_events) => setHookData({ ...hookData, excluded_events })}
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Игнорируются, даже если выбраны в общем списке.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setHookEditing(false)}
                     className="px-4 py-2 text-gray-500 hover:text-gray-700"
                   >
                     Отмена

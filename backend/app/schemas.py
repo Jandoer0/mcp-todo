@@ -156,3 +156,38 @@ class BulkUpdateResponse(BaseModel):
     updated: int
     created: int
     errors: list[dict[str, Any]] = []
+
+class WebhookBase(BaseModel):
+    name: str
+    url: str
+    token: str | None = None
+    chat_id: str
+    thread_id: str | None = None
+    events: builtins.list[str] = []
+    excluded_events: builtins.list[str] = []
+
+class WebhookCreate(WebhookBase):
+    user_id: int  # webhook is bound to a specific user (owner of its tasks)
+
+class WebhookUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+    token: str | None = None
+    chat_id: str | None = None
+    thread_id: str | None = None
+    events: builtins.list[str] | None = None
+    excluded_events: builtins.list[str] | None = None
+
+class WebhookResponse(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    url: str
+    token: str | None = None
+    chat_id: str
+    thread_id: str | None = None
+    events: builtins.list[str] = []
+    excluded_events: builtins.list[str] = []
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
