@@ -325,9 +325,9 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </button>
         </div>
       </div>
-      {/* История изменений дат/приоритета/описания (хронологическая) */}
+      {/* История изменений дат/приоритета/описания (хронологическая) — на всю ширину формы */}
       {task && (
-        <div className="mt-4 pt-3 border-t border-slate-200">
+        <div className="md:col-span-2 mt-4 pt-3 border-t border-slate-200">
           <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
             История изменений
           </h4>
