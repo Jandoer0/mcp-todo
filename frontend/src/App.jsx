@@ -80,6 +80,15 @@ export default function App() {
     }
   }
 
+  const handleBoardDelete = async (board) => {
+    await boardsApi.remove(board.id)
+    setBoardFormOpen(false)
+    setEditingBoard(null)
+    // сбрасываем сохранённый выбор: loadBoards выберет первую оставшуюся доску
+    localStorage.removeItem('activeBoard')
+    await loadBoards()
+  }
+
   const openProfile = async () => {
     try {
       const res = await authApi.me()
@@ -376,6 +385,7 @@ export default function App() {
           setEditingBoard(null)
         }}
         onSubmit={handleBoardSubmit}
+        onDelete={handleBoardDelete}
       />
 
       {profileOpen && (

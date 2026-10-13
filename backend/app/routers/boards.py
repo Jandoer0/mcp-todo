@@ -11,7 +11,7 @@ from ..models import Board, Tag, Task, TaskList, User, Webhook
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 
-MAX_NAME_LEN = 60
+MAX_NAME_LEN = 20
 
 
 def get_own_board(db: Session, user: User, board_id: int) -> Board:

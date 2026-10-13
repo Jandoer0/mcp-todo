@@ -3,7 +3,7 @@ import Modal from './Modal'
 import { useEffect, useState } from 'react'
 
 // Edit/create dialog for a board (name, multiline description, color).
-export default function BoardForm({ open, board, boardsCount, onClose, onSubmit }) {
+export default function BoardForm({ open, board, boardsCount, onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(BOARD_PALETTE[1])
@@ -38,6 +38,15 @@ export default function BoardForm({ open, board, boardsCount, onClose, onSubmit 
     }
   }
 
+  const remove = async () => {
+    if (!window.confirm(`Удалить доску «${board.name}»? Все её задачи, списки и теги будут удалены безвозвратно.`)) return
+    try {
+      await onDelete(board)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Ошибка удаления доски')
+    }
+  }
+
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Редактировать доску' : 'Новая доска'}>
       <form onSubmit={submit} className="space-y-4">
@@ -46,14 +55,14 @@ export default function BoardForm({ open, board, boardsCount, onClose, onSubmit 
           <input
             type="text"
             value={name}
-            maxLength={60}
+            maxLength={20}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-2 border rounded"
             placeholder="Например: Работа"
             required
             autoFocus
           />
-          <p className="text-[10px] text-gray-500 mt-1">До 60 символов.</p>
+          <p className="text-[10px] text-gray-500 mt-1">До 20 символов.</p>
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Описание</label>
@@ -86,7 +95,16 @@ export default function BoardForm({ open, board, boardsCount, onClose, onSubmit 
         {!isEdit && boardsCount >= MAX_BOARDS && (
           <p className="text-sm text-red-500">Достигнут лимит: максимум {MAX_BOARDS} досок.</p>
         )}
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2">
+          {isEdit && (
+            <button
+              type="button"
+              onClick={remove}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 mr-auto"
+            >
+              Удалить
+            </button>
+          )}
           <button type="button" onClick={onClose} className="px-4 py-2 text-gray-500 hover:text-gray-700">
             Отмена
           </button>
