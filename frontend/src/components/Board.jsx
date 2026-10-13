@@ -7,6 +7,7 @@ export default function Board({
   tags,
   activeFilter,
   activeTag,
+  boardId,
   onSetList,
   onEdit,
   onDelete,
@@ -73,6 +74,12 @@ export default function Board({
 
 
 
+  // Cascade-in: each visible card gets a small stagger delay based on its
+  // global position, so tasks fade in one after another (каскадом). The delay
+  // index only changes when the set of task ids changes — regular updates
+  // (swipes, edits) reuse the DOM nodes and do not replay the animation.
+  const order = new Map(visible.map((t, i) => [t.id, Math.min(i, 12)]))
+
   // Collapsible groups: collapsed by default for «Архив», expanded otherwise.
   // Keys may be absent while lists are still loading, so fall back to defaults.
   const [collapsed, setCollapsed] = useState({})
@@ -81,7 +88,7 @@ export default function Board({
     setCollapsed((c) => ({ ...c, [name]: !(c[name] ?? name === 'Архив') }))
 
   return (
-    <div className="select-none">
+    <div className="select-none board-anim" key={boardId}>
       {/* Groups stacked vertically as before. */}
       <div className="space-y-6">
         {groups.map((group) => (
@@ -109,17 +116,22 @@ export default function Board({
             {!isCollapsed(group.name) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
               {group.items.map((task) => (
-                <TaskCard
+                <div
                   key={task.id}
-                  task={task}
-                  allTasks={tasks}
-                  lists={lists}
-                  tags={tags}
-                  onSetList={onSetList}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onRefresh={onRefresh}
-                />
+                  className="task-appear"
+                  style={{ animationDelay: `${(order.get(task.id) || 0) * 55}ms` }}
+                >
+                  <TaskCard
+                    task={task}
+                    allTasks={tasks}
+                    lists={lists}
+                    tags={tags}
+                    onSetList={onSetList}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onRefresh={onRefresh}
+                  />
+                </div>
               ))}
               {group.items.length === 0 && (
                 <p className="text-xs text-white/40 italic">Нет задач</p>

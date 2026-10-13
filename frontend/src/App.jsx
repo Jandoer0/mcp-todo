@@ -341,6 +341,7 @@ export default function App() {
         tags={tags}
         activeFilter={activeFilter}
         activeTag={activeTag}
+        boardId={activeBoardId}
         onSetList={handleSetList}
         onEdit={openEdit}
         onDelete={handleDelete}
