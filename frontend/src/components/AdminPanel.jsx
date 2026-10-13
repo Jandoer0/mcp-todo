@@ -526,7 +526,7 @@ export default function AdminPanel({
                     value={hookData.name}
                     onChange={(e) => setHookData({ ...hookData, name: e.target.value })}
                     className="w-full p-2 border rounded"
-                    placeholder="Уведомления Лоры"
+                    placeholder="Например: уведомления в Telegram"
                     required
                   />
                 </div>
@@ -559,7 +559,7 @@ export default function AdminPanel({
                       value={hookData.chat_id}
                       onChange={(e) => setHookData({ ...hookData, chat_id: e.target.value })}
                       className="w-full p-2 border rounded"
-                      placeholder="-1003955112993"
+                      placeholder="например: -1001234567890"
                       required
                     />
                   </div>

@@ -54,6 +54,7 @@ _main_loop: asyncio.AbstractEventLoop | None = None
 
 # (task_id, event) -> last sent time; in-memory suppression for scheduled events
 _last_notified: dict[tuple[int, str], object] = {}
+_LAST_NOTIFIED_CAP = 10_000
 
 
 def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
@@ -61,8 +62,11 @@ def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
     _main_loop = loop
 
 
-def event_text(event: str, task: Task) -> str:
-    return _TEXTS.get(event, event).format(title=task.title)
+def event_text(event: str, title: str) -> str:
+    """Human-readable text for the payload; unknown events degrade to the
+    event name (never formatted, so braces in it cannot break .format)."""
+    template = _TEXTS.get(event)
+    return template.format(title=title) if template else event
 
 
 def build_payload(webhook: Webhook, task: Task, event: str) -> dict:
@@ -78,7 +82,7 @@ def _build(webhook: Webhook, task_id, title: str, deadline, event: str) -> dict:
         "task_id": task_id,
         "title": title,
         "deadline": deadline.strftime("%Y-%m-%dT%H:%M:%SZ") if deadline else None,
-        "text": _TEXTS.get(event, event).format(title=title),
+        "text": event_text(event, title),
     }
 
 
@@ -144,23 +148,26 @@ def sign_secret(secret: str, body: bytes) -> str:
     return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
 
+def _signed_headers(secret: str | None, body: bytes) -> dict:
+    """Headers for an outgoing webhook: JSON content type + HMAC signature."""
+    headers = {"Content-Type": "application/json"}
+    if secret:
+        headers["X-Hub-Signature-256"] = f"sha256={sign_secret(secret, body)}"
+    return headers
+
+
 def build_request(webhook: Webhook, payload: dict) -> tuple[bytes, dict]:
     """Serialize the payload to the exact raw body and build headers.
     The body is signed with HMAC-SHA256 (key = webhook secret); the signature
     goes into the X-Hub-Signature-256 header (GitHub-style 'sha256=<hex>').
     No Authorization header is sent."""
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
-    if webhook.token:  # `token` column now stores the HMAC secret
-        headers["X-Hub-Signature-256"] = f"sha256={sign_secret(webhook.token, body)}"
-    return body, headers
+    return body, _signed_headers(webhook.token, body)
 
 
 async def _send(url: str, secret: str | None, payload: dict) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
-    if secret:
-        headers["X-Hub-Signature-256"] = f"sha256={sign_secret(secret, body)}"
+    headers = _signed_headers(secret, body)
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(url, content=body, headers=headers)
@@ -192,6 +199,9 @@ def check_due_tasks() -> None:
             if last and (repeat is None or now - last < repeat):
                 continue
             _last_notified[key] = now
+            if len(_last_notified) > _LAST_NOTIFIED_CAP:
+                for k in list(_last_notified)[: _LAST_NOTIFIED_CAP // 2]:
+                    _last_notified.pop(k, None)
             dispatch_event(db, task.user_id, task, event)
     finally:
         db.close()
