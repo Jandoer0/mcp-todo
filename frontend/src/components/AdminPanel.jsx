@@ -302,14 +302,6 @@ export default function AdminPanel({
 
         {tab === 'users' && (
           <div>
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={handleOpenCreate}
-                className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
-              >
-                + Создать пользователя
-              </button>
-            </div>
               <section className="bg-gray-50/50 rounded-lg p-4 mb-6 border">
                 <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">Настройки сервера</h2>
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -361,19 +353,19 @@ export default function AdminPanel({
                   </tbody>
                 </table>
               </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={handleOpenCreate}
+                  className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
+                >
+                  + Создать пользователя
+                </button>
+              </div>
           </div>
         )}
 
         {tab === 'webhooks' && (
           <div>
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={handleOpenHookCreate}
-                className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
-              >
-                + Создать веб-хук
-              </button>
-            </div>
             <p className="text-xs text-gray-500 mb-3">
               Веб-хуки отправляют уведомления о событиях задач пользователя во
               внешние системы (POST JSON). Тело запроса подписывается
@@ -429,6 +421,14 @@ export default function AdminPanel({
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={handleOpenHookCreate}
+                className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
+              >
+                + Создать веб-хук
+              </button>
             </div>
           </div>
         )}
