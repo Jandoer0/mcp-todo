@@ -47,7 +47,6 @@ function EventMultiSelect({ value, onChange }) {
 
 export default function AdminPanel({
   users,
-  onUpdateRole,
   onDeleteUser,
   onBack,
   settings,
@@ -210,7 +209,6 @@ export default function AdminPanel({
     }
   }
 
-  const hookLabel = (event) => WEBHOOK_EVENTS.find(([e]) => e === event)?.[1] || event
   const userName = (id) => users.find((u) => u.id === id)?.username || `#${id}`
 
   return (
@@ -269,7 +267,6 @@ export default function AdminPanel({
                   <thead className="bg-gray-50">
                     <tr className="text-xs uppercase text-gray-500">
                       <th className="p-4">Пользователь</th>
-                      <th className="p-4">Роль</th>
                       <th className="p-2 sm:p-4 text-right">Действия</th>
                     </tr>
                   </thead>
@@ -277,16 +274,6 @@ export default function AdminPanel({
                     {users.map((u) => (
                       <tr key={u.id} className="hover:bg-gray-50">
                         <td className="p-2 sm:p-4 font-medium">{u.username}</td>
-                        <td className="p-2 sm:p-4">
-                          <select
-                            value={u.role}
-                            onChange={(e) => onUpdateRole(u.id, e.target.value)}
-                            className="bg-gray-100 border-none rounded text-xs p-1 outline-none max-w-[9rem]"
-                          >
-                            <option value="user">Пользователь</option>
-                            <option value="admin">Администратор</option>
-                          </select>
-                        </td>
                         <td className="p-2 sm:p-4 text-right">
                           <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
                             <button
@@ -332,8 +319,6 @@ export default function AdminPanel({
                   <tr className="text-xs uppercase text-gray-500">
                     <th className="p-4">Название</th>
                     <th className="p-4">Пользователь</th>
-                    <th className="p-4">URL</th>
-                    <th className="p-4">События</th>
                     <th className="p-2 sm:p-4 text-right">Действия</th>
                   </tr>
                 </thead>
@@ -342,17 +327,6 @@ export default function AdminPanel({
                     <tr key={w.id} className="hover:bg-gray-50">
                       <td className="p-2 sm:p-4 font-medium">{w.name}</td>
                       <td className="p-2 sm:p-4">{userName(w.user_id)}</td>
-                      <td className="p-2 sm:p-4 text-xs text-gray-500 break-all whitespace-normal">{w.url}</td>
-                      <td className="p-2 sm:p-4 text-xs">
-                        <span className="block whitespace-normal">
-                          {(w.events || []).map(hookLabel).join(', ') || '—'}
-                        </span>
-                        {(w.excluded_events || []).length > 0 && (
-                          <span className="block whitespace-normal text-red-400">
-                            кроме: {(w.excluded_events || []).map(hookLabel).join(', ')}
-                          </span>
-                        )}
-                      </td>
                       <td className="p-2 sm:p-4 text-right">
                         <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
                           <button
@@ -380,7 +354,7 @@ export default function AdminPanel({
                   ))}
                   {webhooks !== null && webhooks.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-4 text-sm text-gray-400 text-center">
+                      <td colSpan={3} className="p-4 text-sm text-gray-400 text-center">
                         Веб-хуков пока нет.
                       </td>
                     </tr>
