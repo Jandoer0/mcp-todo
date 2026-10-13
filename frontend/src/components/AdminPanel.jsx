@@ -68,6 +68,7 @@ export default function AdminPanel({
   const [hookEditing, setHookEditing] = useState(false)
   const [currentHook, setCurrentHook] = useState(null)
   const [hookData, setHookData] = useState(EMPTY_WEBHOOK)
+  const [testingId, setTestingId] = useState(null)
 
   if (!open) return null
 
@@ -180,6 +181,22 @@ export default function AdminPanel({
       loadWebhooks()
     } catch (err) {
       alert(err?.response?.data?.detail || 'Ошибка при сохранении веб-хука')
+    }
+  }
+
+  const handleTestHook = async (w) => {
+    setTestingId(w.id)
+    try {
+      const r = await adminApi.webhooks.test(w.id)
+      if (r.data.ok) {
+        alert(`Тестовое уведомление отправлено (HTTP ${r.data.status_code}).`)
+      } else {
+        alert(`Ошибка доставки: ${r.data.error || 'неизвестная ошибка'}`)
+      }
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Ошибка отправки теста')
+    } finally {
+      setTestingId(null)
     }
   }
 
@@ -338,6 +355,13 @@ export default function AdminPanel({
                       </td>
                       <td className="p-2 sm:p-4 text-right">
                         <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
+                          <button
+                            onClick={() => handleTestHook(w)}
+                            disabled={testingId === w.id}
+                            className="text-green-600 text-xs hover:underline whitespace-nowrap disabled:opacity-50"
+                          >
+                            {testingId === w.id ? 'Отправка…' : 'Тест'}
+                          </button>
                           <button
                             onClick={() => handleOpenHookEdit(w)}
                             className="text-blue-500 text-xs hover:underline whitespace-nowrap"

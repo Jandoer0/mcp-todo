@@ -110,6 +110,20 @@ def send_webhook(webhook_id: int, task_id: int, event: str) -> None:
         db.close()
 
 
+def send_test(webhook: Webhook) -> dict:
+    """Build the test-event payload for a webhook (sent synchronously by the
+    admin test endpoint so the caller can see the delivery result)."""
+    return {
+        "target_chat_id": webhook.chat_id,
+        "thread_id": webhook.thread_id or None,
+        "event": "test",
+        "task_id": None,
+        "title": None,
+        "deadline": None,
+        "text": "Тестовое уведомление из OmniTask: веб-хук работает.",
+    }
+
+
 def send_async(url: str, token: str | None, payload: dict) -> None:
     """Deliver the payload without blocking the caller."""
     coro = _send(url, token, payload)

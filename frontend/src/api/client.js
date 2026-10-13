@@ -53,6 +53,7 @@ export const adminApi = {
     create: (data) => api.post(`${API_URL}/admin/webhooks`, data),
     update: (id, data) => api.put(`${API_URL}/admin/webhooks/${id}`, data),
     remove: (id) => api.delete(`${API_URL}/admin/webhooks/${id}`),
+    test: (id) => api.post(`${API_URL}/admin/webhooks/${id}/test`),
   },
 }
 

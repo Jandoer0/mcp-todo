@@ -164,6 +164,35 @@ def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/webhooks/{webhook_id}/test")
+async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Send a test notification synchronously and report the delivery result,
+    so the admin immediately sees whether the endpoint is reachable."""
+    import httpx
+
+    from ..services import notification_service as ns
+
+    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    headers = {"Content-Type": "application/json"}
+    if webhook.token:
+        headers["Authorization"] = f"Bearer {webhook.token}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                webhook.url, json=ns.send_test(webhook), headers=headers
+            )
+        ok = resp.status_code < 400
+        return {
+            "ok": ok,
+            "status_code": resp.status_code,
+            "error": None if ok else f"HTTP {resp.status_code}",
+        }
+    except Exception as exc:
+        return {"ok": False, "status_code": None, "error": str(exc)}
+
+
 @router.post("/users/{user_id}/mcp-token")
 def regenerate_mcp_token(
     user_id: int,
