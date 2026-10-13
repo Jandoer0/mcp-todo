@@ -124,6 +124,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
 
   const onPointerDown = (e) => {
     if (e.button && e.button !== 0) return
+    // Presses on interactive children (cycle buttons, blockers) must not start
+    // a drag: setPointerCapture would retarget pointerup/click to the card and
+    // the button's own onClick would never fire.
+    if (e.target.closest('button, a, input, textarea, select, label')) return
     dragRef.current = { x: e.clientX, y: e.clientY, axis: null }
     // Capture the pointer so pointerup is always delivered to the card,
     // even if the cursor leaves it mid-drag (prevents "stuck" dragging).

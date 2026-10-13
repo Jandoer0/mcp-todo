@@ -14,6 +14,10 @@ const CLOSE_MS = 180 // matches .modal-panel-out duration
 export default function Modal({ open, onClose, title, children, wide }) {
   const [visible, setVisible] = useState(open)
   const [closing, setClosing] = useState(false)
+  // After the open animation finishes we drop the animation class: a lingering
+  // `transform` (animation fill-mode) would turn the panel into a containing
+  // block for `position: fixed` descendants and break the date-picker popup.
+  const [entered, setEntered] = useState(false)
   const closeTimer = useRef(null)
 
   // keep in sync when parent opens the modal again
@@ -21,6 +25,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
     if (open) {
       clearTimeout(closeTimer.current)
       setClosing(false)
+      setEntered(false)
       setVisible(true)
     }
   }, [open])
@@ -70,8 +75,9 @@ export default function Modal({ open, onClose, title, children, wide }) {
         className={`bg-white text-slate-800 w-full ${
           wide ? 'sm:max-w-4xl' : 'sm:max-w-2xl'
         } rounded-t-2xl sm:rounded-lg shadow-2xl max-h-[94dvh] flex flex-col overflow-hidden ${
-          closing ? 'modal-panel-out' : 'modal-panel-in'
+          closing ? 'modal-panel-out' : entered ? '' : 'modal-panel-in'
         }`}
+        onAnimationEnd={() => setEntered(true)}
       >
         {/* Grabber for the mobile bottom sheet */}
         <div className="sm:hidden flex justify-center pt-2 shrink-0">
