@@ -380,7 +380,7 @@ export default function App() {
 
       {profileOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4"
           onClick={() => setProfileOpen(false)}
         >
           <div

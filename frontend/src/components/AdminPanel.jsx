@@ -386,7 +386,7 @@ export default function AdminPanel({
         )}
 
         {isEditing && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+          <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 relative">
               <h2 className="text-lg font-bold mb-4">
                 {currentUser ? 'Редактировать пользователя' : 'Создать пользователя'}
@@ -494,7 +494,7 @@ export default function AdminPanel({
         )}
 
         {hookEditing && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+          <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-bold mb-4">
                 {currentHook ? 'Редактировать веб-хук' : 'Создать веб-хук'}

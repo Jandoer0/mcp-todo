@@ -240,7 +240,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               placeholder="Введите описание задачи"
               value={form.description}
               onChange={update('description')}
-              className="w-full p-2 border rounded"
+              className="w-full p-2 border rounded leading-relaxed"
             />
           </div>
           <div className="md:col-span-2">

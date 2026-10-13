@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- Visual ergonomics (план_корректировки: Visual Ergonomics) --- */
+html {
+  /* Мягкое, чёткое сглаживание текста + легибильный рендеринг */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Оптимальный межстрочный интервал для основного текста */
+  line-height: 1.6;
+  /* Мягкий тёмно-серый вместо чистого чёрного */
+  color: #1e293b;
+}
+
+/* Аппаратное ускорение для слоёв, которые двигаются/скроллятся,
+   чтобы исключить микро-мерцание при переключении досок. */
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 /* --- Board carousel ("барабан") --- */
 /* The strip slides via inline transform + transition-transform (see BoardSwitcher). */
 

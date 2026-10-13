@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MAX_BOARDS } from '../constants'
 
+// WCAG: on light board colors white text fails contrast — use dark slate.
+function textFor(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  const lum =
+    (0.2126 * ((n >> 16) & 255) +
+      0.7152 * ((n >> 8) & 255) +
+      0.0722 * (n & 255)) / 255
+  return lum > 0.55 ? '#1e293b' : '#ffffff'
+}
+
 // Header board carousel ("барабан"): the whole strip of boards slides inside a
 // clipped viewport so that the ACTIVE card is always exactly centered. Click a
 // side card to switch context, click the centered card to edit it; a special
@@ -39,18 +49,18 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     }
   }, [measure])
 
-  const card = (board, kind) => {
+  const card = (board, isActive) => {
     const base =
       'shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] max-w-[9rem] sm:max-w-[12rem] text-center shadow'
-    if (kind === 'active') {
+    if (isActive) {
       return (
         <button
           key={board.id}
           ref={(el) => el && cardRefs.current.set(board.id, el)}
           onClick={onEdit}
           title={`${board.name} — нажмите, чтобы редактировать доску`}
-          className={`${base} scale-110 z-10 text-white font-bold text-sm ring-2 ring-white/90`}
-          style={{ backgroundColor: board.color }}
+          className={`${base} scale-110 z-10 font-bold text-sm ring-1 ring-white/90 gpu-layer`}
+          style={{ backgroundColor: board.color, color: textFor(board.color) }}
         >
           <span className="block truncate">{board.name}</span>
         </button>
@@ -62,8 +72,8 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
         ref={(el) => el && cardRefs.current.set(board.id, el)}
         onClick={() => onSwitch(board.id)}
         title={`Переключиться на «${board.name}»`}
-        className={`${base} opacity-60 hover:opacity-100 text-white/90 text-xs font-semibold transition-opacity duration-200`}
-        style={{ backgroundColor: board.color }}
+        className={`${base} opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200`}
+        style={{ backgroundColor: board.color, color: textFor(board.color) }}
       >
         <span className="block truncate">{board.name}</span>
       </button>
@@ -93,7 +103,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
           <button
             onClick={onCreate}
             title="Создать новую доску"
-            className="shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] text-center border-2 border-dashed border-white/40 text-white/70 hover:text-white hover:border-white/70 text-xs font-semibold whitespace-nowrap"
+            className="shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] text-center border border-dashed border-white/40 text-white/70 hover:text-white hover:border-white/70 text-xs font-semibold whitespace-nowrap"
           >
             + Создать доску
           </button>
