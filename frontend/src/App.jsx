@@ -14,6 +14,15 @@ import AdminPanel from './components/AdminPanel'
 export default function App() {
   const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration } =
     useAuth()
+
+  // --- Boards (multi-board support) ---
+  const [boards, setBoards] = useState([])
+  const [activeBoardId, setActiveBoardId] = useState(null)
+  const [boardFormOpen, setBoardFormOpen] = useState(false)
+  const [editingBoard, setEditingBoard] = useState(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profile, setProfile] = useState(null)
+
   const {
     tasks,
     summary,
@@ -29,14 +38,6 @@ export default function App() {
     setList,
     load,
   } = useTasks(ready, activeBoardId)
-
-  // --- Boards (multi-board support) ---
-  const [boards, setBoards] = useState([])
-  const [activeBoardId, setActiveBoardId] = useState(null)
-  const [boardFormOpen, setBoardFormOpen] = useState(false)
-  const [editingBoard, setEditingBoard] = useState(null)
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [profile, setProfile] = useState(null)
 
   const loadBoards = async () => {
     const res = await boardsApi.list()
