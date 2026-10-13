@@ -342,13 +342,13 @@ export default function AdminPanel({
                     <tr key={w.id} className="hover:bg-gray-50">
                       <td className="p-2 sm:p-4 font-medium">{w.name}</td>
                       <td className="p-2 sm:p-4">{userName(w.user_id)}</td>
-                      <td className="p-2 sm:p-4 text-xs text-gray-500 max-w-[14rem] truncate">{w.url}</td>
-                      <td className="p-2 sm:p-4 text-xs max-w-[16rem]">
-                        <span className="block truncate">
+                      <td className="p-2 sm:p-4 text-xs text-gray-500 break-all whitespace-normal">{w.url}</td>
+                      <td className="p-2 sm:p-4 text-xs">
+                        <span className="block whitespace-normal">
                           {(w.events || []).map(hookLabel).join(', ') || '—'}
                         </span>
                         {(w.excluded_events || []).length > 0 && (
-                          <span className="block truncate text-red-400">
+                          <span className="block whitespace-normal text-red-400">
                             кроме: {(w.excluded_events || []).map(hookLabel).join(', ')}
                           </span>
                         )}
