@@ -46,3 +46,50 @@ html {
     animation: none;
   }
 }
+
+/* --- Modal open/close --- */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modal-panel-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(24px) scale(0.97); }
+}
+.modal-overlay-in  { animation: modal-overlay-in 0.2s ease-out both; }
+.modal-overlay-out { animation: modal-overlay-out 0.18s ease-in both; }
+.modal-panel-in    { animation: modal-panel-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.modal-panel-out   { animation: modal-panel-out 0.18s ease-in both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay-in, .modal-overlay-out,
+  .modal-panel-in, .modal-panel-out {
+    animation: none;
+  }
+}
+
+/* --- Dropdown menus (profile, mobile filters) --- */
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes dropdown-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+.dropdown-in  { animation: dropdown-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.dropdown-out { animation: dropdown-out 0.14s ease-in both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-in, .dropdown-out {
+    animation: none;
+  }
+}

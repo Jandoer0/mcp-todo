@@ -1,38 +1,77 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+const CLOSE_MS = 180 // matches .modal-panel-out duration
 
 /**
  * Mobile-friendly modal: bottom sheet on phones, centered dialog on desktop.
+ * - Open/close animations (overlay fade + panel slide/scale), instant when
+ *   `prefers-reduced-motion: reduce`.
  * - Content scrolls inside the dialog (overscroll-contain) so the dashboard
  *   behind never scrolls.
  * - Body scroll is locked while the dialog is open.
  */
 export default function Modal({ open, onClose, title, children, wide }) {
+  const [visible, setVisible] = useState(open)
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef(null)
+
+  // keep in sync when parent opens the modal again
   useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
+    if (open) {
+      clearTimeout(closeTimer.current)
+      setClosing(false)
+      setVisible(true)
     }
   }, [open])
 
-  if (!open) return null
+  // start the leave animation, then really unmount
+  const requestClose = () => {
+    if (closing) return
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced) {
+      onClose()
+      return
+    }
+    setClosing(true)
+    closeTimer.current = setTimeout(() => {
+      setClosing(false)
+      onClose()
+    }, CLOSE_MS)
+  }
+
+  useEffect(() => {
+    if (!visible) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      clearTimeout(closeTimer.current)
+      document.body.style.overflow = prev
+    }
+  }, [visible])
+
+  if (!open || !visible) return null
 
   // Render into document.body via portal so the dialog is never trapped in a
   // stacking/transform context of an ancestor (e.g. a task card) — otherwise
   // `fixed` positioning breaks and the dialog does not cover the dashboard.
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center sm:p-4"
+      className={`fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center sm:p-4 ${
+        closing ? 'modal-overlay-out' : 'modal-overlay-in'
+      }`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) requestClose()
       }}
     >
       <div
         className={`bg-white text-slate-800 w-full ${
           wide ? 'sm:max-w-4xl' : 'sm:max-w-2xl'
-        } rounded-t-2xl sm:rounded-lg shadow-2xl max-h-[94dvh] flex flex-col overflow-hidden`}
+        } rounded-t-2xl sm:rounded-lg shadow-2xl max-h-[94dvh] flex flex-col overflow-hidden ${
+          closing ? 'modal-panel-out' : 'modal-panel-in'
+        }`}
       >
         {/* Grabber for the mobile bottom sheet */}
         <div className="sm:hidden flex justify-center pt-2 shrink-0">
@@ -45,7 +84,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
             <span className="truncate">{title}</span>
           </h3>
           <button
-            onClick={onClose}
+            onClick={requestClose}
             className="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xl leading-none shrink-0"
             aria-label="Закрыть"
           >

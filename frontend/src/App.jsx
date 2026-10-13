@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
 import { adminApi, authApi, boardsApi } from './api/client'
@@ -107,6 +107,22 @@ export default function App() {
   const [authError, setAuthError] = useState('')
   const [listsOpen, setListsOpen] = useState(false)
   const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+  const [filterMenuClosing, setFilterMenuClosing] = useState(false)
+  const filterMenuTimer = useRef(null)
+
+  // Animated close for the mobile filters dropdown.
+  const closeFilterMenu = () => {
+    if (!filterMenuOpen || filterMenuClosing) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setFilterMenuOpen(false)
+      return
+    }
+    setFilterMenuClosing(true)
+    filterMenuTimer.current = setTimeout(() => {
+      setFilterMenuClosing(false)
+      setFilterMenuOpen(false)
+    }, 140)
+  }
 
   const handleLogin = async (u, p) => {
     try {
@@ -295,7 +311,7 @@ export default function App() {
           {/* Mobile: filters as a dropdown between the two buttons */}
           <div className="md:hidden relative">
             <button
-              onClick={() => setFilterMenuOpen((v) => !v)}
+              onClick={() => (filterMenuOpen ? closeFilterMenu() : (clearTimeout(filterMenuTimer.current), setFilterMenuClosing(false), setFilterMenuOpen(true)))}
               className="bg-white text-slate-700 px-3 py-2 rounded shadow-sm text-sm flex items-center gap-1 whitespace-nowrap"
             >
               {FILTERS.find((f) => f.id === activeFilter)?.label || 'Фильтры'}
@@ -303,20 +319,20 @@ export default function App() {
             </button>
             {/* Full-screen invisible overlay: closes the menu on any tap
                 outside of it and blocks the dashboard underneath. */}
-            {filterMenuOpen && (
+            {(filterMenuOpen || filterMenuClosing) && (
               <div
                 className="fixed inset-0 z-30"
-                onClick={() => setFilterMenuOpen(false)}
+                onClick={closeFilterMenu}
               />
             )}
-            {filterMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded shadow-lg py-1 min-w-[12rem]">
+            {(filterMenuOpen || filterMenuClosing) && (
+              <div className={`absolute left-0 top-full mt-1 z-40 bg-white rounded shadow-lg py-1 min-w-[12rem] ${filterMenuClosing ? 'dropdown-out' : 'dropdown-in'}`}>
                 {FILTERS.map((f) => (
                   <button
                     key={f.id}
                     onClick={() => {
                       setActiveFilter(f.id)
-                      setFilterMenuOpen(false)
+                      closeFilterMenu()
                     }}
                     className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center hover:bg-slate-100 ${
                       activeFilter === f.id ? 'font-semibold text-blue-600' : 'text-slate-700'

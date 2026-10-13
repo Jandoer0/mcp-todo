@@ -25,17 +25,35 @@ export default function Layout({
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuClosing, setMenuClosing] = useState(false)
   const menuRef = useRef(null)
+  const menuTimer = useRef(null)
+
+  // Animated close: play the leave animation, then unmount.
+  const closeMenu = () => {
+    if (!menuOpen || menuClosing) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setMenuOpen(false)
+      return
+    }
+    setMenuClosing(true)
+    menuTimer.current = setTimeout(() => {
+      setMenuClosing(false)
+      setMenuOpen(false)
+    }, 140)
+  }
+
+  useEffect(() => () => clearTimeout(menuTimer.current), [])
 
   // Close the dropdown on any click outside of it.
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+      if (menuRef.current && !menuRef.current.contains(e.target)) closeMenu()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [menuOpen])
+  }, [menuOpen, menuClosing])
 
   return (
     <div
@@ -77,17 +95,17 @@ export default function Layout({
         {/* Профиль: иконка пользователя в стиле иконки «Корзины» + dropdown */}
         <div className="relative shrink-0" ref={menuRef}>
           <button
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={() => (menuOpen ? closeMenu() : (clearTimeout(menuTimer.current), setMenuClosing(false), setMenuOpen(true)))}
             title="Профиль"
             className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
           >
             <UserIcon />
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg py-1 min-w-[13rem]">
+          {(menuOpen || menuClosing) && (
+            <div className={`absolute right-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg py-1 min-w-[13rem] ${menuClosing ? 'dropdown-out' : 'dropdown-in'}`}>
               <button
                 onClick={() => {
-                  setMenuOpen(false)
+                  closeMenu()
                   onProfile()
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
@@ -97,7 +115,7 @@ export default function Layout({
               {isAdmin && (
                 <button
                   onClick={() => {
-                    setMenuOpen(false)
+                    closeMenu()
                     onAdmin()
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
@@ -108,7 +126,7 @@ export default function Layout({
               <div className="border-t border-gray-100 my-1" />
               <button
                 onClick={() => {
-                  setMenuOpen(false)
+                  closeMenu()
                   onLogout()
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
