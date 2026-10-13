@@ -1,13 +1,59 @@
-export default function Layout({ isAdmin, onAdmin, onLogout, children }) {
+import { useEffect, useRef, useState } from 'react'
+import BoardSwitcher from './BoardSwitcher'
+
+function UserIcon() {
+  // Same visual style as the TaskCard trash icon: 24x24 stroke SVG, w-5 h-5.
   return (
-    <div className="min-h-screen bg-[#35506b] text-slate-800">
-      <header className="bg-[#22384d] shadow px-4 py-3 flex items-center justify-between gap-2">
-        {/* Логотип + название — кликабельны, обновляют страницу */}
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  )
+}
+
+export default function Layout({
+  isAdmin,
+  onAdmin,
+  onLogout,
+  onProfile,
+  // board carousel props
+  boards = [],
+  activeBoardId = null,
+  onSwitchBoard,
+  onEditBoard,
+  onCreateBoard,
+  activeBoard = null,
+  children,
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  // Close the dropdown on any click outside of it.
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  return (
+    <div
+      className="min-h-screen text-slate-800"
+      style={{
+        backgroundColor: '#35506b',
+        backgroundImage: activeBoard?.color
+          ? `linear-gradient(180deg, ${activeBoard.color}22 0%, rgba(53,80,107,0) 320px)`
+          : undefined,
+      }}
+    >
+      <header className="bg-[#22384d] shadow px-3 sm:px-4 py-3 flex items-center gap-2">
+        {/* Логотип + название — скрываются на мобильных (остаются только доски и профиль) */}
         <button
           type="button"
           onClick={() => window.location.reload()}
           title="Обновить страницу"
-          className="shrink-0 flex items-center gap-2 rounded px-1 py-0.5 hover:bg-white/10 transition-colors cursor-pointer"
+          className="hidden md:flex shrink-0 items-center gap-2 rounded px-1 py-0.5 hover:bg-white/10 transition-colors cursor-pointer"
         >
           <img src="/ico.png" alt="OmniTask" className="w-7 h-7 rounded" />
           <span className="text-lg font-extrabold tracking-widest uppercase text-white">
@@ -15,19 +61,62 @@ export default function Layout({ isAdmin, onAdmin, onLogout, children }) {
           </span>
         </button>
 
-        {/* Действия справа */}
-        <div className="flex justify-end items-center gap-2 sm:gap-4 min-w-0">
-          {isAdmin && (
-            <button
-              onClick={onAdmin}
-              className="text-[11px] sm:text-xs bg-white/10 text-white px-2 py-1 rounded hover:bg-white/20 whitespace-nowrap"
-            >
-              Панель администратора
-            </button>
-          )}
-          <button onClick={onLogout} className="text-red-300 text-sm font-medium hover:text-red-200 shrink-0">
-            Выйти
+        {/* Переключатель досок — центр хедера */}
+        {boards.length ? (
+          <BoardSwitcher
+            boards={boards}
+            activeId={activeBoardId}
+            onSwitch={onSwitchBoard}
+            onEdit={onEditBoard}
+            onCreate={onCreateBoard}
+          />
+        ) : (
+          <div className="flex-1" />
+        )}
+
+        {/* Профиль: иконка пользователя в стиле иконки «Корзины» + dropdown */}
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            title="Профиль"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          >
+            <UserIcon />
           </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg py-1 min-w-[13rem]">
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  onProfile()
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <UserIcon /> Профиль
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onAdmin()
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                >
+                  Панель администрирования
+                </button>
+              )}
+              <div className="border-t border-gray-100 my-1" />
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  onLogout()
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+              >
+                Выйти
+              </button>
+            </div>
+          )}
         </div>
       </header>
       <main className="p-4 max-w-4xl mx-auto">{children}</main>

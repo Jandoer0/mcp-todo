@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from test_isolation import client  # noqa: F401  (app with isolated temp DB)
-from test_isolation import _register
+from test_isolation import _first_board, _register
 
 from app.clock import utcnow
 from app.db import SessionLocal  # noqa: F401  (test DB access for cleanup)
@@ -42,11 +42,14 @@ def _admin():
 
 
 def _hook(hdr, user_id, events, excluded=None):
+    from test_isolation import _first_board
+
     r = client.post(
         "/api/admin/webhooks",
         headers=hdr,
         json={
             "user_id": user_id,
+            "board_id": _first_board(hdr),
             "name": "hook",
             "url": "https://example.com/hook",
             "token": "secret",
@@ -76,7 +79,7 @@ def test_webhook_crud_and_validation():
     r = client.post(
         "/api/admin/webhooks",
         headers=hdr,
-        json={"user_id": uid, "name": "x", "url": "u", "chat_id": "1", "events": ["nope"]},
+        json={"user_id": uid, "board_id": _first_board(hdr), "name": "x", "url": "u", "chat_id": "1", "events": ["nope"]},
     )
     assert r.status_code == 400
 

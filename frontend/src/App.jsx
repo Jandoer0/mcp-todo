@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
-import { adminApi } from './api/client'
+import { adminApi, authApi, boardsApi } from './api/client'
 import Login from './components/Login'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
 import Board from './components/Board'
 import TaskForm from './components/TaskForm'
 import ListsManager from './components/ListsManager'
+import BoardForm from './components/BoardForm'
 import AdminPanel from './components/AdminPanel'
 
 export default function App() {
@@ -27,7 +28,66 @@ export default function App() {
     remove,
     setList,
     load,
-  } = useTasks(ready)
+  } = useTasks(ready, activeBoardId)
+
+  // --- Boards (multi-board support) ---
+  const [boards, setBoards] = useState([])
+  const [activeBoardId, setActiveBoardId] = useState(null)
+  const [boardFormOpen, setBoardFormOpen] = useState(false)
+  const [editingBoard, setEditingBoard] = useState(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profile, setProfile] = useState(null)
+
+  const loadBoards = async () => {
+    const res = await boardsApi.list()
+    setBoards(res.data)
+    setActiveBoardId((prev) => {
+      if (prev && res.data.some((b) => b.id === prev)) return prev
+      const stored = Number(localStorage.getItem('activeBoard'))
+      if (stored && res.data.some((b) => b.id === stored)) return stored
+      return res.data[0]?.id ?? null
+    })
+  }
+
+  useEffect(() => {
+    if (ready) loadBoards().catch(() => {})
+  }, [ready])
+
+  useEffect(() => {
+    if (activeBoardId) localStorage.setItem('activeBoard', String(activeBoardId))
+  }, [activeBoardId])
+
+  const activeBoard = boards.find((b) => b.id === activeBoardId) || null
+
+  const handleSwitchBoard = (id) => {
+    setActiveBoardId(id)
+    setActiveFilter('all')
+    setActiveTag(null)
+  }
+
+  const handleBoardSubmit = async (data) => {
+    if (editingBoard) {
+      await boardsApi.update(editingBoard.id, data)
+      setBoardFormOpen(false)
+      setEditingBoard(null)
+      await loadBoards()
+    } else {
+      const res = await boardsApi.create(data)
+      setBoardFormOpen(false)
+      await loadBoards()
+      setActiveBoardId(res.data.id)
+    }
+  }
+
+  const openProfile = async () => {
+    try {
+      const res = await authApi.me()
+      setProfile(res.data)
+    } catch {
+      setProfile(null)
+    }
+    setProfileOpen(true)
+  }
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
@@ -131,17 +191,6 @@ export default function App() {
     }
   }
 
-  if (!token || view === 'login') {
-    return (
-      <Login
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        error={authError}
-        allowRegistration={allowRegistration}
-      />
-    )
-  }
-
   // adminView state is now used to control the AdminPanel modal rendered below
   
 
@@ -183,11 +232,35 @@ export default function App() {
     </>
   )
 
+  if (!token || view === 'login') {
+    return (
+      <Login
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        error={authError}
+        allowRegistration={allowRegistration}
+      />
+    )
+  }
+
   return (
     <Layout
       isAdmin={isAdmin}
       onAdmin={openAdmin}
       onLogout={logout}
+      onProfile={openProfile}
+      boards={boards}
+      activeBoardId={activeBoardId}
+      activeBoard={activeBoard}
+      onSwitchBoard={handleSwitchBoard}
+      onEditBoard={() => {
+        setEditingBoard(activeBoard)
+        setBoardFormOpen(true)
+      }}
+      onCreateBoard={() => {
+        setEditingBoard(null)
+        setBoardFormOpen(true)
+      }}
     >
       <Dashboard 
         summary={summary} 
@@ -287,9 +360,65 @@ export default function App() {
       <ListsManager
         open={listsOpen}
         onClose={() => setListsOpen(false)}
+        boardId={activeBoardId}
         lists={lists}
         onChanged={() => load()}
       />
+
+      <BoardForm
+        open={boardFormOpen}
+        board={editingBoard}
+        boardsCount={boards.length}
+        onClose={() => {
+          setBoardFormOpen(false)
+          setEditingBoard(null)
+        }}
+        onSubmit={handleBoardSubmit}
+      />
+
+      {profileOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"
+          onClick={() => setProfileOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold mb-4">Профиль</h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Имя пользователя</span>
+                <span className="font-medium">{profile?.username ?? '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">ID</span>
+                <span className="font-medium">{profile?.id ?? '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Роль</span>
+                <span className="font-medium">
+                  {profile?.role === 'admin' ? 'Администратор' : 'Пользователь'}
+                </span>
+              </div>
+              {activeBoard && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Текущая доска</span>
+                  <span className="font-medium">{activeBoard.name}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setProfileOpen(false)}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AdminPanel
         open={adminView}

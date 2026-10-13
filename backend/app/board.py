@@ -4,10 +4,64 @@ The task's ``list`` field stores the *name* of a TaskList. The default lists
 define the high-level state of a task; protected lists cannot be renamed or
 deleted, but their color and display order can be changed.
 """
-from .models import TaskList
+from .models import TaskList, Board
 
-# Shared color palette. List colors may be any of these; tag colors must not
-# collide with any list color.
+# Palette for boards themselves: 20 muted colors that harmonize with the dark
+# navy header (#35506b) — desaturated/fiery accents, distinct from the bright
+# task palette above.
+BOARD_PALETTE = [
+    "#38bdf8",  # sky
+    "#0ea5e9",  # ocean
+    "#2dd4bf",  # teal
+    "#34d399",  # emerald
+    "#a3e635",  # lime
+    "#facc15",  # sun
+    "#fb923c",  # tangerine
+    "#f87171",  # coral
+    "#fb7185",  # rose
+    "#f472b6",  # pink
+    "#c084fc",  # lilac
+    "#a78bfa",  # violet
+    "#818cf8",  # indigo
+    "#60a5fa",  # azure
+    "#94a3b8",  # steel
+    "#fbbf24",  # amber
+    "#4ade80",  # green
+    "#e879f9",  # orchid
+    "#22d3ee",  # cyan
+    "#fda4af",  # salmon
+]
+
+# Hard limit of boards per user (spec 1.1).
+MAX_BOARDS_PER_USER = 20
+
+DEFAULT_BOARD_NAME = "Личная"
+DEFAULT_BOARD_COLOR = "#0ea5e9"
+
+
+def ensure_default_board(db, user_id: int) -> Board:
+    """Guarantee the user has at least one board (the default one). Called at
+    registration and at startup for pre-existing users; also used by the
+    migration to backfill legacy per-user data."""
+    board = db.query(Board).filter(Board.user_id == user_id).first()
+    if board:
+        return board
+    board = Board(
+        user_id=user_id,
+        name=DEFAULT_BOARD_NAME,
+        color=DEFAULT_BOARD_COLOR,
+        position=0,
+    )
+    db.add(board)
+    db.commit()
+    db.refresh(board)
+    return board
+
+
+def boards_count(db, user_id: int) -> int:
+    return db.query(Board).filter(Board.user_id == user_id).count()
+
+
 PALETTE = [
     "#ef4444",  # red
     "#f97316",  # orange
@@ -62,16 +116,16 @@ def status_for_kind(kind) -> str:
     return "todo"
 
 
-def ensure_default_lists(db, user_id: int) -> None:
-    """Create the protected default lists for a user if they are missing.
-    Called for every existing user at startup and for each new user at
-    registration — lists are strictly per-user."""
+def ensure_default_lists(db, user_id: int, board_id: int | None = None) -> None:
+    """Create the protected default lists for a user (or a specific board) if
+    they are missing. Called at startup, at registration and when a new board
+    is created — lists are strictly per-user and per-board."""
     from .models import TaskList
 
-    existing = {
-        r[0]
-        for r in db.query(TaskList.name).filter(TaskList.user_id == user_id).all()
-    }
+    q = db.query(TaskList.name).filter(TaskList.user_id == user_id)
+    if board_id is not None:
+        q = q.filter(TaskList.board_id == board_id)
+    existing = {r[0] for r in q.all()}
     for spec in DEFAULT_LISTS:
         if spec["name"] not in existing:
             db.add(
@@ -82,23 +136,28 @@ def ensure_default_lists(db, user_id: int) -> None:
                     is_default=True,
                     kind=spec["kind"],
                     user_id=user_id,
+                    board_id=board_id,
                 )
             )
     db.commit()
 
 
-def list_names(db, user_id: int | None = None) -> set:
-    """Board list names; scoped to the user when user_id is given."""
+def list_names(db, user_id: int | None = None, board_id: int | None = None) -> set:
+    """Board list names; scoped to the board (or user) when given."""
     q = db.query(TaskList.name)
-    if user_id is not None:
+    if board_id is not None:
+        q = q.filter(TaskList.board_id == board_id)
+    elif user_id is not None:
         q = q.filter(TaskList.user_id == user_id)
     return {r[0] for r in q.all()}
 
 
-def list_colors(db, user_id: int | None = None) -> set:
+def list_colors(db, user_id: int | None = None, board_id: int | None = None) -> set:
     """Colors taken by board lists; scoped to the user when user_id is given.
     Used to keep tag colors distinct from the user's own list colors."""
     q = db.query(TaskList.color)
-    if user_id is not None:
+    if board_id is not None:
+        q = q.filter(TaskList.board_id == board_id)
+    elif user_id is not None:
         q = q.filter(TaskList.user_id == user_id)
     return {r[0] for r in q.all()}

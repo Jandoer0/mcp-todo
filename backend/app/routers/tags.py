@@ -7,15 +7,16 @@ from ..auth import get_current_user
 from ..board import PALETTE, list_colors
 from ..db import get_db
 from ..models import Tag, User
+from .boards import get_own_board
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
 
-def _tag_names(db: Session, user_id: int) -> set:
-    return {
-        r[0]
-        for r in db.query(Tag.name).filter(Tag.user_id == user_id).all()
-    }
+def _tag_names(db: Session, user_id: int, board_id: int | None = None) -> set:
+    q = db.query(Tag.name).filter(Tag.user_id == user_id)
+    if board_id is not None:
+        q = q.filter(Tag.board_id == board_id)
+    return {r[0] for r in q.all()}
 
 
 def cleanup_orphan_tags(db: Session, user_id: int | None = None) -> int:
@@ -46,60 +47,76 @@ def cleanup_orphan_tags(db: Session, user_id: int | None = None) -> int:
 
 @router.get("", response_model=list[schemas.TagResponse])
 def get_tags(
+    board_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Tag).filter(Tag.user_id == current_user.id).order_by(Tag.name).all()
+    # Tags are strictly per-board.
+    get_own_board(db, current_user, board_id)
+    return (
+        db.query(Tag)
+        .filter(Tag.user_id == current_user.id, Tag.board_id == board_id)
+        .order_by(Tag.name)
+        .all()
+    )
 
 
 @router.post("", response_model=schemas.TagResponse, status_code=201)
 def create_tag(
+    board_id: int,
     data: schemas.TagCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    get_own_board(db, current_user, board_id)
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Укажите название тега")
-    if name in _tag_names(db, current_user.id):
+    if name in _tag_names(db, current_user.id, board_id):
         raise HTTPException(status_code=400, detail="Тег с таким именем уже есть")
     if data.color not in PALETTE:
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
-    if data.color in list_colors(db, current_user.id):
+    if data.color in list_colors(db, current_user.id, board_id=board_id):
         raise HTTPException(
             status_code=400,
             detail="Цвет тега не должен совпадать с цветом списка",
         )
-    tag = Tag(name=name, color=data.color, user_id=current_user.id)
+    tag = Tag(name=name, color=data.color, user_id=current_user.id, board_id=board_id)
     db.add(tag)
     db.commit()
     db.refresh(tag)
     return tag
 
 
-@router.put("/{tag_id}", response_model=schemas.TagResponse)
+@router.put("/{board_id}/{tag_id}", response_model=schemas.TagResponse)
 def update_tag(
+    board_id: int,
     tag_id: int,
     data: schemas.TagUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    get_own_board(db, current_user, board_id)
     tag = (
         db.query(Tag)
-        .filter(Tag.id == tag_id, Tag.user_id == current_user.id)
+        .filter(
+            Tag.id == tag_id,
+            Tag.user_id == current_user.id,
+            Tag.board_id == board_id,
+        )
         .first()
     )
     if not tag:
         raise HTTPException(status_code=404, detail="Тег не найден")
     if data.name is not None and data.name.strip():
         new = data.name.strip()
-        if new != tag.name and new in _tag_names(db, current_user.id):
+        if new != tag.name and new in _tag_names(db, current_user.id, board_id):
             raise HTTPException(status_code=400, detail="Имя тега занято")
         tag.name = new
     if data.color is not None:
         if data.color not in PALETTE:
             raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
-        if data.color in list_colors(db, current_user.id):
+        if data.color in list_colors(db, current_user.id, board_id=board_id):
             raise HTTPException(
                 status_code=400,
                 detail="Цвет тега не должен совпадать с цветом списка",
@@ -110,15 +127,21 @@ def update_tag(
     return tag
 
 
-@router.delete("/{tag_id}")
+@router.delete("/{board_id}/{tag_id}")
 def delete_tag(
+    board_id: int,
     tag_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    get_own_board(db, current_user, board_id)
     tag = (
         db.query(Tag)
-        .filter(Tag.id == tag_id, Tag.user_id == current_user.id)
+        .filter(
+            Tag.id == tag_id,
+            Tag.user_id == current_user.id,
+            Tag.board_id == board_id,
+        )
         .first()
     )
     if not tag:

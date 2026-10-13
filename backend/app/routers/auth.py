@@ -5,13 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import create_access_token, get_password_hash, verify_password
+from ..auth import create_access_token, get_current_user, get_password_hash, verify_password
 from ..config import settings
 from ..db import get_db
 from ..models import User
 from ..site_settings import get_bool
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)):
+    """Lightweight profile for the header's user dropdown."""
+    return {"id": current_user.id, "username": current_user.username, "role": current_user.role}
 
 
 @router.get("/registration-status")
@@ -38,9 +44,10 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     # Lists are per-user: give the newcomer their protected default lists.
-    from ..board import ensure_default_lists
+    from ..board import ensure_default_board, ensure_default_lists
 
-    ensure_default_lists(db, db_user.id)
+    board = ensure_default_board(db, db_user.id)
+    ensure_default_lists(db, db_user.id, board.id)
     return db_user
 
 

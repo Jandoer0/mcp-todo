@@ -18,7 +18,7 @@ from starlette.staticfiles import StaticFiles
 from . import models  # noqa: F401  (ensures models are registered)
 from .config import settings
 from .db import Base, SessionLocal, engine
-from .routers import admin, auth, lists, mcp, summary, tags, tasks
+from .routers import admin, auth, boards, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
 
@@ -35,7 +35,13 @@ def run_migrations() -> None:
 
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
-    for name in ("settings", "task_dependencies", "task_tags", "task_cycle_logs"):
+    for name in (
+        "boards",
+        "settings",
+        "task_dependencies",
+        "task_tags",
+        "task_cycle_logs",
+    ):
         if name not in existing_tables:
             Base.metadata.tables[name].create(bind=engine)
 
@@ -64,6 +70,69 @@ def run_migrations() -> None:
         if "mcp_token_hash" not in user_cols:
             conn.execute(text("ALTER TABLE users ADD COLUMN mcp_token_hash VARCHAR"))
             conn.commit()
+
+    # Multi-board support: boards table + board_id on tasks/tags/task_lists/
+    # webhooks. Legacy rows are assigned to the user's default board.
+    from sqlalchemy import inspect as _inspect
+
+    board_cols = {c["name"] for c in _inspect(engine).get_columns("boards")}
+    if not board_cols:
+        Base.metadata.tables["boards"].create(bind=engine)
+    for table in ("tasks", "tags", "task_lists", "webhooks"):
+        with engine.connect() as conn:
+            cols = {c["name"] for c in inspector.get_columns(table)}
+            if "board_id" not in cols:
+                conn.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN board_id INTEGER")
+                )
+                conn.commit()
+    with engine.begin() as conn:
+        for table in ("tasks", "tags", "task_lists", "webhooks"):
+            conn.execute(
+                text(
+                    f"CREATE INDEX IF NOT EXISTS ix_{table}_board_id "
+                    f"ON {table} (board_id)"
+                )
+            )
+    _backfill_boards()
+
+    # Tags + task_lists rebuilds: the multi-board schema scopes name uniqueness
+    # to (user_id, board_id) instead of (user_id, name); SQLite needs a rebuild.
+    for table, index_name in (
+        ("tags", "uq_tags_user_board_name"),
+        ("task_lists", "uq_task_lists_user_board_name"),
+    ):
+        existing_indexes = {i["name"] for i in inspector.get_indexes(table)}
+        if index_name in existing_indexes:
+            continue
+        with engine.begin() as conn:
+            cols = ", ".join(
+                f"{c['name']} {c['type']}"
+                + (" PRIMARY KEY" if c.get("primary_key") else "")
+                for c in inspector.get_columns(table)
+            )
+            conn.execute(text(f"DROP TABLE IF EXISTS {table}_new"))
+            conn.execute(
+                text(
+                    f"CREATE TABLE {table}_new ({cols})"
+                )
+            )
+            conn.execute(
+                text(f"INSERT INTO {table}_new SELECT * FROM {table}")
+            )
+            for idx in inspector.get_indexes(table):
+                conn.execute(text(f"DROP INDEX IF EXISTS {idx['name']}"))
+            conn.execute(text(f"DROP TABLE {table}"))
+            conn.execute(text(f"ALTER TABLE {table}_new RENAME TO {table}"))
+            conn.execute(text(f"CREATE INDEX ix_{table}_name ON {table} (name)"))
+            conn.execute(text(f"CREATE INDEX ix_{table}_user_id ON {table} (user_id)"))
+            conn.execute(text(f"CREATE INDEX ix_{table}_board_id ON {table} (board_id)"))
+            conn.execute(
+                text(
+                    f"CREATE UNIQUE INDEX {index_name} "
+                    f"ON {table} (user_id, board_id, name)"
+                )
+            )
 
     # Per-user tags: add user_id to tags, backfill it from the owning task
     # and rebuild the table if it still has a global UNIQUE(name) constraint.
@@ -175,9 +244,50 @@ def run_migrations() -> None:
         ensure_setting(db, "allow_registration", "true")
         ensure_admin(db)
         seed_lists(db)
+        seed_boards(db)
         migrate_legacy_tags(db)
     finally:
         db.close()
+
+
+def _backfill_boards() -> None:
+    """Assign every legacy row (board_id IS NULL) to the user's default board,
+    creating that board when needed."""
+    from sqlalchemy import text
+
+    from .models import Board
+
+    with SessionLocal() as db:
+        for (uid,) in db.execute(text("SELECT id FROM users ORDER BY id")).all():
+            board = (
+                db.query(Board)
+                .filter(Board.user_id == uid)
+                .order_by(Board.id)
+                .first()
+            )
+            if not board:
+                board = Board(user_id=uid, name=f"Доска #{uid}", color="#0ea5e9")
+                db.add(board)
+                db.commit()
+                db.refresh(board)
+            for table in ("tasks", "tags", "task_lists", "webhooks"):
+                db.execute(
+                    text(
+                        f"UPDATE {table} SET board_id = :bid "
+                        "WHERE user_id = :uid AND board_id IS NULL"
+                    ),
+                    {"bid": board.id, "uid": uid},
+                )
+        db.commit()
+
+
+def seed_boards(db) -> None:
+    """Ensure every user has at least one board (post-migration safety net)."""
+    from .board import ensure_default_board
+    from .models import User
+
+    for user in db.query(User).all():
+        ensure_default_board(db, user.id)
 
 
 def migrate_legacy_tags(db) -> None:
@@ -219,17 +329,26 @@ def seed_lists(db) -> None:
     """Ensure every user has their own protected default board lists, and
     backfill tasks whose list does not reference one of the owner's lists."""
     from .board import ensure_default_lists, status_for_list
-    from .models import Task, TaskList, User
+    from .models import Board, Task, TaskList, User
 
     for user in db.query(User).all():
-        ensure_default_lists(db, user.id)
+        # Seed into the user's default board (multi-board schema).
+        board = (
+            db.query(Board).filter(Board.user_id == user.id)
+            .order_by(Board.id).first()
+        )
+        ensure_default_lists(db, user.id, board.id if board else None)
 
     # Backfill tasks whose list does not reference one of the owner's lists,
     # and keep status consistent with the (new) list.
     for task in db.query(Task).all():
         owned = (
             db.query(TaskList)
-            .filter(TaskList.user_id == task.user_id, TaskList.name == task.list)
+            .filter(
+                TaskList.user_id == task.user_id,
+                TaskList.board_id == task.board_id,
+                TaskList.name == task.list,
+            )
             .first()
         )
         if not owned:
@@ -311,6 +430,7 @@ if (mw := _cors_middleware()) is not None:
         allow_headers=["*"],
     )
 api.include_router(auth.router)
+api.include_router(boards.router)
 api.include_router(tasks.router)
 api.include_router(summary.router)
 api.include_router(admin.router)

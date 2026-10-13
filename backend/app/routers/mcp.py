@@ -64,42 +64,87 @@ def get_my_profile(auth_token: str) -> str:
 
 
 @mcp.tool()
-def list_all_lists(auth_token: str) -> str:
-    """List all available task lists (categories) and their corresponding statuses."""
-    from ..board import list_names, status_for_list
+def list_boards(auth_token: str) -> str:
+    """List the user's boards (workspaces). Every other tool requires a
+    board_id from this list — tasks, lists and tags are strictly per-board."""
+    from ..models import Board
+
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        names = list_names(db, user.id)
-        mapping = {name: status_for_list(name) for name in names}
-        lists_str = "\n".join([f"- {name} (status: {status})" for name, status in mapping.items()])
-        return f"Available lists:\n{lists_str}"
+        boards = (
+            db.query(Board)
+            .filter(Board.user_id == user.id)
+            .order_by(Board.position, Board.id)
+            .all()
+        )
+        result = [
+            {"id": b.id, "name": b.name, "color": b.color, "description": b.description}
+            for b in boards
+        ]
+        return json.dumps(result)
     finally:
         db.close()
 
 
 @mcp.tool()
-def list_tasks(auth_token: str, status: str | None = None, cyclic: bool | None = None) -> str:
-    """List tasks for the authenticated user. Optional status filter and cyclic filter (True = only cyclic tasks, False = only non-cyclic)."""
+def list_all_lists(auth_token: str, board_id: int) -> str:
+    """List all available task lists (categories) of the given board and their corresponding statuses."""
+    from ..board import status_for_kind
+    from ..models import Board, TaskList
+
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
-        query = db.query(Task).filter(Task.user_id == user.id)
-        if status:
-            query = query.filter(Task.status == status)
+        board = (
+            db.query(Board)
+            .filter(Board.id == board_id, Board.user_id == user.id)
+            .first()
+        )
+        if not board:
+            return "Error: Board not found"
+        rows = (
+            db.query(TaskList)
+            .filter(TaskList.user_id == user.id, TaskList.board_id == board_id)
+            .order_by(TaskList.position)
+            .all()
+        )
+        lists_str = "\n".join(
+            [
+                f"- {lst.name} (status: {status_for_kind(lst.kind)})"
+                for lst in rows
+            ]
+        )
+        return f"Available lists on board '{board.name}':\n{lists_str}"
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def list_tasks(auth_token: str, board_id: int, status: str | None = None, cyclic: bool | None = None) -> str:
+    """List tasks of the given board. Optional status filter and cyclic filter (True = only cyclic tasks, False = only non-cyclic)."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    db = _session()
+    try:
+        from ..models import Board
+
+        if not db.query(Board).filter(Board.id == board_id, Board.user_id == user.id).first():
+            return "Error: Board not found"
+        tasks = task_service.list_tasks(db, user, status=status, board_id=board_id)
         if cyclic is not None:
-            query = query.filter(Task.is_cyclic == cyclic)
-        tasks = query.all()
-        tasks = task_service.list_tasks(db, user, status=status)
+            tasks = [t for t in tasks if bool(t.is_cyclic) == cyclic]
         result = []
         for t in tasks:
             result.append(
                 {
                     "id": t.id,
+                    "board_id": t.board_id,
                     "title": t.title,
                     "description": t.description,
                     "status": t.status,
@@ -125,6 +170,7 @@ def list_tasks(auth_token: str, status: str | None = None, cyclic: bool | None =
 @mcp.tool()
 def create_task(
     auth_token: str,
+    board_id: int,
     title: str,
     description: str | None = None,
     start_date: str | None = None,
@@ -138,7 +184,7 @@ def create_task(
     cycle_interval: int = 1,
     reminder_days: int = 0,
 ) -> str:
-    """Create a new task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
+    """Create a new task on the given board. Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Cyclic tasks: cycle_period is daily|weekly|monthly|yearly, cycle_interval = every N periods,
     reminder_days = days before deadline when the task becomes visible in the main lists."""
     data = _extract_args(locals())
@@ -153,8 +199,8 @@ def create_task(
     t_list = data.get("list", "Не начато")
     t_blocked = data.get("blocked_by")
 
-    if not token or not t_title:
-        return "Error: Missing required parameters (auth_token, title)"
+    if not token or not t_title or data.get("board_id") is None:
+        return "Error: Missing required parameters (auth_token, board_id, title)"
 
     user = get_user_from_token(token)
     if not user:
@@ -174,6 +220,7 @@ def create_task(
 def update_task(
     auth_token: str,
     task_id: int,
+    board_id: int,
     title: str | None = None,
     description: str | None = None,
     status: str | None = None,
@@ -188,7 +235,7 @@ def update_task(
     cycle_interval: int | None = None,
     reminder_days: int | None = None,
 ) -> str:
-    """Update an existing task for the authenticated user. Priority scale: 1 = Low, 2 = Medium, 3 = High.
+    """Update an existing task (must belong to the given board). Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration."""
     data = _extract_args(locals())
     
@@ -197,6 +244,7 @@ def update_task(
     
     if not token or t_id is None:
         return "Error: Missing required parameters (auth_token, task_id)"
+    board_id = data.get("board_id")
 
     user = get_user_from_token(token)
     if not user:
@@ -206,8 +254,23 @@ def update_task(
         update_data = {
             k: v
             for k, v in data.items()
-            if k not in ("auth_token", "task_id") and v is not None
+            if k not in ("auth_token", "task_id", "board_id") and v is not None
         }
+        # The task must belong to the given board (no cross-board moves).
+        from ..models import Board
+
+        board = db.query(Board).filter(Board.id == board_id, Board.user_id == user.id).first()
+        if not board:
+            return "Error: Board not found"
+        existing = (
+            db.query(Task)
+            .filter(Task.id == t_id, Task.user_id == user.id)
+            .first()
+        )
+        if not existing:
+            return "Task not found"
+        if existing.board_id != board_id:
+            return "Error: Task not found on this board"
         # `list` is a builtin name in the tool signature; map it through.
         try:
             task = task_service.update_task(db, user, t_id, update_data)
@@ -227,8 +290,8 @@ def update_task(
 
 
 @mcp.tool()
-def delete_task(auth_token: str, task_id: int) -> str:
-    """Delete a task for the authenticated user. For a cyclic task, the whole iteration chain is deleted."""
+def delete_task(auth_token: str, board_id: int, task_id: int) -> str:
+    """Delete a task of the given board. For a cyclic task, the whole iteration chain is deleted."""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
@@ -252,8 +315,8 @@ def delete_task(auth_token: str, task_id: int) -> str:
 
 
 @mcp.tool()
-def manage_cycle(auth_token: str, task_id: int, action: str) -> str:
-    """Manage a cyclic task. action: 'skip' (shift deadline to next cycle, no history),
+def manage_cycle(auth_token: str, board_id: int, task_id: int, action: str) -> str:
+    """Manage a cyclic task of the given board. action: 'skip' (shift deadline to next cycle, no history),
     'stop' (break the cycle, logged), 'history' (list completed iterations),
     'complete' (mark done: logs history and creates the next iteration)."""
     user = get_user_from_token(auth_token)
@@ -317,8 +380,8 @@ def manage_cycle(auth_token: str, task_id: int, action: str) -> str:
 
 
 @mcp.tool()
-def search_tasks(auth_token: str, query_str: str) -> str:
-    """Search tasks by title or description for the authenticated user."""
+def search_tasks(auth_token: str, board_id: int, query_str: str) -> str:
+    """Search tasks by title or description on the given board."""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
@@ -328,6 +391,7 @@ def search_tasks(auth_token: str, query_str: str) -> str:
             db.query(Task)
             .filter(
                 Task.user_id == user.id,
+                Task.board_id == board_id,
                 (Task.title.ilike(f"%{query_str}%"))
                 | (Task.description.ilike(f"%{query_str}%")),
             )
@@ -341,15 +405,20 @@ def search_tasks(auth_token: str, query_str: str) -> str:
 
 
 @mcp.tool()
-def get_project_summary(auth_token: str) -> str:
-    """Return a summary of the authenticated user's tasks."""
+def get_project_summary(auth_token: str, board_id: int) -> str:
+    """Return a summary of the given board's tasks."""
     user = get_user_from_token(auth_token)
     if not user:
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
         import json as _json
-        return _json.dumps(task_service.count_tasks(db, user))
+
+        from ..models import Board
+
+        if not db.query(Board).filter(Board.id == board_id, Board.user_id == user.id).first():
+            return "Error: Board not found"
+        return _json.dumps(task_service.count_tasks(db, user, board_id=board_id))
     finally:
         db.close()
 

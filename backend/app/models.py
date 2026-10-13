@@ -18,6 +18,24 @@ from sqlalchemy.orm import relationship
 from .db import Base
 
 
+class Board(Base):
+    """A user's workspace (доска). Every board owns its own tasks, lists and
+    tags; entities are never shared between boards. Max 20 boards per user."""
+
+    __tablename__ = "boards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    name = Column(String)  # single line, length-limited at the schema level
+    description = Column(Text, nullable=True)  # multiline
+    color = Column(String, default="#0ea5e9")  # from BOARD_PALETTE
+    position = Column(Integer, default=0)
+    created_at = Column(DateTime, default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_boards_user_name"),
+    )
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -53,6 +71,8 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    # Owning board; nullable only for legacy rows backfilled at startup.
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=True, index=True)
     title = Column(String)
     description = Column(Text, nullable=True)
     start_date = Column(DateTime, nullable=True)
@@ -102,14 +122,15 @@ class TaskList(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=True, index=True)
     color = Column(String, default="#64748b")
     position = Column(Integer, default=0)
     is_default = Column(Boolean, default=False)
     # 'done' | 'progress' | 'todo' — semantics of the protected default lists
     kind = Column(String, nullable=True)
     __table_args__ = (
-        # Uniqueness of a list name is scoped to its owner.
-        UniqueConstraint("user_id", "name", name="uq_task_lists_user_name"),
+        # Uniqueness of a list name is scoped to its owner and its board.
+        UniqueConstraint("user_id", "board_id", "name", name="uq_task_lists_user_board_name"),
     )
 
 
@@ -120,10 +141,11 @@ class Tag(Base):
     # Tags are strictly per-user: the same name may exist for different users.
     name = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=True, index=True)
     color = Column(String, default="#64748b")
     __table_args__ = (
-        # Uniqueness of a tag name is scoped to its owner.
-        UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
+        # Uniqueness of a tag name is scoped to its owner (and its board).
+        UniqueConstraint("user_id", "board_id", "name", name="uq_tags_user_board_name"),
     )
 
 
@@ -136,6 +158,8 @@ class Webhook(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    # Webhooks are board-scoped: only events of tasks on this board dispatch.
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=True, index=True)
     name = Column(String)  # internal label
     url = Column(String)  # receiver endpoint
     token = Column(String, nullable=True)  # HMAC secret for signing the body

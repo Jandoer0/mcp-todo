@@ -19,3 +19,29 @@ export const PALETTE = [
   '#f43f5e',
   '#64748b',
 ]
+
+// Palette for boards themselves. Must match BOARD_PALETTE in backend app/board.py.
+export const BOARD_PALETTE = [
+  '#38bdf8',
+  '#0ea5e9',
+  '#2dd4bf',
+  '#34d399',
+  '#a3e635',
+  '#facc15',
+  '#fb923c',
+  '#f87171',
+  '#fb7185',
+  '#f472b6',
+  '#c084fc',
+  '#a78bfa',
+  '#818cf8',
+  '#60a5fa',
+  '#94a3b8',
+  '#fbbf24',
+  '#4ade80',
+  '#e879f9',
+  '#22d3ee',
+  '#fda4af',
+]
+
+export const MAX_BOARDS = 20

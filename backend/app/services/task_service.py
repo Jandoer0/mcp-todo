@@ -13,8 +13,9 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from ..clock import utcnow
-from ..board import PALETTE, list_colors, list_names, status_for_kind
+from ..board import PALETTE, list_colors, status_for_kind
 from ..models import (
+    Board,
     Tag,
     Task,
     TaskCycleLog,
@@ -27,6 +28,22 @@ from ..routers.tags import cleanup_orphan_tags
 from . import notification_service
 
 _PROTECTED_FIELDS = {"id", "user_id", "auth_token"}  # never settable via payload
+
+
+def _resolve_board(db: Session, user: User, board_id) -> Board:
+    """Return the board if it belongs to the user; None/missing board is an error.
+    Falls back to the user's first board for legacy callers without board_id."""
+    if board_id is None:
+        board = db.query(Board).filter(Board.user_id == user.id).order_by(Board.id).first()
+    else:
+        board = (
+            db.query(Board)
+            .filter(Board.id == board_id, Board.user_id == user.id)
+            .first()
+        )
+    if not board:
+        raise LookupError("Board not found")
+    return board
 
 
 class TaskError(Exception):
@@ -58,7 +75,7 @@ def compute_is_blocked(db: Session, blocker_ids: list[int]) -> bool:
     return (count or 0) > 0
 
 
-def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int) -> None:
+def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int, board_id=None) -> None:
     db.execute(
         sa_delete(task_dependencies).where(
             task_dependencies.c.blocked_id == task_id
@@ -70,7 +87,10 @@ def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int) -> None:
             continue
         seen.add(bid)
         blocker = db.get(Task, bid)
+        # A task may only be blocked by tasks on the same board (spec §1.1).
         if not blocker or blocker.user_id != user_id:
+            continue
+        if board_id is not None and blocker.board_id != board_id:
             continue
         existing = db.execute(
             select(task_dependencies).where(
@@ -85,36 +105,42 @@ def set_blockers(db: Session, task_id: int, blocker_ids, user_id: int) -> None:
         )
 
 
-def tag_palette(db, user_id: int) -> list:
+def tag_palette(db, user_id: int, board_id: int | None = None) -> list:
     """Colors available for tags: the full PALETTE minus colors taken by the
-    user's own lists. Per AGENTS.md there are 18 presets; when they run out,
+    board's own lists. Per AGENTS.md there are 18 presets; when they run out,
     colors repeat."""
-    used_by_lists = list_colors(db, user_id)
+    used_by_lists = list_colors(db, user_id, board_id=board_id)
     return [c for c in PALETTE if c not in used_by_lists]
 
 
-def _pick_tag_color(db, user_id: int) -> str:
+def _pick_tag_color(db, user_id: int, board_id: int | None = None) -> str:
     """Pick a color for a new tag: first unused one, otherwise cycle deterministically
     by the count of existing tags (colors repeat when the palette is exhausted)."""
-    avail = tag_palette(db, user_id)
+    avail = tag_palette(db, user_id, board_id)
     if not avail:
         avail = list(PALETTE)
-    used = {t.color for t in db.query(Tag).filter(Tag.user_id == user_id).all()}
+    q = db.query(Tag).filter(Tag.user_id == user_id)
+    if board_id is not None:
+        q = q.filter(Tag.board_id == board_id)
+    used = {t.color for t in q.all()}
     color = next((c for c in avail if c not in used), None)
     if color is None:
-        count = db.query(Tag).filter(Tag.user_id == user_id).count()
+        count = q.count()
         color = avail[count % len(avail)]
     return color
 
 
-def repair_tag_colors(db, user_id: int) -> int:
+def repair_tag_colors(db, user_id: int, board_id: int | None = None) -> int:
     """Reassign colors to tags that ended up with a color not allowed for tags
     (e.g. the gray fallback colliding with the 'Не начато' list color)."""
-    avail = tag_palette(db, user_id)
+    avail = tag_palette(db, user_id, board_id)
     if not avail:
         avail = list(PALETTE)
     allowed = set(avail)
-    tags = db.query(Tag).filter(Tag.user_id == user_id).all()
+    q = db.query(Tag).filter(Tag.user_id == user_id)
+    if board_id is not None:
+        q = q.filter(Tag.board_id == board_id)
+    tags = q.all()
     used = {t.color for t in tags if t.color in allowed}
     fixed = 0
     for tag in tags:
@@ -131,10 +157,10 @@ def repair_tag_colors(db, user_id: int) -> int:
     return fixed
 
 
-def ensure_tags(db: Session, names, user_id: int) -> list:
+def ensure_tags(db: Session, names, user_id: int, board_id: int | None = None) -> list:
     """Ensure Tag rows exist for each name (auto color, never colliding with
     list colors; colors repeat cyclically when the palette is exhausted).
-    Tags are scoped to the given user.
+    Tags are scoped to the given user and board.
     Returns the list of Tag ORM objects."""
     if not names:
         return []
@@ -144,13 +170,17 @@ def ensure_tags(db: Session, names, user_id: int) -> list:
         name = (name or "").strip()
         if not name:
             continue
-        tag = (
-            db.query(Tag)
-            .filter(Tag.name == name, Tag.user_id == user_id)
-            .first()
-        )
+        q = db.query(Tag).filter(Tag.name == name, Tag.user_id == user_id)
+        if board_id is not None:
+            q = q.filter(Tag.board_id == board_id)
+        tag = q.first()
         if not tag:
-            tag = Tag(name=name, color=_pick_tag_color(db, user_id), user_id=user_id)
+            tag = Tag(
+                name=name,
+                color=_pick_tag_color(db, user_id, board_id),
+                user_id=user_id,
+                board_id=board_id,
+            )
             db.add(tag)
             db.commit()
             db.refresh(tag)
@@ -205,14 +235,6 @@ def _attach_state_many(db: Session, tasks: list[Task]) -> None:
         t.tags = sorted(tags_by_task.get(t.id, []), key=lambda g: g.name)
 
 
-def _resolve_list(db: Session, name: str | None, user_id: int) -> str:
-    """Return one of the user's list names, falling back to the default
-    'not started' list."""
-    if name and name in list_names(db, user_id):
-        return name
-    return "Не начато"
-
-
 # ---------------- Cyclic tasks ----------------
 
 from datetime import timedelta as _timedelta
@@ -262,6 +284,7 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
     )
     next_task = Task(
         user_id=task.user_id,
+        board_id=task.board_id,
         title=task.title,
         description=task.description,
         priority=task.priority,
@@ -306,23 +329,23 @@ def is_cycle_visible(task: Task, now: datetime) -> bool:
 
 
 
-def _resolve_list(db: Session, name: str | None, user_id: int) -> tuple[str, str]:
+def _resolve_list(
+    db: Session, name: str | None, user_id: int, board_id: int | None = None
+) -> tuple[str, str]:
     """Resolve a list name to (list_name, task_status). The status comes from
-    the list's editable kind; unknown names fall back to the user's
-    'Не начато' list."""
-    row = None
-    if name:
-        row = (
-            db.query(TaskList)
-            .filter(TaskList.user_id == user_id, TaskList.name == name)
-            .first()
+    the list's editable kind; unknown names fall back to the board's
+    'Не начато' list. Scoped to the board when board_id is given."""
+    def _find(nm):
+        q = db.query(TaskList).filter(
+            TaskList.user_id == user_id, TaskList.name == nm
         )
+        if board_id is not None:
+            q = q.filter(TaskList.board_id == board_id)
+        return q.first()
+
+    row = _find(name) if name else None
     if not row:
-        row = (
-            db.query(TaskList)
-            .filter(TaskList.user_id == user_id, TaskList.name == "Не начато")
-            .first()
-        )
+        row = _find("Не начато")
     if not row:
         return ("Не начато", "todo")
     return (row.name, status_for_kind(row.kind))
@@ -344,9 +367,15 @@ def _normalize_cyclic(task: Task, data: dict) -> None:
 
 
 def list_tasks(
-    db: Session, user: User, status: str | None = None, list_name: str | None = None
+    db: Session,
+    user: User,
+    status: str | None = None,
+    list_name: str | None = None,
+    board_id: int | None = None,
 ) -> list[Task]:
     query = db.query(Task).filter(Task.user_id == user.id)
+    if board_id is not None:
+        query = query.filter(Task.board_id == board_id)
     if status:
         query = query.filter(Task.status == status)
     if list_name:
@@ -364,7 +393,10 @@ def create_task(db: Session, user: User, data: dict) -> Task:
     blocked_by = data.pop("blocked_by", None)
     tag_names = data.pop("tags", None)
 
-    list_name, list_status = _resolve_list(db, data.get("list"), user.id)
+    board = _resolve_board(db, user, data.get("board_id"))
+    data["board_id"] = board.id
+
+    list_name, list_status = _resolve_list(db, data.get("list"), user.id, board.id)
     data["list"] = list_name
     data["status"] = list_status
 
@@ -378,10 +410,10 @@ def create_task(db: Session, user: User, data: dict) -> Task:
     db.refresh(task)
 
     if tag_names is not None:
-        task.tags = ensure_tags(db, tag_names, user.id)
+        task.tags = ensure_tags(db, tag_names, user.id, board.id)
         db.commit()
     if blocked_by is not None:
-        set_blockers(db, task.id, blocked_by, user.id)
+        set_blockers(db, task.id, blocked_by, user.id, board.id)
         db.commit()
         db.refresh(task)
 
@@ -408,7 +440,7 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     tag_names = data.pop("tags", None)
 
     if "list" in data:
-        list_name, list_status = _resolve_list(db, data["list"], user.id)
+        list_name, list_status = _resolve_list(db, data["list"], user.id, task.board_id)
         data["list"] = list_name
         data["status"] = list_status
 
@@ -417,7 +449,7 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     _normalize_cyclic(task, data)
 
     if has_tags:
-        task.tags = ensure_tags(db, tag_names or [], user.id)
+        task.tags = ensure_tags(db, tag_names or [], user.id, task.board_id)
         cleanup_orphan_tags(db, user.id)
 
     # A task cannot be marked done (moved to "Готово") while still blocked.
@@ -435,7 +467,7 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
 
     db.commit()
     if has_blocked_by:
-        set_blockers(db, task.id, blocked_by, user.id)
+        set_blockers(db, task.id, blocked_by, user.id, task.board_id)
         db.commit()
     db.refresh(task)
 
@@ -499,18 +531,24 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
     notification_service.dispatch_snapshot(db, user.id, *snapshot, "task_deleted")
 
 
-def count_tasks(db: Session, user: User) -> dict:
+def count_tasks(db: Session, user: User, board_id: int | None = None) -> dict:
     """Lightweight counters for MCP get_project_summary."""
     uid = user.id
     now = utcnow()
+
+    def _count(**kw):
+        q = db.query(Task).filter(Task.user_id == uid)
+        if board_id is not None:
+            q = q.filter(Task.board_id == board_id)
+        return q.filter_by(**kw).count()
+
+    overdue_q = db.query(Task).filter(Task.user_id == uid, Task.deadline < now, Task.status != "done")
+    if board_id is not None:
+        overdue_q = overdue_q.filter(Task.board_id == board_id)
     return {
-        "total": db.query(Task).filter(Task.user_id == uid).count(),
-        "todo": db.query(Task).filter(Task.user_id == uid, Task.status == "todo").count(),
-        "in_progress": db.query(Task).filter(
-            Task.user_id == uid, Task.status == "in_progress"
-        ).count(),
-        "done": db.query(Task).filter(Task.user_id == uid, Task.status == "done").count(),
-        "overdue": db.query(Task).filter(
-            Task.user_id == uid, Task.deadline < now, Task.status != "done"
-        ).count(),
+        "total": _count(),
+        "todo": _count(status="todo"),
+        "in_progress": _count(status="in_progress"),
+        "done": _count(status="done"),
+        "overdue": overdue_q.count(),
     }

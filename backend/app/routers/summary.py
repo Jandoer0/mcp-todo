@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..auth import get_current_user
+from ..clock import utcnow
 from ..db import get_db
 from ..models import Task, User
 
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/summary", tags=["summary"])
 
 @router.get("", response_model=schemas.SummaryResponse)
 def get_summary(
+    board_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -23,17 +25,22 @@ def get_summary(
     # Dormant cyclic tasks (outside their reminder window) are excluded from
     # the headline statistics — they are only counted in 'planned'.
     now = utcnow()
-    dormant_ids = set()
-    for t in db.query(Task).filter(
+    dormant_q = db.query(Task).filter(
         Task.user_id == uid,
         Task.is_cyclic == True,
-    ).all():
+    )
+    base_q = db.query(Task).filter(Task.user_id == uid)
+    if board_id is not None:
+        dormant_q = dormant_q.filter(Task.board_id == board_id)
+        base_q = base_q.filter(Task.board_id == board_id)
+    dormant_ids = set()
+    for t in dormant_q.all():
         if t.deadline:
             window = t.deadline - timedelta(days=max(0, t.reminder_days or 0))
             if now < window:
                 dormant_ids.add(t.id)
 
-    base = db.query(Task).filter(Task.user_id == uid)
+    base = base_q
     if dormant_ids:
         base = base.filter(~Task.id.in_(dormant_ids))
 

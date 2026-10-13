@@ -59,16 +59,16 @@ def bulk_update_tasks(
                     raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
                 
                 # Update fields (excluding ID and protected columns:
-                # user_id must never be settable via the API — otherwise a
-                # user could move their task into another user's account).
+                # user_id/board_id must never be settable via the API — otherwise
+                # a user could move their task into another user's account/board).
                 update_fields = {
-                    k: v for k, v in task_data.items() if k not in ("id", "user_id")
+                    k: v for k, v in task_data.items() if k not in ("id", "user_id", "board_id")
                 }
                 
                 # Resolve list and status
                 if "list" in update_fields:
                     list_name, list_status = _resolve_list(
-                        db, update_fields["list"], current_user.id
+                        db, update_fields["list"], current_user.id, db_task.board_id
                     )
                     update_fields["list"] = list_name
                     update_fields["status"] = list_status
@@ -79,23 +79,26 @@ def bulk_update_tasks(
                     setattr(db_task, key, value)
                 
                 if tag_names is not None:
-                    db_task.tags = ensure_tags(db, tag_names, current_user.id)
+                    db_task.tags = ensure_tags(db, tag_names, current_user.id, db_task.board_id)
                 
                 db.commit()
                 updated += 1
             else:
                 # Create new
                 data = task_data.copy()
-                list_name, list_status = _resolve_list(db, data.get("list"), current_user.id)
+                board = task_service._resolve_board(db, current_user, data.get("board_id"))
+                data["board_id"] = board.id
+                list_name, list_status = _resolve_list(db, data.get("list"), current_user.id, board.id)
                 data["list"] = list_name
                 data["status"] = list_status
                 
                 tag_names = data.pop("tags", None)
                 data.pop("id", None)
-                data.pop("user_id", None)  # protected: always the caller
+                for protected in ("user_id",):
+                    data.pop(protected, None)  # protected: always the caller
                 db_task = Task(user_id=current_user.id, **data)
                 if tag_names is not None:
-                    db_task.tags = ensure_tags(db, tag_names, current_user.id)
+                    db_task.tags = ensure_tags(db, tag_names, current_user.id, board.id)
                 
                 db.add(db_task)
                 db.commit()
@@ -115,10 +118,17 @@ def bulk_update_tasks(
 def list_tasks(
     status: str | None = None,
     list: str | None = None,
+    board_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tasks = task_service.list_tasks(db, current_user, status=status, list_name=list)
+    try:
+        task_service._resolve_board(db, current_user, board_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Board not found") from None
+    tasks = task_service.list_tasks(
+        db, current_user, status=status, list_name=list, board_id=board_id
+    )
     return tasks
 
 

@@ -5,6 +5,26 @@ from typing import Any
 from pydantic import BaseModel, Field, computed_field, field_validator
 
 
+class BoardResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    color: str
+    position: int
+
+    model_config = {"from_attributes": True}
+
+class BoardCreate(BaseModel):
+    name: str
+    description: str | None = None
+    color: str = "#0ea5e9"
+
+class BoardUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    color: str | None = None
+    position: int | None = None
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -36,6 +56,8 @@ class TaskBase(BaseModel):
     deadline: datetime | None = None
     priority: int | None = 1
     tags: builtins.list[str] | None = []
+    # Owning board (required for creation; verified server-side)
+    board_id: int | None = None
     # Blocking tasks (ids of tasks that must be done before this one)
     blocked_by: builtins.list[int] | None = None
     # Cyclic task settings
@@ -105,6 +127,7 @@ class TaskResponse(BaseModel):
     title: str
     description: str | None = None
     list: str
+    board_id: int | None = None
     start_date: datetime | None = None
     deadline: datetime | None = None
     priority: int
@@ -168,6 +191,7 @@ class WebhookBase(BaseModel):
 
 class WebhookCreate(WebhookBase):
     user_id: int  # webhook is bound to a specific user (owner of its tasks)
+    board_id: int  # ...and to a specific board (only its task events fire)
 
 class WebhookUpdate(BaseModel):
     name: str | None = None
@@ -175,12 +199,14 @@ class WebhookUpdate(BaseModel):
     token: str | None = None
     chat_id: str | None = None
     thread_id: str | None = None
+    board_id: int | None = None
     events: builtins.list[str] | None = None
     excluded_events: builtins.list[str] | None = None
 
 class WebhookResponse(BaseModel):
     id: int
     user_id: int
+    board_id: int | None = None
     name: str
     url: str
     token: str | None = None

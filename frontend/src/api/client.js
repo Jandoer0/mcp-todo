@@ -19,11 +19,21 @@ export const authApi = {
   register: (username, password) =>
     api.post(`${API_URL}/auth/register`, { username, password }),
   registrationStatus: () => api.get(`${API_URL}/auth/registration-status`),
+  me: () => api.get(`${API_URL}/auth/me`),
+}
+
+export const boardsApi = {
+  list: () => api.get(`${API_URL}/boards`),
+  create: (data) => api.post(`${API_URL}/boards`, data),
+  update: (id, data) => api.put(`${API_URL}/boards/${id}`, data),
+  remove: (id) => api.delete(`${API_URL}/boards/${id}`),
 }
 
 export const tasksApi = {
-  list: (status) =>
-    api.get(`${API_URL}/tasks`, { params: status ? { status } : {} }),
+  list: (boardId, status) =>
+    api.get(`${API_URL}/tasks`, {
+      params: { board_id: boardId, ...(status ? { status } : {}) },
+    }),
   create: (data) => api.post(`${API_URL}/tasks`, data),
   update: (id, data) => api.put(`${API_URL}/tasks/${id}`, data),
   remove: (id) => api.delete(`${API_URL}/tasks/${id}`),
@@ -33,7 +43,8 @@ export const tasksApi = {
 }
 
 export const summaryApi = {
-  get: () => api.get(`${API_URL}/summary`),
+  get: (boardId) =>
+    api.get(`${API_URL}/summary`, { params: { board_id: boardId } }),
 }
 
 export const adminApi = {
@@ -55,20 +66,27 @@ export const adminApi = {
     remove: (id) => api.delete(`${API_URL}/admin/webhooks/${id}`),
     test: (id) => api.post(`${API_URL}/admin/webhooks/${id}/test`),
   },
+  userBoards: (userId) => api.get(`${API_URL}/admin/users/${userId}/boards`),
 }
 
 export const listsApi = {
-  list: () => api.get(`${API_URL}/lists`),
-  create: (data) => api.post(`${API_URL}/lists`, data),
-  update: (id, data) => api.put(`${API_URL}/lists/${id}`, data),
-  remove: (id) => api.delete(`${API_URL}/lists/${id}`),
+  list: (boardId) =>
+    api.get(`${API_URL}/lists`, { params: { board_id: boardId } }),
+  create: (boardId, data) =>
+    api.post(`${API_URL}/lists`, data, { params: { board_id: boardId } }),
+  update: (boardId, id, data) =>
+    api.put(`${API_URL}/lists/${boardId}/${id}`, data),
+  remove: (boardId, id) => api.delete(`${API_URL}/lists/${boardId}/${id}`),
 }
 
 export const tagsApi = {
-  list: () => api.get(`${API_URL}/tags`),
-  create: (data) => api.post(`${API_URL}/tags`, data),
-  update: (id, data) => api.put(`${API_URL}/tags/${id}`, data),
-  remove: (id) => api.delete(`${API_URL}/tags/${id}`),
+  list: (boardId) =>
+    api.get(`${API_URL}/tags`, { params: { board_id: boardId } }),
+  create: (boardId, data) =>
+    api.post(`${API_URL}/tags`, data, { params: { board_id: boardId } }),
+  update: (boardId, id, data) =>
+    api.put(`${API_URL}/tags/${boardId}/${id}`, data),
+  remove: (boardId, id) => api.delete(`${API_URL}/tags/${boardId}/${id}`),
 }
 
 export const healthApi = {

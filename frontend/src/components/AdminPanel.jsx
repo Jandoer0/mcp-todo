@@ -14,6 +14,7 @@ const WEBHOOK_EVENTS = [
 
 const EMPTY_WEBHOOK = {
   user_id: '',
+  board_id: '',
   name: '',
   url: '',
   token: '',
@@ -68,6 +69,18 @@ export default function AdminPanel({
   const [currentHook, setCurrentHook] = useState(null)
   const [hookData, setHookData] = useState(EMPTY_WEBHOOK)
   const [testingId, setTestingId] = useState(null)
+  const [hookBoards, setHookBoards] = useState([])
+
+  const loadHookBoards = (userId) => {
+    if (!userId) {
+      setHookBoards([])
+      return
+    }
+    adminApi
+      .userBoards(userId)
+      .then((r) => setHookBoards(r.data))
+      .catch(() => setHookBoards([]))
+  }
 
   if (!open) return null
 
@@ -149,14 +162,18 @@ export default function AdminPanel({
 
   const handleOpenHookCreate = () => {
     setCurrentHook(null)
-    setHookData({ ...EMPTY_WEBHOOK, user_id: users[0]?.id ?? '' })
+    const uid = users[0]?.id ?? ''
+    setHookData({ ...EMPTY_WEBHOOK, user_id: uid, board_id: '' })
+    loadHookBoards(uid)
     setHookEditing(true)
   }
 
   const handleOpenHookEdit = (w) => {
     setCurrentHook(w)
+    loadHookBoards(w.user_id)
     setHookData({
       user_id: w.user_id,
+      board_id: w.board_id ?? '',
       name: w.name,
       url: w.url,
       token: w.token || '',
@@ -319,6 +336,7 @@ export default function AdminPanel({
                   <tr className="text-xs uppercase text-gray-500">
                     <th className="p-4">Название</th>
                     <th className="p-4">Пользователь</th>
+                    <th className="p-4">Доска</th>
                     <th className="p-2 sm:p-4 text-right">Действия</th>
                   </tr>
                 </thead>
@@ -327,6 +345,7 @@ export default function AdminPanel({
                     <tr key={w.id} className="hover:bg-gray-50">
                       <td className="p-2 sm:p-4 font-medium">{w.name}</td>
                       <td className="p-2 sm:p-4">{userName(w.user_id)}</td>
+                      <td className="p-2 sm:p-4">{hookBoards.find((b) => b.id === w.board_id)?.name || `#${w.board_id}`}</td>
                       <td className="p-2 sm:p-4 text-right">
                         <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
                           <button
@@ -484,7 +503,11 @@ export default function AdminPanel({
                   <label className="block text-sm font-medium mb-1">Пользователь</label>
                   <select
                     value={hookData.user_id}
-                    onChange={(e) => setHookData({ ...hookData, user_id: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const uid = Number(e.target.value)
+                      setHookData({ ...hookData, user_id: uid, board_id: '' })
+                      loadHookBoards(uid)
+                    }}
                     className="w-full p-2 border rounded"
                     required
                   >
@@ -492,6 +515,23 @@ export default function AdminPanel({
                       <option key={u.id} value={u.id}>{u.username}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Доска</label>
+                  <select
+                    value={hookData.board_id}
+                    onChange={(e) => setHookData({ ...hookData, board_id: Number(e.target.value) })}
+                    className="w-full p-2 border rounded"
+                    required
+                  >
+                    {hookBoards.length === 0 && <option value="">— сначала выберите пользователя —</option>}
+                    {hookBoards.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Уведомления приходят только о событиях задач этой доски.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Название</label>

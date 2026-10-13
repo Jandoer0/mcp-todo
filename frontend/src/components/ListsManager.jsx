@@ -21,7 +21,7 @@ function Palette({ value, onPick }) {
   )
 }
 
-export default function ListsManager({ open, onClose, lists, onChanged }) {
+export default function ListsManager({ boardId, open, onClose, lists, onChanged }) {
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(PALETTE[0])
   const [editingColor, setEditingColor] = useState(null)
@@ -46,7 +46,7 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
       alert('Список с таким именем уже есть')
       return
     }
-    refresh(listsApi.create({ name, color: newColor })).then(() => setNewName(''))
+    refresh(listsApi.create(boardId, { name, color: newColor })).then(() => setNewName(''))
   }
 
   const rename = (list, name) => {
@@ -56,17 +56,17 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
       alert('Имя списка занято')
       return
     }
-    refresh(listsApi.update(list.id, { name: n }))
+    refresh(listsApi.update(boardId, list.id, { name: n }))
   }
 
-  const setColor = (list, color) => refresh(listsApi.update(list.id, { color }))
+  const setColor = (list, color) => refresh(listsApi.update(boardId, list.id, { color }))
 
   const remove = (list) => {
     if (!confirm(`Удалить список «${list.name}»? Задачи переместятся в «Не начато».`)) return
-    refresh(listsApi.remove(list.id))
+    refresh(listsApi.remove(boardId, list.id))
   }
 
-  const setKind = (list, kind) => refresh(listsApi.update(list.id, { kind }))
+  const setKind = (list, kind) => refresh(listsApi.update(boardId, list.id, { kind }))
 
   const reorder = (list, dir) => {
     const idx = sorted.findIndex((l) => l.id === list.id)
@@ -75,8 +75,8 @@ export default function ListsManager({ open, onClose, lists, onChanged }) {
     const other = sorted[target]
     refresh(
       Promise.all([
-        listsApi.update(list.id, { position: other.position }),
-        listsApi.update(other.id, { position: list.position }),
+        listsApi.update(boardId, list.id, { position: other.position }),
+        listsApi.update(boardId, other.id, { position: list.position }),
       ]),
     )
   }

@@ -8,23 +8,28 @@ from ..auth import get_current_user
 from ..board import (
     PALETTE,
     PROTECTED_LIST_NAMES,
+    ensure_default_lists,
     list_names,
     status_for_kind,
 )
 from ..db import get_db
-from ..models import Task, TaskList, User
+from ..models import Board, Task, TaskList, User
+from .boards import get_own_board
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
 
 @router.get("", response_model=list[schemas.TaskListResponse])
 def get_lists(
+    board_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Lists are strictly per-board: only the given board's lists are returned.
+    get_own_board(db, current_user, board_id)
     return (
         db.query(TaskList)
-        .filter(TaskList.user_id == current_user.id)
+        .filter(TaskList.user_id == current_user.id, TaskList.board_id == board_id)
         .order_by(TaskList.position)
         .all()
     )
@@ -32,10 +37,12 @@ def get_lists(
 
 @router.post("", response_model=schemas.TaskListResponse, status_code=201)
 def create_list(
+    board_id: int,
     data: schemas.TaskListCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    get_own_board(db, current_user, board_id)
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Укажите название списка")
@@ -44,7 +51,7 @@ def create_list(
             status_code=400,
             detail="Нельзя создать список с зарезервированным именем",
         )
-    if name in list_names(db, current_user.id):
+    if name in list_names(db, current_user.id, board_id=board_id):
         raise HTTPException(status_code=400, detail="Список с таким именем уже есть")
     if data.color not in PALETTE:
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
@@ -60,6 +67,7 @@ def create_list(
         is_default=False,
         kind=data.kind,
         user_id=current_user.id,
+        board_id=board_id,
     )
     db.add(lst)
     db.commit()
@@ -67,16 +75,22 @@ def create_list(
     return lst
 
 
-@router.put("/{list_id}", response_model=schemas.TaskListResponse)
+@router.put("/{board_id}/{list_id}", response_model=schemas.TaskListResponse)
 def update_list(
+    board_id: int,
     list_id: int,
     data: schemas.TaskListUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    get_own_board(db, current_user, board_id)
     lst = (
         db.query(TaskList)
-        .filter(TaskList.id == list_id, TaskList.user_id == current_user.id)
+        .filter(
+            TaskList.id == list_id,
+            TaskList.user_id == current_user.id,
+            TaskList.board_id == board_id,
+        )
         .first()
     )
     if not lst:
@@ -86,14 +100,17 @@ def update_list(
     if data.name is not None and data.name.strip():
         new = data.name.strip()
         if new != lst.name and (
-            new in PROTECTED_LIST_NAMES or new in list_names(db, current_user.id)
+            new in PROTECTED_LIST_NAMES
+            or new in list_names(db, current_user.id, board_id=board_id)
         ):
             raise HTTPException(status_code=400, detail="Имя списка занято")
         old = lst.name
         lst.name = new
         # Keep the owner's tasks pointing at the renamed list.
         db.query(Task).filter(
-            Task.list == old, Task.user_id == current_user.id
+            Task.list == old,
+            Task.user_id == current_user.id,
+            Task.board_id == board_id,
         ).update({Task.list: new}, synchronize_session=False)
 
     if data.color is not None:
@@ -108,7 +125,9 @@ def update_list(
         lst.kind = data.kind
         # Keep task status consistent with the new list semantics.
         db.query(Task).filter(
-            Task.list == lst.name, Task.user_id == current_user.id
+            Task.list == lst.name,
+            Task.user_id == current_user.id,
+            Task.board_id == board_id,
         ).update({Task.status: status_for_kind(data.kind)}, synchronize_session=False)
 
     db.commit()
@@ -116,7 +135,7 @@ def update_list(
     return lst
 
 
-@router.delete("/{list_id}")
+@router.delete("/{board_id}/{list_id}")
 def delete_list(
     list_id: int,
     db: Session = Depends(get_db),

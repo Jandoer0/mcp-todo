@@ -53,9 +53,10 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     # Lists are per-user: seed the protected defaults for the new account.
-    from ..board import ensure_default_lists
+    from ..board import ensure_default_board, ensure_default_lists
 
-    ensure_default_lists(db, user.id)
+    board = ensure_default_board(db, user.id)
+    ensure_default_lists(db, user.id, board.id)
     return user
 
 @router.put("/users/{user_id}")
@@ -112,6 +113,14 @@ def _validate_events(events: list[str], excluded: list[str]) -> None:
         )
 
 
+def _validate_board(db: Session, user_id: int, board_id: int) -> None:
+    """The webhook's board must belong to the webhook's user."""
+    from ..models import Board
+
+    if not db.query(Board).filter(Board.id == board_id, Board.user_id == user_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+
+
 @router.get("/webhooks", response_model=list[schemas.WebhookResponse])
 def list_webhooks(user_id: int | None = None, db: Session = Depends(get_db)):
     query = db.query(Webhook)
@@ -124,6 +133,7 @@ def list_webhooks(user_id: int | None = None, db: Session = Depends(get_db)):
 def create_webhook(data: schemas.WebhookCreate, db: Session = Depends(get_db)):
     if not db.query(User).filter(User.id == data.user_id).first():
         raise HTTPException(status_code=404, detail="User not found")
+    _validate_board(db, data.user_id, data.board_id)
     _validate_events(data.events, data.excluded_events)
     webhook = Webhook(**data.model_dump())
     db.add(webhook)
@@ -142,6 +152,8 @@ def update_webhook(
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
     payload = data.model_dump(exclude_unset=True)
+    if "board_id" in payload:
+        _validate_board(db, webhook.user_id, payload["board_id"])
     if "events" in payload or "excluded_events" in payload:
         _validate_events(
             payload.get("events", webhook.events or []),
@@ -187,6 +199,22 @@ async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
         }
     except Exception as exc:
         return {"ok": False, "status_code": None, "error": str(exc)}
+
+
+@router.get("/users/{user_id}/boards")
+def list_user_boards(user_id: int, db: Session = Depends(get_db)):
+    """Boards of a user (for the webhook form's board selector)."""
+    from ..models import Board
+
+    if not db.query(User).filter(User.id == user_id).first():
+        raise HTTPException(status_code=404, detail="User not found")
+    boards = (
+        db.query(Board)
+        .filter(Board.user_id == user_id)
+        .order_by(Board.position, Board.id)
+        .all()
+    )
+    return [{"id": b.id, "name": b.name} for b in boards]
 
 
 @router.post("/users/{user_id}/mcp-token")

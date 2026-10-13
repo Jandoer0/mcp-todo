@@ -74,11 +74,13 @@ def build_payload(webhook: Webhook, task: Task, event: str) -> dict:
     return _build(webhook, task.id, task.title, task.deadline, event)
 
 
-def _build(webhook: Webhook, task_id, title: str, deadline, event: str) -> dict:
+def _build(webhook: Webhook, task_id, title: str, deadline, event: str,
+           board_id: int | None = None) -> dict:
     return {
         "target_chat_id": webhook.chat_id,
         "thread_id": webhook.thread_id or None,
         "event": event,
+        "board_id": board_id if board_id is not None else webhook.board_id,
         "task_id": task_id,
         "title": title,
         "deadline": deadline.strftime("%Y-%m-%dT%H:%M:%SZ") if deadline else None,
@@ -87,20 +89,27 @@ def _build(webhook: Webhook, task_id, title: str, deadline, event: str) -> dict:
 
 
 def dispatch_event(db: Session, user_id: int, task: Task, event: str) -> None:
-    """Fire the event to every webhook of the user subscribed to it."""
-    dispatch_snapshot(db, user_id, task.id, task.title, task.deadline, event)
+    """Fire the event to every webhook of the user subscribed to this board."""
+    dispatch_snapshot(
+        db, user_id, task.id, task.title, task.deadline, event, board_id=task.board_id
+    )
 
 
 def dispatch_snapshot(
-    db: Session, user_id: int, task_id: int, title: str, deadline, event: str
+    db: Session, user_id: int, task_id: int, title: str, deadline, event: str,
+    board_id: int | None = None,
 ) -> None:
     """Same as dispatch_event but from plain fields — used after a commit when
-    the ORM object may already be detached/deleted (e.g. task_deleted)."""
-    webhooks = db.query(Webhook).filter(Webhook.user_id == user_id).all()
+    the ORM object may already be detached/deleted (e.g. task_deleted).
+    Webhooks are board-scoped: only webhooks bound to the task's board fire."""
+    q = db.query(Webhook).filter(Webhook.user_id == user_id)
+    if board_id is not None:
+        q = q.filter(Webhook.board_id == board_id)
+    webhooks = q.all()
     for webhook in webhooks:
         if not webhook.event_enabled(event):
             continue
-        payload = _build(webhook, task_id, title, deadline, event)
+        payload = _build(webhook, task_id, title, deadline, event, board_id)
         send_async(webhook.url, webhook.token, payload)
 
 
@@ -124,6 +133,7 @@ def send_test(webhook: Webhook) -> dict:
         "target_chat_id": webhook.chat_id,
         "thread_id": webhook.thread_id or None,
         "event": "test",
+        "board_id": webhook.board_id,
         "task_id": None,
         "title": None,
         "deadline": None,
