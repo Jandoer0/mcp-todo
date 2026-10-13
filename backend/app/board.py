@@ -58,9 +58,6 @@ def ensure_default_board(db, user_id: int) -> Board:
     return board
 
 
-def boards_count(db, user_id: int) -> int:
-    return db.query(Board).filter(Board.user_id == user_id).count()
-
 
 PALETTE = [
     "#ef4444",  # red

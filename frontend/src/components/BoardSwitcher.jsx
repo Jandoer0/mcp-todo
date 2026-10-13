@@ -1,12 +1,14 @@
 // Header board carousel ("барабан"): up to 3 boards visible, the active one
 // strictly centered. Click a side card to switch context, click the center
 // card to edit it; a special "+ Создать доску" card closes the row.
+import { MAX_BOARDS } from '../constants'
+
 export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCreate }) {
   const idx = boards.findIndex((b) => b.id === activeId)
   const left = idx > 0 ? boards[idx - 1] : null
   const active = idx >= 0 ? boards[idx] : null
   const right = idx >= 0 && idx < boards.length - 1 ? boards[idx + 1] : null
-  const canCreate = boards.length < 100 // hard limit enforced server-side (20)
+  const canCreate = boards.length < MAX_BOARDS // hard limit enforced server-side (20)
 
   const card = (board, kind) => {
     const base =

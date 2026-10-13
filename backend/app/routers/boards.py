@@ -54,7 +54,8 @@ def create_board(
         .first()
     ):
         raise HTTPException(status_code=400, detail="Доска с таким именем уже есть")
-    if db.query(Board).filter(Board.user_id == current_user.id).count() >= MAX_BOARDS_PER_USER:
+    owned = db.query(Board).filter(Board.user_id == current_user.id)
+    if owned.count() >= MAX_BOARDS_PER_USER:
         raise HTTPException(
             status_code=400,
             detail=f"Максимальное количество досок — {MAX_BOARDS_PER_USER}",

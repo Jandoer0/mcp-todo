@@ -1,5 +1,6 @@
 """Webhook module tests: admin CRUD, event validation, exclusion rules and
 instant/scheduled event dispatch. Run: cd backend && python3 -m pytest tests/ -q"""
+import json
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -79,9 +80,18 @@ def test_webhook_crud_and_validation():
     r = client.post(
         "/api/admin/webhooks",
         headers=hdr,
-        json={"user_id": uid, "board_id": _first_board(hdr), "name": "x", "url": "u", "chat_id": "1", "events": ["nope"]},
+        json={"user_id": uid, "board_id": _first_board(hdr), "name": "x", "url": "https://example.com/u", "chat_id": "1", "events": ["nope"]},
     )
     assert r.status_code == 400
+
+    # Invalid webhook config gives a readable (Russian) message.
+    r = client.post(
+        "/api/admin/webhooks",
+        headers=hdr,
+        json={"user_id": uid, "board_id": _first_board(hdr), "name": "x", "url": "example.com/u", "chat_id": "1", "events": ["task_created"]},
+    )
+    assert r.status_code == 422
+    assert "URL" in json.dumps(r.json()["detail"], ensure_ascii=False)
 
     # Update.
     r = client.put(

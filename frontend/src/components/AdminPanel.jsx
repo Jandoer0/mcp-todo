@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { adminApi } from '../api/client'
+import { formatApiError } from '../api/errors'
 import Modal from './Modal'
 
 const WEBHOOK_EVENTS = [
@@ -119,7 +120,7 @@ export default function AdminPanel({
       setCopied(false)
       if (onChanged) onChanged()
     } catch (e) {
-      alert(e?.response?.data?.detail || 'Ошибка генерации токена')
+      alert(formatApiError(e, 'Ошибка генерации токена'))
     }
   }
 
@@ -129,7 +130,7 @@ export default function AdminPanel({
       setMcpToken(null)
       if (onChanged) onChanged()
     } catch (e) {
-      alert(e?.response?.data?.detail || 'Ошибка отзыва токена')
+      alert(formatApiError(e, 'Ошибка отзыва токена'))
     }
   }
 
@@ -154,7 +155,7 @@ export default function AdminPanel({
       setIsEditing(false)
       onBack()
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Ошибка при сохранении пользователя')
+      alert(formatApiError(err, 'Ошибка при сохранении пользователя'))
     }
   }
 
@@ -196,7 +197,7 @@ export default function AdminPanel({
       setHookEditing(false)
       loadWebhooks()
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Ошибка при сохранении веб-хука')
+      alert(formatApiError(err, 'Ошибка при сохранении веб-хука'))
     }
   }
 
@@ -210,7 +211,7 @@ export default function AdminPanel({
         alert(`Ошибка доставки: ${r.data.error || 'неизвестная ошибка'}`)
       }
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Ошибка отправки теста')
+      alert(formatApiError(err, 'Ошибка отправки теста'))
     } finally {
       setTestingId(null)
     }
@@ -222,7 +223,7 @@ export default function AdminPanel({
       await adminApi.webhooks.remove(id)
       loadWebhooks()
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Ошибка при удалении веб-хука')
+      alert(formatApiError(err, 'Ошибка при удалении веб-хука'))
     }
   }
 

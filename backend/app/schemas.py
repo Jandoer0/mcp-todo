@@ -189,6 +189,45 @@ class WebhookBase(BaseModel):
     events: builtins.list[str] = []
     excluded_events: builtins.list[str] = []
 
+    @field_validator("name")
+    @classmethod
+    def _name_not_empty(cls, v: str) -> str:
+        if not (v or "").strip():
+            raise ValueError("Укажите название веб-хука")
+        return v.strip()
+
+    @field_validator("url")
+    @classmethod
+    def _url_check(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Укажите URL приёмника уведомлений")
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("URL должен начинаться с http:// или https://")
+        if " " in v:
+            raise ValueError("URL не должен содержать пробелов")
+        return v
+
+    @field_validator("chat_id")
+    @classmethod
+    def _chat_id_check(cls, v: str) -> str:
+        if not (v or "").strip():
+            raise ValueError("Укажите Telegram Chat ID (например: -1001234567890)")
+        return v.strip()
+
+    @field_validator("thread_id")
+    @classmethod
+    def _thread_id_check(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            return None
+        return v
+
+    @field_validator("events", "excluded_events")
+    @classmethod
+    def _events_not_empty(cls, v: builtins.list[str]) -> builtins.list[str]:
+        # allow empty list (validation of known events happens in the router)
+        return v or []
+
 class WebhookCreate(WebhookBase):
     user_id: int  # webhook is bound to a specific user (owner of its tasks)
     board_id: int  # ...and to a specific board (only its task events fire)

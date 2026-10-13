@@ -5,32 +5,16 @@ from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..auth import get_current_user
-from ..board import (  # noqa: F401
-    DONE_LIST,
-    PALETTE,
-    list_colors,
-    list_names,
-    status_for_list,
-)
 from ..db import get_db
 from ..models import Task, TaskCycleLog, User
 from ..services import task_service
-from ..services.task_service import (  # noqa: F401  (re-exported helpers)  # noqa: F401
-    CYCLE_PERIODS,
+from ..services.task_service import (
     TaskError,
     _attach_state,
-    _attach_state_many,
     _resolve_list,
     advance_deadline,
-    compute_is_blocked,
     cycle_log,
     ensure_tags,
-    get_blocker_ids,
-    is_cycle_visible,
-    regenerate_cycle,
-    repair_tag_colors,
-    set_blockers,
-    tag_palette,
 )
 from .tags import cleanup_orphan_tags
 

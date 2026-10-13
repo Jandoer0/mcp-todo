@@ -13,12 +13,8 @@ from sqlalchemy.orm import Session
 from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
 from ..models import Task, User
-from ..routers.tasks import (
-    advance_deadline,
-    cycle_log,
-    regenerate_cycle,
-)
 from ..services import task_service
+from ..services.task_service import advance_deadline, cycle_log, regenerate_cycle
 
 mcp = FastMCP("OmniTask")
 
