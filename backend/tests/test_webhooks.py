@@ -158,3 +158,69 @@ def test_scheduler_overdue_and_dedup():
         client.delete(f"/api/tasks/{soon_id}", headers=hdr)
         client.delete(f"/api/admin/webhooks/{hook['id']}", headers=hdr)
         ns._last_notified.clear()
+
+
+def test_hmac_signature_and_no_bearer():
+    """The outgoing request must carry an HMAC-SHA256 signature of the raw
+    body in X-Hub-Signature-256 and must NOT use an Authorization header."""
+    import hashlib
+    import hmac as hmac_mod
+    import http.server
+    import json
+    import threading
+    import time
+
+    hdr, uid = _admin()
+    secret = "hmac-test-secret"
+    hook = _hook(hdr, uid, ["task_created"])
+    client.put(
+        f"/api/admin/webhooks/{hook['id']}", headers=hdr, json={"token": secret}
+    )
+
+    captured = []
+
+    class Receiver(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            captured.append(
+                {
+                    "signature": self.headers.get("X-Hub-Signature-256"),
+                    "auth": self.headers.get("Authorization"),
+                    "content_type": self.headers.get("Content-Type"),
+                    "body": self.rfile.read(int(self.headers["Content-Length"])),
+                }
+            )
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Receiver)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        client.put(
+            f"/api/admin/webhooks/{hook['id']}",
+            headers=hdr,
+            json={"url": f"http://127.0.0.1:{srv.server_port}/hook"},
+        )
+        client.post("/api/tasks", headers=hdr, json={"title": "signed"})
+        deadline = time.monotonic() + 5
+        while not captured and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert captured, "webhook delivery did not arrive"
+
+        req = captured[0]
+        expected = (
+            "sha256="
+            + hmac_mod.new(secret.encode(), req["body"], hashlib.sha256).hexdigest()
+        )
+        assert req["signature"] == expected
+        assert req["auth"] is None  # no Bearer token anymore
+        assert req["content_type"] == "application/json"
+        payload = json.loads(req["body"])
+        assert payload["event"] == "task_created"
+        assert payload["title"] == "signed"
+    finally:
+        srv.shutdown()
+        client.delete(f"/api/admin/webhooks/{hook['id']}", headers=hdr)

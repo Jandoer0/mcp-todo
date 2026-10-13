@@ -323,8 +323,8 @@ export default function AdminPanel({
             </div>
             <p className="text-xs text-gray-500 mb-3">
               Веб-хуки отправляют уведомления о событиях задач пользователя во
-              внешние системы (POST JSON). Токен передаётся в заголовке
-              Authorization.
+              внешние системы (POST JSON). Тело запроса подписывается
+              HMAC-SHA256 (заголовок X-Hub-Signature-256).
             </p>
             <div className="bg-white rounded-lg border overflow-x-auto">
               <table className="w-full text-left">
@@ -542,13 +542,13 @@ export default function AdminPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Токен доступа</label>
+                  <label className="block text-sm font-medium mb-1">Секрет подписи (HMAC)</label>
                   <input
                     type="text"
                     value={hookData.token}
                     onChange={(e) => setHookData({ ...hookData, token: e.target.value })}
                     className="w-full p-2 border rounded"
-                    placeholder="необязательно"
+                    placeholder="необязательно — ключ HMAC-SHA256"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">

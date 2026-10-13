@@ -138,7 +138,7 @@ class Webhook(Base):
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     name = Column(String)  # internal label, e.g. "Уведомления Лоры"
     url = Column(String)  # receiver endpoint
-    token = Column(String, nullable=True)  # optional auth token for the receiver
+    token = Column(String, nullable=True)  # HMAC secret for signing the body
     chat_id = Column(String)  # Telegram target chat id
     thread_id = Column(String, nullable=True)  # Telegram topic/thread id
     events = Column(JSON, default=list)  # enabled event types

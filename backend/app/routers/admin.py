@@ -175,14 +175,10 @@ async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
     webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    headers = {"Content-Type": "application/json"}
-    if webhook.token:
-        headers["Authorization"] = f"Bearer {webhook.token}"
+    body, headers = ns.build_request(webhook, ns.send_test(webhook))
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                webhook.url, json=ns.send_test(webhook), headers=headers
-            )
+            resp = await client.post(webhook.url, content=body, headers=headers)
         ok = resp.status_code < 400
         return {
             "ok": ok,

@@ -12,6 +12,9 @@ FastAPI event loop: instant events are scheduled onto the main loop via
 job runs inside the loop already.
 """
 import asyncio
+import hashlib
+import hmac
+import json
 import threading
 from datetime import timedelta
 
@@ -124,9 +127,9 @@ def send_test(webhook: Webhook) -> dict:
     }
 
 
-def send_async(url: str, token: str | None, payload: dict) -> None:
+def send_async(url: str, secret: str | None, payload: dict) -> None:
     """Deliver the payload without blocking the caller."""
-    coro = _send(url, token, payload)
+    coro = _send(url, secret, payload)
     loop = _main_loop
     if loop is not None and loop.is_running():
         asyncio.run_coroutine_threadsafe(coro, loop)
@@ -136,13 +139,31 @@ def send_async(url: str, token: str | None, payload: dict) -> None:
     threading.Thread(target=lambda: asyncio.run(coro), daemon=True).start()
 
 
-async def _send(url: str, token: str | None, payload: dict) -> None:
+def sign_secret(secret: str, body: bytes) -> str:
+    """HMAC-SHA256 signature of the raw request body (hex digest)."""
+    return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+
+def build_request(webhook: Webhook, payload: dict) -> tuple[bytes, dict]:
+    """Serialize the payload to the exact raw body and build headers.
+    The body is signed with HMAC-SHA256 (key = webhook secret); the signature
+    goes into the X-Hub-Signature-256 header (GitHub-style 'sha256=<hex>').
+    No Authorization header is sent."""
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    if webhook.token:  # `token` column now stores the HMAC secret
+        headers["X-Hub-Signature-256"] = f"sha256={sign_secret(webhook.token, body)}"
+    return body, headers
+
+
+async def _send(url: str, secret: str | None, payload: dict) -> None:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if secret:
+        headers["X-Hub-Signature-256"] = f"sha256={sign_secret(secret, body)}"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+            resp = await client.post(url, content=body, headers=headers)
             resp.raise_for_status()
     except Exception as exc:  # never break the request because of a webhook
         print(f"[webhook] delivery to {url} failed: {exc}")
