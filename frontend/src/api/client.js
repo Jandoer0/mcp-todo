@@ -40,6 +40,7 @@ export const tasksApi = {
   cycleSkip: (id) => api.post(`${API_URL}/tasks/${id}/cycle/skip`),
   cycleStop: (id) => api.post(`${API_URL}/tasks/${id}/cycle/stop`),
   cycleHistory: (id) => api.get(`${API_URL}/tasks/${id}/cycle/history`),
+  changes: (id) => api.get(`${API_URL}/tasks/${id}/changes`),
 }
 
 export const summaryApi = {

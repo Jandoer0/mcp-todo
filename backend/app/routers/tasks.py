@@ -205,6 +205,23 @@ def cycle_stop(
     return _attach_state(db, db_task)
 
 
+@router.get("/{task_id}/changes", response_model=list[schemas.TaskChangeLogResponse])
+def task_changes(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Chronological edit history of the task's dates, priority and description."""
+    exists = (
+        db.query(Task.id)
+        .filter(Task.id == task_id, Task.user_id == current_user.id)
+        .first()
+    )
+    if not exists:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task_service.task_change_history(db, current_user, task_id)
+
+
 @router.get("/{task_id}/cycle/history", response_model=list[schemas.CycleLogResponse])
 def cycle_history(
     task_id: int,

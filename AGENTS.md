@@ -20,19 +20,21 @@ backend/
                        #   ACCESS_TOKEN_EXPIRE_MINUTES
     db.py              # engine / SessionLocal / get_db; SQLite WAL + busy_timeout
     models.py          # Board(user_id), User, Task, TaskList(user_id, board_id), Tag(user_id, board_id),
-                       #   TaskCycleLog, Webhook(user_id, board_id); task_tags, task_dependencies
+                       #   TaskCycleLog, TaskChangeLog(user_id, task_id), Webhook(user_id, board_id); task_tags, task_dependencies
     schemas.py         # модели запросов/ответов Pydantic
     auth.py            # пароли (argon2), JWT, get_current_user / get_current_admin, MCP-токены (SHA-256)
     services/
       task_service.py  # ЕДИНАЯ бизнес-логика задач: list/create/update/delete/count + хелперы
-                       #   (теги, блокеры, циклы, _attach_state_many). Роутеры и MCP — тонкие обёртки.
+                       #   (теги, блокеры, циклы, _attach_state_many), log_task_changes — по строке
+                       #   на каждое изменённое свойство (даты/приоритет/описание). Роутеры и MCP — тонкие обёртки.
       notification_service.py  # вебхуки: dispatch событий, HMAC-подпись (X-Hub-Signature-256),
                        #   check_due_tasks для планировщика; отправка httpx.AsyncClient без блокировки
     routers/
       auth.py          # /auth/registration-status, /auth/register (сидирует доску и дефолтные списки),
                        #   /auth/login, /auth/me
       boards.py        # CRUD досок /boards (лимит 20, удаление каскадом, get_own_board — проверка владельца)
-      tasks.py         # REST-обёртки над task_service; bulk /tasks/bulk; cycle skip/stop/history
+      tasks.py         # REST-обёртки над task_service; bulk /tasks/bulk; cycle skip/stop/history;
+                       #   GET /tasks/{id}/changes — история правок дат/приоритета/описания
       summary.py       # статистика /summary?board_id (вкл. счётчики planned и total)
       lists.py         # CRUD списков /lists?board_id и /lists/{board_id}/{id} (переименование обновляет свои задачи)
       tags.py          # CRUD тегов /tags?board_id и /tags/{board_id}/{id} (палитра per-board)
@@ -151,6 +153,8 @@ SECRET_KEY=<generated> ./scripts/dev.sh   # бэкенд :8000, фронтенд
 **Многодосочность (реализовано по новому ТЗ)**: модель `Board` (имя ≤20 симв., описание, цвет из палитры `BOARD_PALETTE` из 20 цветов, лимит 20 досок/пользователь); `board_id` на `Task`/`TaskList`/`Tag`/`Webhook`; полная изоляция досок (теги, списки, задачи, блокеры — только внутри своей доски); миграции с бэкфиллом легаси-данных в доску по умолчанию и перестройкой таблиц tags/task_lists (уникальность имени теперь `(user_id, board_id, name)`); CRUD `/api/boards` (удаление доски каскадно удаляет её данные, последнюю доску удалить нельзя); REST списки/теги/summary принимают `board_id` (пути списков/тегов `/{board_id}/...`); MCP: новый инструмент `list_boards`, `board_id` обязателен во всех инструментах задач; веб-хуки привязаны к доске (`Webhook.board_id`, событие уходит только если доска задачи совпадает, `board_id` в payload); фронтенд: хедер с «барабаном» досок (активная по центру, клик по боковой — переключение, по центральной — редактирование, карточка «+ Создать доску»), иконка пользователя с дропдауном (Профиль / Панель администрирования / Выйти), на мобильных — только иконка и карусель; `BoardForm` (имя до 20 симв., описание, палитра; кнопка «Удалить» — только в режиме редактирования, с подтверждением; после удаления активной доски loadBoards переключает на первую оставшуюся), фон дашборда подкрашивается цветом активной доски; в админ-вебхурах выбор доски пользователя.
 
 **Visual Ergonomics (реализовано)**: сглаживание шрифтов (`antialiased`/`grayscale`, `optimizeLegibility`), базовый `line-height: 1.6`, единый белый текст на карточках досок (читаемость на светлых цветах — мягкая тень), 1px-границы (ring-1/border), GPU-слои (`.gpu-layer`, `will-change-transform`), мягкие оверлеи модалок `bg-slate-900/60`; все анимации отключаются при `prefers-reduced-motion`.
+
+**История изменений задачи (реализовано)**: таблица `task_change_logs`; при каждом update задачи `task_service.log_task_changes` пишет по одной строке на каждое изменённое свойство из `start_date`/`deadline`/`priority`/`description` (было-стало; описание — без текста, в UI общий текст); REST `GET /api/tasks/{id}/changes` (только свои задачи); в диалоге задачи — секция «История изменений» с прокруткой (~6 записей по высоте).
 
 **PWA (реализовано)**: `vite-plugin-pwa` (autoUpdate), precache статики, `navigateFallback` на `index.html` с исключением `/api`, `/sse`, `/messages`; манифест standalone, цвета `#35506b`/`#22384d`, иконки `pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png`.
 

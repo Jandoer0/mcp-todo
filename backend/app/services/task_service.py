@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ..clock import utcnow
 from ..board import PALETTE, list_colors, status_for_kind
 from ..models import (
+    TaskChangeLog,
     Board,
     Tag,
     Task,
@@ -421,6 +422,51 @@ def create_task(db: Session, user: User, data: dict) -> Task:
     return task
 
 
+_CHANGELOG_FIELDS = ("start_date", "deadline", "priority", "description")
+
+
+def _fmt_change(field: str, value) -> str | None:
+    """Stringify a tracked value for the change log."""
+    if value is None:
+        return None
+    if field in ("start_date", "deadline"):
+        return value.strftime("%Y-%m-%d") if isinstance(value, datetime) else str(value)
+    return str(value)
+
+
+def log_task_changes(db: Session, user: User, task: Task, data: dict) -> None:
+    """Record one row per changed tracked property (dates/priority/description)."""
+    rows = []
+    for field in _CHANGELOG_FIELDS:
+        if field not in data:
+            continue
+        old_v, new_v = getattr(task, field, None), data[field]
+        if old_v != new_v:
+            rows.append(
+                TaskChangeLog(
+                    user_id=user.id,
+                    task_id=task.id,
+                    field=field,
+                    old_value=_fmt_change(field, old_v),
+                    new_value=_fmt_change(field, new_v),
+                    changed_at=utcnow(),
+                )
+            )
+    if rows:
+        db.add_all(rows)
+        db.commit()
+
+
+def task_change_history(db: Session, user: User, task_id: int) -> list[TaskChangeLog]:
+    """Chronological edit history of the task (own tasks only)."""
+    return (
+        db.query(TaskChangeLog)
+        .filter(TaskChangeLog.task_id == task_id, TaskChangeLog.user_id == user.id)
+        .order_by(TaskChangeLog.changed_at.asc(), TaskChangeLog.id.asc())
+        .all()
+    )
+
+
 def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     task = (
         db.query(Task)
@@ -443,6 +489,8 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
         list_name, list_status = _resolve_list(db, data["list"], user.id, task.board_id)
         data["list"] = list_name
         data["status"] = list_status
+
+    log_task_changes(db, user, task, data)
 
     for key, value in data.items():
         setattr(task, key, value)

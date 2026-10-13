@@ -78,6 +78,8 @@ def run_migrations() -> None:
     board_cols = {c["name"] for c in _inspect(engine).get_columns("boards")}
     if not board_cols:
         Base.metadata.tables["boards"].create(bind=engine)
+    if not _inspect(engine).has_table("task_change_logs"):
+        Base.metadata.tables["task_change_logs"].create(bind=engine)
     for table in ("tasks", "tags", "task_lists", "webhooks"):
         with engine.connect() as conn:
             cols = {c["name"] for c in inspector.get_columns(table)}
@@ -98,6 +100,8 @@ def run_migrations() -> None:
 
     # Tags + task_lists rebuilds: the multi-board schema scopes name uniqueness
     # to (user_id, board_id) instead of (user_id, name); SQLite needs a rebuild.
+    # Fresh inspector: the cached one may miss columns added above (board_id).
+    inspector = _inspect(engine)
     for table, index_name in (
         ("tags", "uq_tags_user_board_name"),
         ("task_lists", "uq_task_lists_user_board_name"),

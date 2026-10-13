@@ -1,10 +1,31 @@
 import { useState, useEffect, useMemo } from 'react'
+import { tasksApi } from '../api/client'
 import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
+
+const PRIORITY_LABELS = { 1: 'Низкий', 2: 'Средний', 3: 'Высокий' }
+const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.']
+
+// «2025-10-12» → «12 окт. 2025»
+function fmtLogDate(value) {
+  if (!value) return '—'
+  const [y, m, d] = String(value).slice(0, 10).split('-').map(Number)
+  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`
+}
+
+// Строка истории по записи лога (field, old_value, new_value)
+function describeChange(c) {
+  if (c.field === 'description') return 'Описание задания изменено'
+  if (c.field === 'priority') {
+    return `Приоритет: было «${PRIORITY_LABELS[Number(c.old_value)] || '—'}» → стало «${PRIORITY_LABELS[Number(c.new_value)] || '—'}»`
+  }
+  const label = c.field === 'start_date' ? 'Дата начала' : 'Дата завершения'
+  return `${label}: было «${c.old_value ? fmtLogDate(c.old_value) : '—'}» → стало «${c.new_value ? fmtLogDate(c.new_value) : '—'}»`
+}
 
 const EMPTY = {
   title: '',
@@ -39,8 +60,16 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     [lists]
   )
 
+  const [changes, setChanges] = useState([])
+
   useEffect(() => {
     if (!open) return
+    setChanges([])
+    if (task) {
+      tasksApi.changes(task.id)
+        .then((res) => setChanges(res.data))
+        .catch(() => setChanges([]))
+    }
     if (task) {
       setForm({
         title: task.title || '',
@@ -296,6 +325,26 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </button>
         </div>
       </div>
+      {/* История изменений дат/приоритета/описания (хронологическая) */}
+      {task && (
+        <div className="mt-4 pt-3 border-t border-slate-200">
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
+            История изменений
+          </h4>
+          {changes.length === 0 ? (
+            <p className="text-xs text-slate-400">Изменений ещё не было.</p>
+          ) : (
+            <div className="max-h-44 overflow-y-auto overscroll-contain rounded border border-slate-100 divide-y divide-slate-100">
+              {changes.map((c) => (
+                <div key={c.id} className="px-2 py-1.5 text-xs text-slate-600 flex justify-between gap-2">
+                  <span>{describeChange(c)}</span>
+                  <span className="text-slate-400 shrink-0">{fmtLogDate(c.changed_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       </form>
     </Modal>
   )

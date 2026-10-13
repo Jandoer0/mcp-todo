@@ -163,6 +163,16 @@ class SummaryResponse(BaseModel):
 class SettingsResponse(BaseModel):
     allow_registration: bool
 
+class TaskChangeLogResponse(BaseModel):
+    id: int
+    field: str
+    old_value: str | None = None
+    new_value: str | None = None
+    changed_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class CycleLogResponse(BaseModel):
     id: int
     task_title: str

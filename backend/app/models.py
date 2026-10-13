@@ -113,6 +113,23 @@ class TaskCycleLog(Base):
     logged_at = Column(DateTime, default=utcnow)
 
 
+class TaskChangeLog(Base):
+    """Edit history of a task's dates, priority and description.
+
+    One row per changed property per update; description rows carry no text
+    (the UI shows a generic message)."""
+
+    __tablename__ = "task_change_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), index=True)
+    field = Column(String)  # start_date | deadline | priority | description
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+    changed_at = Column(DateTime, default=utcnow)
+
+
 class TaskList(Base):
     """A board column. The task's `list` field stores the list name.
     Lists are strictly per-user; the same name may exist for different users."""
