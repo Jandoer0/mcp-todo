@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MAX_BOARDS } from '../constants'
 
-// WCAG: on light board colors white text fails contrast — use dark slate.
-function textFor(hex) {
-  const n = parseInt(hex.slice(1), 16)
-  const lum =
-    (0.2126 * ((n >> 16) & 255) +
-      0.7152 * ((n >> 8) & 255) +
-      0.0722 * (n & 255)) / 255
-  return lum > 0.55 ? '#1e293b' : '#ffffff'
-}
+// Board card text is always white for a uniform look; on light board colors
+// a subtle dark shadow keeps it readable (no color switching).
+const TEXT_SHADOW = '0 1px 2px rgba(15, 23, 42, 0.55)'
 
 // Header board carousel ("барабан"): the whole strip of boards slides inside a
 // clipped viewport so that the ACTIVE card is always exactly centered. Click a
@@ -60,7 +54,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
           onClick={onEdit}
           title={`${board.name} — нажмите, чтобы редактировать доску`}
           className={`${base} scale-110 z-10 font-bold text-sm ring-1 ring-white/90 gpu-layer`}
-          style={{ backgroundColor: board.color, color: textFor(board.color) }}
+          style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
         >
           <span className="block truncate">{board.name}</span>
         </button>
@@ -73,7 +67,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
         onClick={() => onSwitch(board.id)}
         title={`Переключиться на «${board.name}»`}
         className={`${base} opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200`}
-        style={{ backgroundColor: board.color, color: textFor(board.color) }}
+        style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
       >
         <span className="block truncate">{board.name}</span>
       </button>
