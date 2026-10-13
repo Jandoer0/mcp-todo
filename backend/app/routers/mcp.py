@@ -54,6 +54,40 @@ def _extract_args(kwargs: dict) -> dict:
     return kwargs
 
 
+def _parse_dt(value):
+    """Normalize an incoming date/datetime (MCP tools receive plain JSON
+    strings, e.g. '2026-10-12' or '2026-10-12T18:00:00Z') into a Python
+    date/datetime object — SQLite DateTime columns reject raw strings."""
+    if value is None or not isinstance(value, str):
+        return value
+    from datetime import date as _date, datetime as _datetime
+
+    s = value.strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        return _datetime.fromisoformat(s)
+    except ValueError:
+        pass
+    try:
+        return _date.fromisoformat(s)
+    except ValueError:
+        raise ValueError(
+            f"Неправильный формат даты: {value!r} "
+            "(ожидается ГГГГ-ММ-ДД или ISO 8601)"
+        ) from None
+
+
+def _parse_task_dates(data: dict) -> dict:
+    """Parse date fields in an MCP task payload in place."""
+    for key in ("start_date", "deadline"):
+        if key in data:
+            data[key] = _parse_dt(data[key])
+    return data
+
+
 @mcp.tool()
 def get_my_profile(auth_token: str) -> str:
     """Get information about the current authenticated user (ID, role)."""
@@ -185,10 +219,12 @@ def create_task(
     reminder_days: int = 0,
 ) -> str:
     """Create a new task on the given board. Priority scale: 1 = Low, 2 = Medium, 3 = High.
+    Dates (start_date, deadline) accept 'YYYY-MM-DD' or ISO 8601 strings.
     Cyclic tasks: cycle_period is daily|weekly|monthly|yearly, cycle_interval = every N periods,
     reminder_days = days before deadline when the task becomes visible in the main lists."""
     data = _extract_args(locals())
-    
+    _parse_task_dates(data)
+
     token = data.get("auth_token")
     t_title = data.get("title")
     t_desc = data.get("description")
@@ -256,6 +292,7 @@ def update_task(
             for k, v in data.items()
             if k not in ("auth_token", "task_id", "board_id") and v is not None
         }
+        _parse_task_dates(update_data)
         # The task must belong to the given board (no cross-board moves).
         from ..models import Board
 
