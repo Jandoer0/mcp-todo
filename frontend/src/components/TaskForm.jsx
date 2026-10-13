@@ -335,7 +335,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             <p className="text-xs text-slate-400">Изменений ещё не было.</p>
           ) : (
             <div className="max-h-44 overflow-y-auto overscroll-contain rounded border border-slate-100 divide-y divide-slate-100">
-              {changes.map((c) => (
+              {/* свежие записи сверху; ползунок прокрутки — в верхнем положении */}
+              {[...changes].reverse().map((c) => (
                 <div key={c.id} className="px-2 py-1.5 text-xs text-slate-600 flex justify-between gap-2">
                   <span>{describeChange(c)}</span>
                   <span className="text-slate-400 shrink-0">{fmtLogDate(c.changed_at)}</span>
