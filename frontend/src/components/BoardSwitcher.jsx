@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MAX_BOARDS } from '../constants'
 
 // Header board carousel ("барабан"): the whole strip of boards slides inside a
