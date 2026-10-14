@@ -27,7 +27,7 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   const [editingColor, setEditingColor] = useState(null)
 
   // Системные списки: только просмотр, не редактируются
-  const SYSTEM_LIST_NAMES = ['Не начато', 'В работе', 'Готово', 'Архив']
+  const SYSTEM_LIST_NAMES = ['Не начато', 'Готово', 'Архив']
   const isSystem = (list) => SYSTEM_LIST_NAMES.includes(list.name)
 
   if (!open) return null

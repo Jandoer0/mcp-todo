@@ -91,7 +91,8 @@ DONE_LIST = "Готово"
 PROGRESS_LIST = "В работе"
 
 # Names of the protected default lists (cannot be created by users).
-PROTECTED_LIST_NAMES = {d["name"] for d in DEFAULT_LISTS}
+# «В работе» — обычный редактируемый список; защищены «Не начато», «Готово», «Архив».
+PROTECTED_LIST_NAMES = {"Не начато", "Готово", "Архив"}
 
 # Budget system lists (ТЗ бюджетирования): cannot be renamed, deleted or
 # changed in any way. Amounts of tasks in these lists count as executed budget.
