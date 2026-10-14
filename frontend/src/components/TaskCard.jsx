@@ -296,7 +296,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           )}
           {(Number(task.amount) || 0) !== 0 && (
             <span
-              className="ml-auto text-[11px] font-bold text-amber-400 shrink-0 -mr-0.5"
+              className="ml-auto text-[11px] font-bold text-amber-400 shrink-0 pl-1"
               title={`Сумма: ${formatAmount(task.amount)}`}
             >
               $
