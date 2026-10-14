@@ -288,20 +288,18 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${priorityDot}`}
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
-          {(Number(task.amount) || 0) !== 0 && (
-            <span
-              className={`text-[10px] font-bold shrink-0 ${
-                Number(task.amount) > 0 ? 'text-blue-600' : 'text-red-600'
-              }`}
-              title={`Сумма: ${formatAmount(task.amount)}`}
-            >
-              $
-            </span>
-          )}
           <span className="truncate">{task.title}</span>
           {task.cycle_dormant && (
             <span className="text-[10px] font-normal text-slate-400 shrink-0" title="Появится в основных списках ближе к дедлайну">
               (запланирована)
+            </span>
+          )}
+          {(Number(task.amount) || 0) !== 0 && (
+            <span
+              className="ml-auto text-[11px] font-bold text-amber-400 shrink-0 -mr-0.5"
+              title={`Сумма: ${formatAmount(task.amount)}`}
+            >
+              $
             </span>
           )}
         </div>
