@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
-import { adminApi, authApi, boardsApi } from './api/client'
+import { adminApi, authApi, boardsApi, tasksApi } from './api/client'
 import Login from './components/Login'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
@@ -199,6 +199,16 @@ export default function App() {
     }
   }
 
+  const handleMoveTask = async (task, targetBoardId) => {
+    try {
+      await tasksApi.move(task.id, targetBoardId)
+      await load()
+      // если задача ушла с активной доски — она исчезнет из текущего списка
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось перенести задачу')
+    }
+  }
+
   const handleSetList = async (task, listName) => {
     try {
       await setList(task.id, listName)
@@ -379,6 +389,8 @@ export default function App() {
         onSubmit={handleSubmit}
         task={editingTask}
         tasks={tasks}
+        boards={boards}
+        onMove={handleMoveTask}
         lists={lists}
         tags={tags}
         initialTags={activeTag != null ? tags.filter((t) => t.id === activeTag).map((t) => t.name) : []}

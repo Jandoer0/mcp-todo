@@ -73,13 +73,15 @@ function toDatetimeLocal(value) {
   return local.toISOString().slice(0, 16)
 }
 
-export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [] }) {
+export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], onMove }) {
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
   // Финансовый вес: направление (доход + / расход -) и сумма (только положительная)
   const [amountType, setAmountType] = useState('expense')
   const [amountStr, setAmountStr] = useState('')
+  // Целевая доска для переноса задачи (только в режиме редактирования)
+  const [targetBoardId, setTargetBoardId] = useState(null)
 
   const listOptions = useMemo(() => 
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
@@ -113,6 +115,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       const amt = Number(task.amount) || 0
       setAmountType(amt < 0 ? 'expense' : 'income')
       setAmountStr(amt !== 0 ? String(Math.abs(amt)) : '')
+      setTargetBoardId(task.board_id ?? null)
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
@@ -121,6 +124,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setSelectedBlockers([])
       setAmountType('expense')
       setAmountStr('')
+      setTargetBoardId(null)
     }
   }, [open, task, listOptions])
 
@@ -138,6 +142,12 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const submit = async (e) => {
     e.preventDefault()
+    // Перенос задачи на другую доску: отдаем наружу и закрываем форму
+    if (task && onMove && targetBoardId != null && Number(targetBoardId) !== task.board_id) {
+      onMove(task, Number(targetBoardId))
+      onClose()
+      return
+    }
     // Collect only changed fields to avoid overwriting with nulls/defaults
     const payload = {}
     if (!task || form.title !== task.title) payload.title = form.title
@@ -350,6 +360,24 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 )}
               </div>
             </div>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Доска</label>
+            <select
+              id="task-board"
+              value={targetBoardId ?? ''}
+              onChange={(e) => setTargetBoardId(Number(e.target.value))}
+              className="w-full p-2 border rounded"
+            >
+              {boards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              При переносе сбрасываются теги и блокирующие связи.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>

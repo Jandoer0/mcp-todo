@@ -160,6 +160,23 @@ def delete_task(
     return {"ok": True}
 
 
+@router.post("/{task_id}/move", response_model=schemas.TaskResponse)
+def move_task(
+    task_id: int,
+    data: schemas.TaskMove,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Move a task to another board owned by the same user."""
+    try:
+        task = task_service.move_task(db, current_user, task_id, data.board_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
+    except TaskError as e:
+        raise HTTPException(status_code=400, detail=e.message) from None
+    return _attach_state(db, task)
+
+
 @router.post("/{task_id}/cycle/skip", response_model=schemas.TaskResponse)
 def cycle_skip(
     task_id: int,

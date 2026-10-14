@@ -591,6 +591,56 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
     notification_service.dispatch_snapshot(db, user.id, *snapshot, "task_deleted")
 
 
+def move_task(db: Session, user: User, task_id: int, target_board_id: int) -> Task:
+    """Move a task to another board owned by the same user.
+
+    The list is kept by name when the target board has one with the same
+    name; otherwise the task falls back to the target board's «Не начато».
+    Blockers (same-board only) and board-scoped tags are reset."""
+    task = (
+        db.query(Task)
+        .filter(Task.id == task_id, Task.user_id == user.id)
+        .first()
+    )
+    if not task:
+        raise LookupError("Task not found")
+    if target_board_id == task.board_id:
+        return _attach_state(db, task)
+
+    target = _resolve_board(db, user, target_board_id)  # raises if foreign
+
+    lst = (
+        db.query(TaskList)
+        .filter(
+            TaskList.user_id == user.id,
+            TaskList.board_id == target.id,
+            TaskList.name == task.list,
+        )
+        .first()
+    )
+    if lst:
+        task.list = lst.name
+        task.status = status_for_kind(lst.kind)
+    else:
+        task.list, task.status = _resolve_list(db, None, user.id, target.id)
+
+    task.board_id = target.id
+    # Dependencies are same-board only: drop them on move.
+    db.execute(
+        sa_delete(task_dependencies).where(
+            (task_dependencies.c.blocker_id == task.id)
+            | (task_dependencies.c.blocked_id == task.id)
+        )
+    )
+    # Tags are scoped to a board: reset them.
+    task.tags = []
+    db.commit()
+    db.refresh(task)
+    cleanup_orphan_tags(db, user.id)
+    notification_service.dispatch_event(db, user.id, task, "task_updated")
+    return _attach_state(db, task)
+
+
 def count_tasks(db: Session, user: User, board_id: int | None = None) -> dict:
     """Lightweight counters for MCP get_project_summary."""
     uid = user.id

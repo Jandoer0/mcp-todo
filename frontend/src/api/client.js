@@ -41,6 +41,7 @@ export const tasksApi = {
   cycleStop: (id) => api.post(`${API_URL}/tasks/${id}/cycle/stop`),
   cycleHistory: (id) => api.get(`${API_URL}/tasks/${id}/cycle/history`),
   changes: (id) => api.get(`${API_URL}/tasks/${id}/changes`),
+  move: (id, boardId) => api.post(`${API_URL}/tasks/${id}/move`, { board_id: boardId }),
 }
 
 export const summaryApi = {

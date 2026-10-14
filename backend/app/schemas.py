@@ -199,6 +199,9 @@ class CycleLogResponse(BaseModel):
 class TaskBulkUpdate(BaseModel):
     tasks: list[dict[str, Any]]
 
+class TaskMove(BaseModel):
+    board_id: int
+
 class BulkUpdateResponse(BaseModel):
     updated: int
     created: int
