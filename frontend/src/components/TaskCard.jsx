@@ -304,6 +304,18 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           )}
         </div>
 
+        {/* Line 2: description, single plain line (markdown stripped) */}
+        {task.description?.trim() && (
+          <div className="text-xs text-slate-500 truncate mt-0.5">
+            {task.description
+              .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')  // [текст](url) → текст
+              .replace(/[*_`~>#]/g, '')                      // служебные символы разметки
+              .replace(/^\s*[-+]\s+/gm, '')                 // маркеры списков
+              .replace(/\s+/g, ' ')
+              .trim()}
+          </div>
+        )}
+
         {/* Line 3: start date (left) / deadline (right) as tag chips.
             The deadline chip turns red when the task is overdue. */}
         <div className="flex items-center justify-between gap-2 mt-1.5">

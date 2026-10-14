@@ -4,6 +4,7 @@ import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
+import Markdown from './Markdown'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
@@ -82,6 +83,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   const [amountStr, setAmountStr] = useState('')
   // Целевая доска для переноса задачи (только в режиме редактирования)
   const [targetBoardId, setTargetBoardId] = useState(null)
+  // Предпросмотр Markdown описания
+  const [descPreview, setDescPreview] = useState(false)
 
   const listOptions = useMemo(() => 
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
@@ -116,6 +119,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setAmountType(amt < 0 ? 'expense' : 'income')
       setAmountStr(amt !== 0 ? String(Math.abs(amt)) : '')
       setTargetBoardId(task.board_id ?? null)
+      setDescPreview(false)
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
@@ -125,6 +129,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setAmountType('expense')
       setAmountStr('')
       setTargetBoardId(null)
+      setDescPreview(false)
     }
   }, [open, task, listOptions])
 
@@ -362,15 +367,32 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </div>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Описание</label>
+              {form.description?.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setDescPreview((v) => !v)}
+                  className="text-[11px] text-blue-600 hover:underline"
+                >
+                  {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
+                </button>
+              )}
+            </div>
+            {descPreview ? (
+              <div className="w-full min-h-[6rem] p-2 border rounded bg-slate-50">
+                <Markdown text={form.description} />
+              </div>
+            ) : (
             <textarea
               id="task-description"
               name="description"
-              placeholder="Введите описание задачи"
+              placeholder="Введите описание задачи (поддерживается Markdown: **жирный**, *курсив*, списки, [ссылки](url), `код`)"
               value={form.description}
               onChange={update('description')}
               className="w-full p-2 border rounded leading-relaxed"
             />
+            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
