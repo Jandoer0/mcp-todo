@@ -25,6 +25,15 @@ function fmtLogDate(value) {
   return `${d} ${MONTHS_SHORT[m - 1]} ${y}`
 }
 
+// «2025-10-12T14:30» → «12.10.2025 14:30»
+function fmtLogDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  const p = (n) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 // Строка истории по записи лога (field, old_value, new_value)
 function describeChange(c) {
   if (c.field === 'description') return 'Описание задания изменено'
@@ -417,7 +426,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               {[...changes].reverse().map((c) => (
                 <div key={c.id} className="px-2 py-1.5 text-xs text-slate-600 flex justify-between gap-2">
                   <span>{describeChange(c)}</span>
-                  <span className="text-slate-400 shrink-0">{fmtLogDate(c.changed_at)}</span>
+                  <span className="text-slate-400 shrink-0">{fmtLogDateTime(c.changed_at)}</span>
                 </div>
               ))}
             </div>
