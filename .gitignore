@@ -16,3 +16,12 @@ PROMT.md
 
 # локальная памятка для агентов (не коммитить)
 AGENTS.md
+
+# SQLite sidecar files (WAL journal / shared memory)
+*.db-wal
+*.db-shm
+backend/data/
+
+# локальная infra-конфигурация (не для репозитория)
+infra/gitea.container
+infra/mcp-todo.container

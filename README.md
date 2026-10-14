@@ -31,7 +31,8 @@
 | Задачи | CRUD `/api/tasks?board_id=…`, `POST /api/tasks/bulk`, `POST /api/tasks/{id}/move` (перенос на свою другую доску), `POST /api/tasks/{id}/cycle/skip`, `POST /api/tasks/{id}/cycle/stop`, `GET /api/tasks/{id}/cycle/history`, `GET /api/tasks/{id}/changes` (история правок дат/приоритета/описания/суммы/статуса) |
 | Списки и теги | CRUD `/api/lists?board_id=…` + `/api/lists/{board_id}/{id}`, CRUD `/api/tags?board_id=…` + `/api/tags/{board_id}/{id}` |
 | Статистика | `GET /api/summary?board_id=…` |
-| Администрирование | `GET/PUT /api/admin/settings/...`, CRUD `/api/admin/users`, `POST/DELETE /api/admin/users/{id}/mcp-token`, CRUD `/api/admin/webhooks`, `POST /api/admin/webhooks/{id}/test` (синхронный тест доставки) |
+| Веб-хуки (пользователь) | `GET/PUT/DELETE /api/boards/{board_id}/webhook` (один вебхук на доску), `POST /api/boards/{board_id}/webhook/test` (синхронный тест доставки) |
+| Администрирование | `GET/PUT /api/admin/settings/...`, CRUD `/api/admin/users` (вкл. переключатель webhooks_enabled), `POST/DELETE /api/admin/users/{id}/mcp-token`, `GET /api/admin/webhooks` (обзор всех вебхуков, только чтение) |
 | Диагностика | `GET /api/health` (статус + версия сборки) |
 
 Даты передаются в формате ISO 8601. Все запросы ограничены текущим пользователем (JWT в заголовке `Authorization: Bearer ***`): чужие доски/задачи/теги/списки возвращают 404.
@@ -55,7 +56,7 @@
 cd backend && SECRET_KEY=dev python3 -m pytest tests/ -q
 ```
 
-19 тестов: изоляция данных (два пользователя × все роутеры и MCP-инструменты — чужие данные недоступны), бюджетирование (сумма задачи, полная редактируемость списков — системных имён нет) и модуль веб-хуков (CRUD, валидация событий, исключённые события, HMAC-подпись исходящих запросов, дедупликация уведомлений планировщика).
+23 теста: изоляция данных (два пользователя × все роутеры и MCP-инструменты — чужие данные недоступны), бюджетирование (сумма задачи, полная редактируемость списков — системных имён нет) и модуль веб-хуков (board-scoped API, валидация событий, исключённые события, HMAC-подпись исходящих запросов, очистка вебхуков при запрете пользователю, дедупликация уведомлений планировщика).
 
 ## Демо-аккаунт
 
