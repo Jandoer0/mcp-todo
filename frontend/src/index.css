@@ -23,6 +23,16 @@ html {
 
 /* --- Board carousel ("барабан") --- */
 /* The strip slides via inline transform + transition-transform (see BoardSwitcher). */
+.board-strip {
+  /* Плавный рендер шрифта в композитном слое: grayscale AA вместо субпиксельного,
+     который на промотированном слое даёт «рваные» края на цветном фоне. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  backface-visibility: hidden;
+  /* Чуть плотнее трекинг для мелких полужирных подписей карточек */
+  letter-spacing: 0.01em;
+}
 
 /* --- Dashboard board transition on board switch --- */
 @keyframes board-fade-in {

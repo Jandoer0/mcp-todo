@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { MAX_BOARDS } from '../constants'
 
 // Board card text is always white for a uniform look; on light board colors
-// a subtle dark shadow keeps it readable (no color switching).
-const TEXT_SHADOW = '0 1px 2px rgba(15, 23, 42, 0.55)'
+// a soft two-layer shadow keeps it readable without hard edges (smoother look).
+const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0.25)'
 
 // Header board carousel ("барабан"): the whole strip of boards slides inside a
 // clipped viewport so that the ACTIVE card is always exactly centered. Click a
@@ -185,7 +185,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
       />
       <div
         ref={stripRef}
-        className="flex items-center gap-2 w-max h-full transition-transform duration-300 ease-out will-change-transform"
+        className="board-strip flex items-center gap-2 w-max h-full transition-transform duration-300 ease-out will-change-transform"
         style={{ transform: `translateX(${offset}px)` }}
       >
         {orderedBoards.map((b) => card(b, b.id === activeId))}
