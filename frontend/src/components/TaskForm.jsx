@@ -83,7 +83,9 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   const [amountStr, setAmountStr] = useState('')
   // Целевая доска для переноса задачи (только в режиме редактирования)
   const [targetBoardId, setTargetBoardId] = useState(null)
-  // Предпросмотр Markdown описания
+  // Предпросмотр Markdown описания: в «Изменить задачу» открываем сразу
+  // в предпросмотре (удобно ознакомиться с оформленным текстом),
+  // в «Создать задачу» — сразу в редакторе.
   const [descPreview, setDescPreview] = useState(false)
 
   const listOptions = useMemo(() => 
@@ -119,7 +121,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setAmountType(amt < 0 ? 'expense' : 'income')
       setAmountStr(amt !== 0 ? String(Math.abs(amt)) : '')
       setTargetBoardId(task.board_id ?? null)
-      setDescPreview(false)
+      setDescPreview(true)
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
