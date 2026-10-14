@@ -369,19 +369,21 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           <div className="md:col-span-2">
             <div className="flex items-center justify-between mb-1">
               <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Описание</label>
-              {form.description?.trim() && (
-                <button
-                  type="button"
-                  onClick={() => setDescPreview((v) => !v)}
-                  className="text-[11px] text-blue-600 hover:underline"
-                >
-                  {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setDescPreview((v) => !v)}
+                className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-[10px] font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
+              </button>
             </div>
             {descPreview ? (
               <div className="w-full min-h-[6rem] p-2 border rounded bg-slate-50">
-                <Markdown text={form.description} />
+                {form.description?.trim() ? (
+                  <Markdown text={form.description} />
+                ) : (
+                  <p className="text-xs text-slate-400">Описание пусто</p>
+                )}
               </div>
             ) : (
             <textarea
