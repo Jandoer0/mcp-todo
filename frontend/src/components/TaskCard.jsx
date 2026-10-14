@@ -375,7 +375,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
               type="button"
               onClick={handleSkip}
               title="Сдвинуть срок на следующий цикл без записи в истории"
-              className="px-2 py-0.5 rounded bg-blue-500 text-white text-[10px] font-semibold hover:bg-blue-600"
+              className="px-2 py-0.5 rounded border border-green-600 text-green-600 text-[10px] font-semibold hover:bg-green-50"
             >
               Пропустить
             </button>

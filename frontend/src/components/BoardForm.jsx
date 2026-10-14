@@ -162,7 +162,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           <button
             type="submit"
             disabled={!isEdit && boardsCount >= MAX_BOARDS}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+            className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium disabled:opacity-50"
           >
             Сохранить
           </button>

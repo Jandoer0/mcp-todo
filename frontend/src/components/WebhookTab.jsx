@@ -219,31 +219,33 @@ export default function WebhookTab({ board }) {
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
       {message && <p className="text-sm text-green-600">{message}</p>}
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {saving ? 'Сохранение…' : 'Сохранить'}
-        </button>
-        <button
-          type="button"
-          onClick={test}
-          disabled={!exists || testing}
-          className="border border-green-600 text-green-600 px-4 py-2 rounded hover:bg-green-50 disabled:opacity-50"
-        >
-          {testing ? 'Отправка…' : 'Тест'}
-        </button>
-        {exists && (
+      <div className="flex justify-between items-center">
+        {exists ? (
           <button
             type="button"
             onClick={remove}
-            className="ml-auto px-4 py-2 text-red-500 border border-red-400 rounded hover:bg-red-50"
+            className="px-4 py-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded font-medium transition-colors"
           >
             Удалить
           </button>
-        )}
+        ) : <span />}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={test}
+            disabled={!exists || testing}
+            className="border border-green-600 text-green-600 px-4 py-2 rounded hover:bg-green-50 disabled:opacity-50"
+          >
+            {testing ? 'Отправка…' : 'Тест'}
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium disabled:opacity-50"
+          >
+            {saving ? 'Сохранение…' : 'Сохранить'}
+          </button>
+        </div>
       </div>
     </form>
   )

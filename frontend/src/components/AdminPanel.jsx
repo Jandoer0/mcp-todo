@@ -223,7 +223,7 @@ export default function AdminPanel({
                           <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
                             <button
                               onClick={() => handleOpenEdit(u)}
-                              className="text-blue-500 text-xs hover:underline whitespace-nowrap"
+                              className="text-green-600 text-xs hover:underline whitespace-nowrap"
                             >
                               Изменить
                             </button>
@@ -243,7 +243,7 @@ export default function AdminPanel({
               <div className="flex justify-end mt-4">
                 <button
                   onClick={handleOpenCreate}
-                  className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
+                  className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 transition-colors whitespace-nowrap"
                 >
                   + Создать пользователя
                 </button>
@@ -391,7 +391,7 @@ export default function AdminPanel({
                       <button
                         type="button"
                         onClick={handleRegenerate}
-                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                        className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                       >
                         {currentUser.has_mcp_token || mcpToken ? 'Сгенерировать новый' : 'Сгенерировать MCP-токен'}
                       </button>
@@ -417,7 +417,7 @@ export default function AdminPanel({
                   </button>
                   <button
                     type="submit"
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium"
                   >
                     Сохранить
                   </button>
@@ -468,7 +468,7 @@ export default function AdminPanel({
                     <button
                       onClick={handleSaveLimit}
                       disabled={savingLimit}
-                      className="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 whitespace-nowrap"
+                      className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                     >
                       Сохранить
                     </button>

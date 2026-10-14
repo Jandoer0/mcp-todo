@@ -205,12 +205,11 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
                   onClick={() => pickDay(d)}
                   className={`h-8 w-8 mx-auto rounded text-sm ${
                     isSelected(d)
-                      ? 'bg-blue-600 text-white font-semibold'
+                      ? 'bg-green-600 text-white font-semibold'
                       : isToday(d)
-                        ? 'border border-blue-400 text-blue-600 hover:bg-blue-50'
+                        ? 'border border-green-400 text-green-600 hover:bg-green-50'
                         : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
+                  }`}                >
                   {d}
                 </button>
               ),

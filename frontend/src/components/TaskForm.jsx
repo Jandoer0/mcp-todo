@@ -376,7 +376,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 onClick={() => setDescPreview((v) => !v)}
                 className={`px-2 py-0.5 rounded border text-[10px] font-medium transition-colors ${
                   descPreview
-                    ? 'bg-blue-500 border-blue-500 text-white hover:bg-blue-600'
+                    ? 'bg-green-600 border-green-600 text-white hover:bg-green-700'
                     : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
                 }`}
               >

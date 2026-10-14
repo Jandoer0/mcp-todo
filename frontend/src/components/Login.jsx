@@ -48,7 +48,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
         />
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 font-medium"
         >
           {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
         </button>
@@ -58,7 +58,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
             {mode === 'login' ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
             <span
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-              className="text-blue-500 cursor-pointer"
+              className="text-green-600 cursor-pointer"
             >
               {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
             </span>

@@ -490,7 +490,7 @@ export default function App() {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setProfileOpen(false)}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded"
               >
                 Закрыть
               </button>
