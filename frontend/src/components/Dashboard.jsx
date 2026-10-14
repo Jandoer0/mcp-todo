@@ -24,7 +24,13 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
           }`}
         >
           <span className={`text-sm font-bold ${f.color}`}>{f.value}</span>
-          <span className="text-[11px] text-gray-500 ml-1.5">{f.label}</span>
+          <span
+            className={`text-[11px] ml-1.5 text-gray-500 transition-all duration-200 ${
+              activeFilter === f.id ? 'font-bold text-slate-700' : 'font-normal'
+            }`}
+          >
+            {f.label}
+          </span>
         </button>
       ))}
     </div>
