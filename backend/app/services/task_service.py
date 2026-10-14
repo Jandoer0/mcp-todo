@@ -428,7 +428,7 @@ def create_task(db: Session, user: User, data: dict) -> Task:
     return task
 
 
-_CHANGELOG_FIELDS = ("start_date", "deadline", "priority", "description")
+_CHANGELOG_FIELDS = ("start_date", "deadline", "priority", "description", "amount", "list")
 
 
 def _fmt_change(field: str, value) -> str | None:
@@ -437,6 +437,12 @@ def _fmt_change(field: str, value) -> str | None:
         return None
     if field in ("start_date", "deadline"):
         return value.strftime("%Y-%m-%d") if isinstance(value, datetime) else str(value)
+    if field == "amount":
+        # Signed money: +20000 / -10000 (для истории; в UI форматируется)
+        try:
+            return f"{float(value):+g}"
+        except (TypeError, ValueError):
+            return str(value)
     return str(value)
 
 

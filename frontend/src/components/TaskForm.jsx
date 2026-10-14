@@ -31,6 +31,13 @@ function describeChange(c) {
   if (c.field === 'priority') {
     return `Приоритет: было «${PRIORITY_LABELS[Number(c.old_value)] || '—'}» → стало «${PRIORITY_LABELS[Number(c.new_value)] || '—'}»`
   }
+  if (c.field === 'amount') {
+    const f = (v) => (v == null ? '—' : `${Number(v) > 0 ? '+' : v < 0 ? '-' : ''}${Math.abs(Number(v)).toLocaleString('ru-RU')}`)
+    return `Сумма: было «${f(c.old_value)}» → стало «${f(c.new_value)}»`
+  }
+  if (c.field === 'list') {
+    return `Статус: было «${c.old_value || '—'}» → стало «${c.new_value || '—'}»`
+  }
   const label = c.field === 'start_date' ? 'Дата начала' : 'Дата завершения'
   return `${label}: было «${c.old_value ? fmtLogDate(c.old_value) : '—'}» → стало «${c.new_value ? fmtLogDate(c.new_value) : '—'}»`
 }
