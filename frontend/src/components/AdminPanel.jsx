@@ -149,7 +149,9 @@ export default function AdminPanel({
         await adminApi.createUser(formData)
       }
       setIsEditing(false)
-      onBack()
+      // Обновляем список пользователей (роль/переключатели могли измениться),
+      // но НЕ закрываем саму панель администратора.
+      if (onChanged) onChanged()
     } catch (err) {
       alert(formatApiError(err, 'Ошибка при сохранении пользователя'))
     }
@@ -223,7 +225,7 @@ export default function AdminPanel({
                           <div className="flex flex-col sm:flex-row items-end sm:items-center sm:justify-end gap-1 sm:gap-2">
                             <button
                               onClick={() => handleOpenEdit(u)}
-                              className="text-green-600 text-xs hover:underline whitespace-nowrap"
+                              className="text-blue-500 text-xs hover:underline whitespace-nowrap"
                             >
                               Изменить
                             </button>
