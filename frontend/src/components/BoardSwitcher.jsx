@@ -41,9 +41,12 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
       if (!old || !now) return
       const dx = old.left - now.left
       if (!dx) return
+      // отменяем незавершённую анимацию этого элемента, чтобы не копить скачки
+      if (el._flipRaf) cancelAnimationFrame(el._flipRaf)
       el.style.transition = 'none'
       el.style.transform = `translateX(${dx}px)`
-      requestAnimationFrame(() => {
+      el._flipRaf = requestAnimationFrame(() => {
+        el._flipRaf = null
         el.style.transition = 'transform 180ms ease-out'
         el.style.transform = ''
       })
@@ -94,24 +97,30 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     onDragOver: (e) => {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
-      if (!dragId || board.id === dragId) return
-      setPreviewIds((ids) => {
-        const cur = ids || origIds
-        if (cur[cur.length - 1] === dragId && cur.indexOf(board.id) === cur.length - 2) {
-          // already right before the last card — nothing to change
-          if (cur.indexOf(dragId) === cur.length - 2) return cur
+      if (!dragId) return
+      // Hit-test по ИСХОДНЫМ позициям карточек (замерены на dragStart):
+      // это разрывает петлю обратной связи «сдвинулись → навелся другой →
+      // снова сдвинулись», из-за которой карточки мельтешили.
+      let hovered = null
+      for (const id of origIds) {
+        if (id === dragId) continue
+        const r = prevRects.current.get(id)
+        if (r && e.clientX >= r.left && e.clientX <= r.right) {
+          hovered = { id, after: e.clientX > r.left + r.width / 2 }
+          break
         }
-        const from = cur.indexOf(dragId)
-        if (from === -1) return cur
-        const rect = cardRefs.current.get(board.id)?.getBoundingClientRect()
-        const after = rect ? e.clientX > rect.left + rect.width / 2 : false
-        const next = cur.filter((id) => id !== dragId)
-        let idx = next.indexOf(board.id)
-        if (idx === -1) return cur
-        if (after) idx += 1
-        if (next[idx] === dragId) return cur
+      }
+      if (!hovered) return
+      setPreviewIds((cur) => {
+        const base = cur || origIds
+        const arr = origIds.filter((id) => id !== dragId)
+        let idx = arr.indexOf(hovered.id)
+        if (idx === -1) return base
+        if (hovered.after) idx += 1
+        const next = [...arr]
         next.splice(idx, 0, dragId)
-        return next
+        // не обновляем, если слот не изменился — иначе анимация дёргается
+        return next.some((id, i) => id !== base[i]) ? next : base
       })
     },
     onDrop: (e) => {
