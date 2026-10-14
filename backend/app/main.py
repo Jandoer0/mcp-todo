@@ -63,6 +63,8 @@ def run_migrations() -> None:
                 conn.execute(text(f"ALTER TABLE tasks ADD COLUMN {col} {ddl}"))
         # Backfill rows that predate the "list" column (they are NULL).
         conn.execute(text('UPDATE tasks SET "list" = \'Входящие\' WHERE "list" IS NULL'))
+        # NULL amount breaks TaskResponse validation (legacy rows predate the column).
+        conn.execute(text('UPDATE tasks SET amount = 0.0 WHERE amount IS NULL'))
         conn.commit()
 
     # Long-lived MCP API key column on the users table.

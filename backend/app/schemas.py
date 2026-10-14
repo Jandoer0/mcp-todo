@@ -149,6 +149,12 @@ class TaskResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _amount_default(cls, v):
+        # Legacy rows may carry NULL (column added by migration) — treat as 0.
+        return 0.0 if v is None else v
+
     @field_validator("tags", mode="before")
     @classmethod
     def validate_tags(cls, v):
