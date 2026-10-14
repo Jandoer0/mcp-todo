@@ -429,6 +429,9 @@ export default function App() {
         onMove={handleMoveTask}
         lists={lists}
         tags={tags}
+        onQuickUpdate={async (id, data) => {
+          await update(id, data)
+        }}
         initialTags={activeTag != null ? tags.filter((t) => t.id === activeTag).map((t) => t.name) : []}
       />
 

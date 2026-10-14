@@ -16,7 +16,7 @@ function signed(n) {
 export default function BudgetTab({ board, tasks = [], lists = [] }) {
   const [copied, setCopied] = useState(false)
 
-  const { plan, fact, entries, doneEntries } = useMemo(() => {
+  const { plan, fact, entries, doneEntries, doneNames } = useMemo(() => {
     const doneNames = new Set(
       lists.filter((l) => (l.kind || 'todo') === 'done').map((l) => l.name),
     )
@@ -24,8 +24,18 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
     const doneEntries = entries.filter((t) => doneNames.has(t.list))
     const fact = doneEntries.reduce((s, t) => s + Number(t.amount), 0)
     const total = entries.reduce((s, t) => s + Number(t.amount), 0)
-    return { entries, doneEntries, plan: total - fact, fact }
+    return { entries, doneEntries, doneNames, plan: total - fact, fact }
   }, [tasks, lists])
+
+  // Финансовый список: сначала задачи с ближайшим дедлайном, задачи без
+  // дедлайна — в конце списка.
+  const sortEntries = (list) =>
+    [...list].sort((a, b) => {
+      const da = a.deadline ? new Date(a.deadline).getTime() : Infinity
+      const db = b.deadline ? new Date(b.deadline).getTime() : Infinity
+      if (da !== db) return da - db
+      return a.title.localeCompare(b.title, 'ru')
+    })
 
   const total = plan + fact
 
@@ -36,7 +46,7 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
     return [
       `${board.name} — Бюджет`,
       line,
-      rows(doneEntries),
+      rows(sortEntries(doneEntries)),
       planEntriesForReport(),
       line,
       `ПЛАН: ${signed(plan)} ₽`,
@@ -47,8 +57,7 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
       .join('\n')
 
     function planEntriesForReport() {
-      return entries
-        .filter((t) => !doneEntries.includes(t))
+      return sortEntries(entries.filter((t) => !doneEntries.includes(t)))
         .map((t) => `${t.title}: ${signed(Number(t.amount))} ₽`)
         .join('\n')
     }
@@ -89,12 +98,17 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
       ) : (
         <div className="rounded border border-slate-200 divide-y divide-slate-100 max-h-64 overflow-y-auto">
           {/* финансовый вид: только знаки + и -, без цветовой дифференциации */}
-          {entries.map((t) => (
+          {sortEntries(entries).map((t) => (
             <div key={t.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
-              <span className="truncate text-slate-700" title={t.title}>
+              <span
+                className={`truncate ${doneNames.has(t.list) ? 'text-slate-400' : 'text-slate-700'}`}
+                title={t.title}
+              >
                 {t.title}
               </span>
-              <span className="shrink-0 font-mono tabular-nums text-slate-600">
+              <span
+                className={`shrink-0 font-mono tabular-nums ${doneNames.has(t.list) ? 'text-slate-300' : 'text-slate-600'}`}
+              >
                 {signed(Number(t.amount))}
               </span>
             </div>

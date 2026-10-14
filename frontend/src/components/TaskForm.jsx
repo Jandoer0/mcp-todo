@@ -74,7 +74,7 @@ function toDatetimeLocal(value) {
   return local.toISOString().slice(0, 16)
 }
 
-export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], onMove }) {
+export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], onMove, onQuickUpdate }) {
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
@@ -139,6 +139,30 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const update = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
+
+  // Переключение чекбокса GFM-задачи (- [ ] / - [x]) в предпросмотре:
+  // правит markdown-источник в форме и сразу сохраняет у существующей задачи.
+  const handleToggleCheckItem = async (index, checked) => {
+    const lines = String(form.description || '').split('\n')
+    let seen = -1
+    const newLines = lines.map((line) => {
+      const m = line.match(/^(\s*[-*+]\s+)\[( |x|X)\](\s+.*)$/)
+      if (!m) return line
+      seen += 1
+      if (seen !== index) return line
+      return `${m[1]}[${checked ? 'x' : ' '}]${m[3]}`
+    })
+    if (seen < index) return // нет такого чекбокса в источнике
+    const newText = newLines.join('\n')
+    setForm((f) => ({ ...f, description: newText }))
+    if (task && onQuickUpdate) {
+      try {
+        await onQuickUpdate(task.id, { description: newText })
+      } catch {
+        // ошибка не должна ломать предпросмотр; при сохранении формы текст уйдёт снова
+      }
+    }
+  }
 
   // Сумма в БД: доход — положительное число, расход — отрицательное.
   const computeAmount = () => {
@@ -382,7 +406,10 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             {descPreview ? (
               <div className="w-full min-h-[6rem] p-2 border rounded bg-slate-50">
                 {form.description?.trim() ? (
-                  <Markdown text={form.description} />
+                  <Markdown
+                    text={form.description}
+                    onToggleCheckItem={handleToggleCheckItem}
+                  />
                 ) : (
                   <p className="text-xs text-slate-400">Описание пусто</p>
                 )}
