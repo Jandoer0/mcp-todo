@@ -15,9 +15,41 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
   const stripRef = useRef(null)
   const cardRefs = useRef(new Map())
   const [offset, setOffset] = useState(0)
-  // Drag-and-drop reordering of board cards (mouse with the button held)
+  // Drag-and-drop reordering of board cards (mouse with the button held):
+  // while dragging, the strip shows a LIVE preview — the dragged card is
+  // re-inserted at the hovered position and the other cards slide apart
+  // (FLIP-animated) to free the slot.
   const [dragId, setDragId] = useState(null)
-  const [overId, setOverId] = useState(null)
+  const [previewIds, setPreviewIds] = useState(null) // board id order during drag
+  const prevRects = useRef(new Map())
+
+  const origIds = boards.map((b) => b.id)
+  const orderIds = previewIds || origIds
+  const orderedBoards = orderIds
+    .map((id) => boards.find((b) => b.id === id))
+    .filter(Boolean)
+
+  // FLIP: after each preview reorder, animate every card from its previous
+  // position to the new one instead of jumping.
+  useLayoutEffect(() => {
+    if (!dragId) return
+    const newRects = new Map()
+    cardRefs.current.forEach((el, id) => newRects.set(id, el.getBoundingClientRect()))
+    cardRefs.current.forEach((el, id) => {
+      const old = prevRects.current.get(id)
+      const now = newRects.get(id)
+      if (!old || !now) return
+      const dx = old.left - now.left
+      if (!dx) return
+      el.style.transition = 'none'
+      el.style.transform = `translateX(${dx}px)`
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 180ms ease-out'
+        el.style.transform = ''
+      })
+    })
+    prevRects.current = newRects
+  }, [previewIds, dragId])
 
   const idx = boards.findIndex((b) => b.id === activeId)
 
@@ -32,6 +64,9 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
   }, [activeId, idx])
 
   useLayoutEffect(measure, [measure, boards])
+
+  // Re-center while the drag preview reorders the strip.
+  useLayoutEffect(measure, [measure, previewIds])
 
   // Re-center on any size change of the wrapper or the strip itself (fonts,
   // trailing create-card appear/disappear, window resize).
@@ -52,22 +87,42 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
       e.dataTransfer.effectAllowed = 'move'
       e.dataTransfer.setData('text/plain', String(board.id))
       setDragId(board.id)
+      setPreviewIds(origIds)
+      prevRects.current = new Map()
+      cardRefs.current.forEach((el, id) => prevRects.current.set(id, el.getBoundingClientRect()))
     },
     onDragOver: (e) => {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
-      if (board.id !== dragId) setOverId(board.id)
+      if (!dragId || board.id === dragId) return
+      setPreviewIds((ids) => {
+        const cur = ids || origIds
+        if (cur[cur.length - 1] === dragId && cur.indexOf(board.id) === cur.length - 2) {
+          // already right before the last card — nothing to change
+          if (cur.indexOf(dragId) === cur.length - 2) return cur
+        }
+        const from = cur.indexOf(dragId)
+        if (from === -1) return cur
+        const rect = cardRefs.current.get(board.id)?.getBoundingClientRect()
+        const after = rect ? e.clientX > rect.left + rect.width / 2 : false
+        const next = cur.filter((id) => id !== dragId)
+        let idx = next.indexOf(board.id)
+        if (idx === -1) return cur
+        if (after) idx += 1
+        if (next[idx] === dragId) return cur
+        next.splice(idx, 0, dragId)
+        return next
+      })
     },
-    onDragLeave: () => setOverId((cur) => (cur === board.id ? null : cur)),
     onDrop: (e) => {
       e.preventDefault()
-      if (dragId && dragId !== board.id) onReorder && onReorder(dragId, board.id)
+      if (dragId && previewIds && onReorder) onReorder(dragId, previewIds)
       setDragId(null)
-      setOverId(null)
+      setPreviewIds(null)
     },
     onDragEnd: () => {
       setDragId(null)
-      setOverId(null)
+      setPreviewIds(null)
     },
   })
 
@@ -75,11 +130,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     const base =
       'shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] max-w-[9rem] sm:max-w-[12rem] text-center shadow'
     const dropMark =
-      dragId && overId === board.id && dragId !== board.id
-        ? ' ring-2 ring-white ring-offset-2 ring-offset-[#22384d]'
-        : dragId === board.id
-          ? ' opacity-40'
-          : ''
+      dragId === board.id ? ' opacity-40' : ''
     if (isActive) {
       return (
         <button
@@ -128,7 +179,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
         className="flex items-center gap-2 w-max h-full transition-transform duration-300 ease-out will-change-transform"
         style={{ transform: `translateX(${offset}px)` }}
       >
-        {boards.map((b) => card(b, b.id === activeId))}
+        {orderedBoards.map((b) => card(b, b.id === activeId))}
         {canCreate && (
           <button
             onClick={onCreate}

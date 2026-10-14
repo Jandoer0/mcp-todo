@@ -66,20 +66,24 @@ export default function App() {
     setActiveTag(null)
   }
 
-  // Перестановка досок перетаскиванием: меняем позиции двух досок местами
-  const handleBoardReorder = async (fromId, toId) => {
-    const from = boards.find((b) => b.id === fromId)
-    const to = boards.find((b) => b.id === toId)
-    if (!from || !to || from.position == null || to.position == null) return
+  // Перестановка досок перетаскиванием: сохраняем порядок, полученный из ленты
+  const handleBoardReorder = async (fromId, orderedIds) => {
+    const updated = orderedIds
+      .map((id, idx) => ({ id, position: idx }))
+      .filter((u) => {
+        const b = boards.find((p) => p.id === u.id)
+        return b && b.position !== u.position
+      })
+    if (!updated.length) return
     // оптимистичное обновление ленты
     setBoards((prev) =>
-      prev.map((b) => (b.id === fromId ? { ...b, position: to.position } : b.id === toId ? { ...b, position: from.position } : b)),
+      prev.map((b) => {
+        const u = orderedIds.indexOf(b.id)
+        return u === -1 ? b : { ...b, position: u }
+      }),
     )
     try {
-      await Promise.all([
-        boardsApi.update(fromId, { position: to.position }),
-        boardsApi.update(toId, { position: from.position }),
-      ])
+      await Promise.all(updated.map((u) => boardsApi.update(u.id, { position: u.position })))
     } catch {
       alert('Не удалось изменить порядок досок')
     }
