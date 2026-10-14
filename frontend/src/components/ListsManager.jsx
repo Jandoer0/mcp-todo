@@ -30,7 +30,12 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
 
   if (!open) return null
 
-  const sorted = [...lists].sort((a, b) => a.position - b.position)
+  // Надёжная сортировка: отсутствующие позиции — в конец, при равенстве — по id.
+  const sorted = [...lists].sort(
+    (a, b) =>
+      (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER) ||
+      a.id - b.id,
+  )
 
   const refresh = async (promise) => {
     try {
@@ -74,12 +79,18 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
     const idx = sorted.findIndex((l) => l.id === list.id)
     const target = dir === 'up' ? idx - 1 : idx + 1
     if (target < 0 || target >= sorted.length) return
-    const other = sorted[target]
+    const order = [...sorted]
+    ;[order[idx], order[target]] = [order[target], order[idx]]
+    // Полная перенумерация позиций (1..n): устраняет дубликаты, из-за которых
+    // свап равных position «залипал» и список не двигался.
     refresh(
-      Promise.all([
-        listsApi.update(boardId, list.id, { position: other.position }),
-        listsApi.update(boardId, other.id, { position: list.position }),
-      ]),
+      Promise.all(
+        order.map((l, i) =>
+          l.position === i + 1
+            ? Promise.resolve()
+            : listsApi.update(boardId, l.id, { position: i + 1 }),
+        ),
+      ),
     )
   }
 

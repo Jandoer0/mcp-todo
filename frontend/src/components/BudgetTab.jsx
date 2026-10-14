@@ -96,7 +96,7 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
           Задач с суммой пока нет — укажите сумму в форме задачи (доход или расход).
         </p>
       ) : (
-        <div className="rounded border border-slate-200 divide-y divide-slate-100 max-h-64 overflow-y-auto">
+        <div className="rounded border border-slate-200 divide-y divide-slate-100 max-h-[min(33rem,50dvh)] overflow-y-auto">
           {/* финансовый вид: только знаки + и -, без цветовой дифференциации */}
           {sortEntries(entries).map((t) => (
             <div key={t.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">

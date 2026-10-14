@@ -51,7 +51,16 @@ def create_list(
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
     pos = data.position
     if pos is None:
-        pos = (db.query(func.max(TaskList.position)).scalar() or 0) + 1
+        # Новые списки — в конец своей доски (максимум в рамках user+board).
+        pos = (
+            db.query(func.max(TaskList.position))
+            .filter(
+                TaskList.user_id == current_user.id,
+                TaskList.board_id == board_id,
+            )
+            .scalar()
+            or 0
+        ) + 1
     if data.kind not in (None, "todo", "progress", "done"):
         raise HTTPException(status_code=400, detail="Недопустимый статус списка")
     lst = TaskList(
