@@ -145,7 +145,7 @@ def list_all_lists(auth_token: str, board_id: int) -> str:
         )
         lists_str = "\n".join(
             [
-                f"- {lst.name} (status: {status_for_kind(lst.kind)})"
+                f"- {lst.name} (kind: {lst.kind or 'todo'}, status: {status_for_kind(lst.kind)})"
                 for lst in rows
             ]
         )
@@ -182,6 +182,7 @@ def list_tasks(auth_token: str, board_id: int, status: str | None = None, cyclic
                     "start_date": str(t.start_date) if t.start_date else None,
                     "deadline": str(t.deadline) if t.deadline else None,
                     "list": t.list,
+                    "amount": float(t.amount or 0),
                     "tags": [tg.name for tg in t.tags],
                     "blocked_by": t.blocked_by,
                     "is_cyclic": bool(t.is_cyclic),
@@ -435,6 +436,38 @@ def search_tasks(auth_token: str, board_id: int, query_str: str) -> str:
         return json.dumps(
             [{"id": t.id, "title": t.title, "status": t.status} for t in tasks]
         )
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def get_board_budget(auth_token: str, board_id: int) -> str:
+    """Read the board's budget (property-based): ПЛАН = amounts in lists with
+    property 'К выполнению'/'В работе' (kind todo/progress), ФАКТ = in lists
+    with property 'Завершено' (kind done), ИТОГО = all amounts of the board.
+    Returns totals and the list of entries (title, list, signed amount:
+    income positive, expense negative)."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    db = _session()
+    try:
+        try:
+            b = task_service.board_budget(db, user, board_id)
+        except LookupError:
+            return "Error: Board not found"
+        lines = [
+            f"Budget of board '{b['board_name']}' (id {b['board_id']}):",
+            f"ПЛАН: {b['plan']:+g}",
+            f"ФАКТ: {b['fact']:+g}",
+            f"ИТОГО: {b['total']:+g}",
+            "Entries:",
+        ]
+        lines += [
+            f"- {e['title']} [{e['list']}]: {e['amount']:+g}"
+            for e in b["entries"]
+        ] or ["- (нет задач с ненулевой суммой)"]
+        return "\n".join(lines)
     finally:
         db.close()
 

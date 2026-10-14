@@ -197,6 +197,36 @@ def test_mcp_tools_isolated(users):
     assert "MCP-only" not in {t["title"] for t in json.loads(list_tasks(auth_token=tok_a, board_id=bid_a))}
 
 
+def test_mcp_budget_tools(users):
+    """MCP: amount доступен агенту в list_tasks/create/update и есть
+    get_board_budget (План/Факт/ИТОГО по свойствам списков)."""
+    import json
+
+    from app.routers.mcp import (
+        create_task,
+        get_board_budget,
+        list_tasks,
+        update_task,
+    )
+    tok = _mcp_token(users["alice"])
+    bid = _first_board(users["alice"])
+    tid = create_task(tok, board_id=bid, title="Билеты", amount=-10000)
+    assert "created" in tid
+    tasks = json.loads(list_tasks(tok, board_id=bid))
+    t = next(t for t in tasks if t["title"] == "Билеты")
+    assert t["amount"] == -10000
+    # смена суммы и знака через MCP
+    update_task(tok, task_id=t["id"], board_id=bid, amount=25000)
+    tasks = json.loads(list_tasks(tok, board_id=bid))
+    assert next(x for x in tasks if x["id"] == t["id"])["amount"] == 25000
+    # бюджет: «Готово» имеет kind=done → сумма в нём попадает в ФАКТ
+    assert "ИТОГО: +25000" in get_board_budget(tok, board_id=bid)
+    assert "ПЛАН: +25000" in get_board_budget(tok, board_id=bid)
+    # чужая доска недоступна
+    tok_b = _mcp_token(users["bob"])
+    assert "Error: Board not found" in get_board_budget(tok_b, board_id=bid)
+
+
 def test_health_and_registration_status():
     assert client.get("/api/health").json()["status"] == "ok"
     assert "enabled" in client.get("/api/auth/registration-status").json()

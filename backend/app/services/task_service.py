@@ -641,6 +641,43 @@ def move_task(db: Session, user: User, task_id: int, target_board_id: int) -> Ta
     return _attach_state(db, task)
 
 
+def board_budget(db: Session, user: User, board_id: int) -> dict:
+    """Board budget (property-based, UPDATE ТЗ): План = суммы в списках со
+    свойством todo/progress, Факт = в списках со свойством done, ИТОГО = все
+    суммы доски. Amount == 0 не участвует."""
+    board = _resolve_board(db, user, board_id)
+    done_names = {
+        l.name
+        for l in db.query(TaskList)
+        .filter(TaskList.user_id == user.id, TaskList.board_id == board.id)
+        .all()
+        if (l.kind or "todo") == "done"
+    }
+    tasks = (
+        db.query(Task)
+        .filter(
+            Task.user_id == user.id,
+            Task.board_id == board.id,
+            func.coalesce(Task.amount, 0) != 0,
+        )
+        .all()
+    )
+    entries = [
+        {"id": t.id, "title": t.title, "list": t.list, "amount": float(t.amount or 0)}
+        for t in tasks
+    ]
+    total = sum(e["amount"] for e in entries)
+    fact = sum(e["amount"] for e in entries if e["list"] in done_names)
+    return {
+        "board_id": board.id,
+        "board_name": board.name,
+        "plan": total - fact,
+        "fact": fact,
+        "total": total,
+        "entries": entries,
+    }
+
+
 def count_tasks(db: Session, user: User, board_id: int | None = None) -> dict:
     """Lightweight counters for MCP get_project_summary."""
     uid = user.id
