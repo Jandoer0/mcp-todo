@@ -26,6 +26,10 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   const [newColor, setNewColor] = useState(PALETTE[0])
   const [editingColor, setEditingColor] = useState(null)
 
+  // Системные списки: только просмотр, не редактируются
+  const SYSTEM_LIST_NAMES = ['Не начато', 'В работе', 'Готово', 'Архив']
+  const isSystem = (list) => SYSTEM_LIST_NAMES.includes(list.name)
+
   if (!open) return null
 
   const sorted = [...lists].sort((a, b) => a.position - b.position)
@@ -105,7 +109,15 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
 
         <div className="space-y-3">
           {sorted.map((list) => (
-            <div key={list.id} className="border rounded p-3">
+            <div
+              key={list.id}
+              className={`border rounded p-3 ${
+                isSystem(list) ? 'bg-slate-50 opacity-60 pointer-events-none select-none' : ''
+              }`}
+            >
+              {isSystem(list) && (
+                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">Системный список</div>
+              )}
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <button
                   type="button"
