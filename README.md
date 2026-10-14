@@ -53,7 +53,8 @@
 Все инструменты принимают `auth_token` первым аргументом (MCP-токен генерируется в панели администратора). Инструменты используют тот же сервисный слой, что и REST API, поэтому поведение идентично. Все инструменты работы с задачами требуют `board_id` (получается через `list_boards`):
 
 - `list_boards` — доски текущего пользователя
-- `list_tasks(board_id, …)`, `create_task(board_id, …)`, `update_task(board_id, …)`, `delete_task(board_id, …)` — управление задачами (включая циклические поля и сумму `amount`: доход — положительное число, расход — отрицательное); даты (`start_date`/`deadline`) принимаются строками «ГГГГ-ММ-ДД» или ISO 8601
+- `list_tasks(board_id, …)`, `create_task(board_id, …)`, `update_task(board_id, …)`, `delete_task(board_id, …)` — управление задачами (включая циклические поля и сумму `amount`: доход — положительное число, расход — отрицательное; `list_tasks` отдаёт `amount` по каждой задаче); даты (`start_date`/`deadline`) принимаются строками «ГГГГ-ММ-ДД» или ISO 8601
+- `get_board_budget(board_id)` — бюджет доски (по свойствам списков): ПЛАН (списки todo/progress), ФАКТ (done), ИТОГО и записи «название [список]: ±сумма»
 - `search_tasks(board_id, query_str)` — поиск по названию/описанию в рамках доски
 - `manage_cycle(board_id, task_id, action)` — управление циклом: `complete` / `skip` / `stop` / `history`
 - `get_project_summary(board_id)` — сводная статистика доски
