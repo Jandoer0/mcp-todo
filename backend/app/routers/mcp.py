@@ -213,6 +213,7 @@ def create_task(
     cycle_period: str = "monthly",
     cycle_interval: int = 1,
     reminder_days: int = 0,
+    amount: float = 0.0,
 ) -> str:
     """Create a new task on the given board. Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Dates (start_date, deadline) accept 'YYYY-MM-DD' or ISO 8601 strings.
@@ -266,6 +267,7 @@ def update_task(
     cycle_period: str | None = None,
     cycle_interval: int | None = None,
     reminder_days: int | None = None,
+    amount: float | None = None,
 ) -> str:
     """Update an existing task (must belong to the given board). Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration."""

@@ -65,6 +65,8 @@ class TaskBase(BaseModel):
     cycle_period: str | None = None  # daily | weekly | monthly | yearly
     cycle_interval: int | None = 1
     reminder_days: int | None = 0
+    # Financial weight: positive = income, negative = expense (0 = no budget)
+    amount: float | None = 0.0
 
 class TaskCreate(TaskBase):
     pass
@@ -83,6 +85,7 @@ class TaskUpdate(BaseModel):
     cycle_period: str | None = None
     cycle_interval: int | None = None
     reminder_days: int | None = None
+    amount: float | None = None
 
 class TagResponse(BaseModel):
     id: int
@@ -142,6 +145,7 @@ class TaskResponse(BaseModel):
     cycle_group_id: str | None = None
     reminder_days: int | None = 0
     cycle_dormant: bool = False  # cyclic task outside its reminder window
+    amount: float = 0.0  # financial weight (income + / expense -)
 
     model_config = {"from_attributes": True}
 

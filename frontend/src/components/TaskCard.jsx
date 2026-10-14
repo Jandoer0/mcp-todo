@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
+import { formatAmount } from './TaskForm'
 
 // "12 окт." when the year matches the current one, "12 окт. 2027" otherwise.
 function formatDate(value) {
@@ -287,6 +288,16 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${priorityDot}`}
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
+          {(Number(task.amount) || 0) !== 0 && (
+            <span
+              className={`text-[10px] font-bold shrink-0 ${
+                Number(task.amount) > 0 ? 'text-blue-600' : 'text-red-600'
+              }`}
+              title={`Сумма: ${formatAmount(task.amount)}`}
+            >
+              $
+            </span>
+          )}
           <span className="truncate">{task.title}</span>
           {task.cycle_dormant && (
             <span className="text-[10px] font-normal text-slate-400 shrink-0" title="Появится в основных списках ближе к дедлайну">

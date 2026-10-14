@@ -7,6 +7,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Float,
     Integer,
     String,
     Table,
@@ -79,6 +80,8 @@ class Task(Base):
     deadline = Column(DateTime, nullable=True)
     priority = Column(Integer, default=1)  # 1 low, 2 medium, 3 high
     status = Column(String, default="todo")  # todo | in_progress | done
+    # Financial weight (бюджетирование): positive = income, negative = expense.
+    amount = Column("amount", Float, default=0.0)
     tag = Column(String, nullable=True)  # legacy single-tag column (unused)
     list = Column(String, default="Входящие")  # задел под Канбан-доску
     created_at = Column(DateTime, default=utcnow)

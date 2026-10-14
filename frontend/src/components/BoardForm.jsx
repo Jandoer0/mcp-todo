@@ -1,13 +1,16 @@
 import { BOARD_PALETTE, MAX_BOARDS } from '../constants'
 import Modal from './Modal'
+import BudgetTab from './BudgetTab'
 import { useEffect, useState } from 'react'
 
 // Edit/create dialog for a board (name, multiline description, color).
-export default function BoardForm({ open, board, boardsCount, onClose, onSubmit, onDelete }) {
+// In edit mode an extra «Бюджет» tab shows the board's financial summary.
+export default function BoardForm({ open, board, boardsCount, tasks = [], onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(BOARD_PALETTE[1])
   const [error, setError] = useState('')
+  const [tab, setTab] = useState('general')
 
   useEffect(() => {
     if (open) {
@@ -15,6 +18,7 @@ export default function BoardForm({ open, board, boardsCount, onClose, onSubmit,
       setDescription(board?.description || '')
       setColor(board?.color || BOARD_PALETTE[1])
       setError('')
+      setTab('general')
     }
   }, [open, board])
 
@@ -49,6 +53,36 @@ export default function BoardForm({ open, board, boardsCount, onClose, onSubmit,
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Редактировать доску' : 'Новая доска'}>
+      {isEdit && (
+        <div className="flex gap-1 mb-4 border-b border-slate-200">
+          <button
+            type="button"
+            onClick={() => setTab('general')}
+            className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === 'general'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Общие
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('budget')}
+            className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === 'budget'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Бюджет
+          </button>
+        </div>
+      )}
+
+      {tab === 'budget' ? (
+        <BudgetTab board={board} tasks={tasks} />
+      ) : (
       <form onSubmit={submit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Название</label>
@@ -117,6 +151,7 @@ export default function BoardForm({ open, board, boardsCount, onClose, onSubmit,
           </button>
         </div>
       </form>
+      )}
     </Modal>
   )
 }

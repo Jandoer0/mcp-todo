@@ -298,6 +298,7 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
         cycle_interval=task.cycle_interval,
         cycle_group_id=task.cycle_group_id,
         reminder_days=task.reminder_days,
+        amount=task.amount or 0.0,
     )
     next_task.tags = list(task.tags)
     cycle_log(db, task.user_id, task.cycle_group_id, task, "completed")

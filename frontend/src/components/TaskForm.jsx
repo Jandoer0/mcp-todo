@@ -8,6 +8,14 @@ import DateTimePicker from './DateTimePicker'
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
 const PRIORITY_LABELS = { 1: 'Низкий', 2: 'Средний', 3: 'Высокий' }
+const CURRENCY = '₽'
+
+// «-10000» → «-10 000» (только для отображения в маркере)
+export function formatAmount(v) {
+  const n = Number(v) || 0
+  const sign = n < 0 ? '-' : '+'
+  return `${sign}${Math.abs(n).toLocaleString('ru-RU')}`
+}
 const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.']
 
 // «2025-10-12» → «12 окт. 2025»
@@ -41,7 +49,6 @@ const EMPTY = {
   cycle_interval: 1,
   reminder_days: 0,
 }
-
 function toDatetimeLocal(value) {
   if (!value) return ''
   const d = new Date(value)
@@ -54,6 +61,9 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
+  // Финансовый вес: направление (доход + / расход -) и сумма (только положительная)
+  const [amountType, setAmountType] = useState('expense')
+  const [amountStr, setAmountStr] = useState('')
 
   const listOptions = useMemo(() => 
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
@@ -84,12 +94,17 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
         cycle_interval: task.cycle_interval || 1,
         reminder_days: task.reminder_days || 0,
       })
+      const amt = Number(task.amount) || 0
+      setAmountType(amt < 0 ? 'expense' : 'income')
+      setAmountStr(amt !== 0 ? String(Math.abs(amt)) : '')
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
       setForm({ ...EMPTY, list: listOptions[0]?.name || '' })
       setSelectedTags([...initialTags])
       setSelectedBlockers([])
+      setAmountType('expense')
+      setAmountStr('')
     }
   }, [open, task, listOptions])
 
@@ -97,6 +112,13 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const update = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
+
+  // Сумма в БД: доход — положительное число, расход — отрицательное.
+  const computeAmount = () => {
+    const v = parseFloat(String(amountStr).replace(',', '.'))
+    if (!v || v <= 0 || isNaN(v)) return 0
+    return amountType === 'income' ? v : -v
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -126,6 +148,10 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     } else if (tagsChanged) {
       payload.tags = selectedTags
     }
+
+    // Финансовый вес: отправляем при изменении (или всегда для новой задачи)
+    const newAmount = computeAmount()
+    if (!task || newAmount !== (Number(task.amount) || 0)) payload.amount = newAmount
 
     // Cyclic settings: send when changed or when enabling cyclicity.
     const cycleChanged =
@@ -260,6 +286,57 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 </option>
               ))}
             </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Сумма (финансовый вес)</label>
+            <div className="flex gap-2">
+              <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAmountType('income')}
+                  className={`px-3 text-sm font-medium transition-colors ${
+                    amountType === 'income'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  Доход
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAmountType('expense')}
+                  className={`px-3 text-sm font-medium transition-colors ${
+                    amountType === 'expense'
+                      ? 'bg-red-500 text-white'
+                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  Расход
+                </button>
+              </div>
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={amountStr}
+                  onChange={(e) => {
+                    // только положительные числа (точка/запятая как разделитель)
+                    const v = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
+                    if (/^\d*(\.\d*)?$/.test(v)) setAmountStr(v)
+                  }}
+                  className={`w-full p-2 border rounded ${amountType === 'income' ? 'border-blue-300' : 'border-red-300'}`}
+                />
+                {amountStr && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">
+                    {amountType === 'income' ? '+' : '-'}{amountStr} {CURRENCY}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Необязательно: планируемые доходы и расходы. Доход — синий, расход — красный. Оставьте пустым, если сумма не нужна.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>

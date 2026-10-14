@@ -57,6 +57,7 @@ def run_migrations() -> None:
             ("cycle_interval", "INTEGER DEFAULT 1"),
             ("cycle_group_id", "VARCHAR"),
             ("reminder_days", "INTEGER DEFAULT 0"),
+            ("amount", "FLOAT DEFAULT 0.0"),
         ):
             if col not in cols:
                 conn.execute(text(f"ALTER TABLE tasks ADD COLUMN {col} {ddl}"))

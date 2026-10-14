@@ -90,8 +90,12 @@ DEFAULT_LISTS = [
 DONE_LIST = "Готово"
 PROGRESS_LIST = "В работе"
 
-# Names of the protected default lists (cannot be renamed/deleted).
+# Names of the protected default lists (cannot be created by users).
 PROTECTED_LIST_NAMES = {d["name"] for d in DEFAULT_LISTS}
+
+# Budget system lists (ТЗ бюджетирования): cannot be renamed, deleted or
+# changed in any way. Amounts of tasks in these lists count as executed budget.
+BUDGET_DONE_LISTS = {"Готово", "Архив"}
 
 
 def status_for_list(name: str) -> str:

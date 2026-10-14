@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..auth import get_current_user
 from ..board import (
+    BUDGET_DONE_LISTS,
     PALETTE,
     PROTECTED_LIST_NAMES,
     ensure_default_lists,
@@ -96,6 +97,13 @@ def update_list(
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
 
+    # System budget lists (Готово / Архив) are fully immutable.
+    if lst.name in BUDGET_DONE_LISTS:
+        raise HTTPException(
+            status_code=400,
+            detail="Системный список нельзя переименовать или изменить",
+        )
+
     # All lists are editable: the protected-lists concept is dropped.
     if data.name is not None and data.name.strip():
         new = data.name.strip()
@@ -148,6 +156,9 @@ def delete_list(
     )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
+    # System budget lists (Готово / Архив) cannot be deleted.
+    if lst.name in BUDGET_DONE_LISTS:
+        raise HTTPException(status_code=400, detail="Системный список нельзя удалить")
     # Reassign only the owner's tasks to the default "not started" list.
     db.query(Task).filter(
         Task.list == lst.name, Task.user_id == current_user.id

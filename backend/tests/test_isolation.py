@@ -200,3 +200,37 @@ def test_mcp_tools_isolated(users):
 def test_health_and_registration_status():
     assert client.get("/api/health").json()["status"] == "ok"
     assert "enabled" in client.get("/api/auth/registration-status").json()
+
+
+# ---------------- Budgeting (ТЗ бюджетирования) ----------------
+
+def test_task_amount_roundtrip(users):
+    """amount: income stored positive, expense negative, default 0."""
+    a = users["alice"]
+    bid = _first_board(a)
+    t1 = client.post("/api/tasks", json={"title": "Доход", "board_id": bid, "amount": 20000}, headers=a).json()
+    t2 = client.post("/api/tasks", json={"title": "Расход", "board_id": bid, "amount": -10000}, headers=a).json()
+    t3 = client.post("/api/tasks", json={"title": "Без суммы", "board_id": bid}, headers=a).json()
+    assert t1["amount"] == 20000
+    assert t2["amount"] == -10000
+    assert t3["amount"] == 0
+    # update keeps the sign convention
+    r = client.put(f"/api/tasks/{t3['id']}", json={"amount": -500}, headers=a)
+    assert r.status_code == 200 and r.json()["amount"] == -500
+
+
+def test_budget_system_lists_protected(users):
+    """Готово / Архив cannot be renamed, changed or deleted."""
+    a = users["alice"]
+    bid = _first_board(a)
+    lists = {l["name"]: l for l in client.get(f"/api/lists?board_id={bid}", headers=a).json()}
+    for name in ("Готово", "Архив"):
+        lst = lists[name]
+        # rename forbidden
+        r = client.put(f"/api/lists/{bid}/{lst['id']}", json={"name": "Выполнено"}, headers=a)
+        assert r.status_code == 400, name
+        # any change forbidden
+        r = client.put(f"/api/lists/{bid}/{lst['id']}", json={"color": "#ef4444"}, headers=a)
+        assert r.status_code == 400, name
+        # delete forbidden
+        assert client.delete(f"/api/lists/{bid}/{lst['id']}", headers=a).status_code == 400
