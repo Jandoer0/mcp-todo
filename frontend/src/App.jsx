@@ -66,6 +66,26 @@ export default function App() {
     setActiveTag(null)
   }
 
+  // Перестановка досок перетаскиванием: меняем позиции двух досок местами
+  const handleBoardReorder = async (fromId, toId) => {
+    const from = boards.find((b) => b.id === fromId)
+    const to = boards.find((b) => b.id === toId)
+    if (!from || !to || from.position == null || to.position == null) return
+    // оптимистичное обновление ленты
+    setBoards((prev) =>
+      prev.map((b) => (b.id === fromId ? { ...b, position: to.position } : b.id === toId ? { ...b, position: from.position } : b)),
+    )
+    try {
+      await Promise.all([
+        boardsApi.update(fromId, { position: to.position }),
+        boardsApi.update(toId, { position: from.position }),
+      ])
+    } catch {
+      alert('Не удалось изменить порядок досок')
+    }
+    await loadBoards()
+  }
+
   const handleBoardSubmit = async (data) => {
     if (editingBoard) {
       await boardsApi.update(editingBoard.id, data)
@@ -289,6 +309,7 @@ export default function App() {
       activeBoardId={activeBoardId}
       activeBoard={activeBoard}
       onSwitchBoard={handleSwitchBoard}
+      onReorderBoard={handleBoardReorder}
       onEditBoard={() => {
         setEditingBoard(activeBoard)
         setBoardFormOpen(true)

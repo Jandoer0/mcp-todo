@@ -10,11 +10,14 @@ const TEXT_SHADOW = '0 1px 2px rgba(15, 23, 42, 0.55)'
 // side card to switch context, click the centered card to edit it; a special
 // "+ Создать доску" card closes the strip. The number of boards visible at
 // once depends on the viewport width (mobile shows ~3, wide desktop 6-7).
-export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCreate }) {
+export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCreate, onReorder }) {
   const wrapRef = useRef(null)
   const stripRef = useRef(null)
   const cardRefs = useRef(new Map())
   const [offset, setOffset] = useState(0)
+  // Drag-and-drop reordering of board cards (mouse with the button held)
+  const [dragId, setDragId] = useState(null)
+  const [overId, setOverId] = useState(null)
 
   const idx = boards.findIndex((b) => b.id === activeId)
 
@@ -43,17 +46,49 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     }
   }, [measure])
 
+  const dragProps = (board) => ({
+    draggable: true,
+    onDragStart: (e) => {
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', String(board.id))
+      setDragId(board.id)
+    },
+    onDragOver: (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      if (board.id !== dragId) setOverId(board.id)
+    },
+    onDragLeave: () => setOverId((cur) => (cur === board.id ? null : cur)),
+    onDrop: (e) => {
+      e.preventDefault()
+      if (dragId && dragId !== board.id) onReorder && onReorder(dragId, board.id)
+      setDragId(null)
+      setOverId(null)
+    },
+    onDragEnd: () => {
+      setDragId(null)
+      setOverId(null)
+    },
+  })
+
   const card = (board, isActive) => {
     const base =
       'shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] max-w-[9rem] sm:max-w-[12rem] text-center shadow'
+    const dropMark =
+      dragId && overId === board.id && dragId !== board.id
+        ? ' ring-2 ring-white ring-offset-2 ring-offset-[#22384d]'
+        : dragId === board.id
+          ? ' opacity-40'
+          : ''
     if (isActive) {
       return (
         <button
           key={board.id}
           ref={(el) => el && cardRefs.current.set(board.id, el)}
           onClick={onEdit}
+          {...dragProps(board)}
           title={`${board.name} — нажмите, чтобы редактировать доску`}
-          className={`${base} scale-110 z-10 font-bold text-sm ring-1 ring-white/90 gpu-layer`}
+          className={`${base} scale-110 z-10 font-bold text-sm ring-1 ring-white/90 gpu-layer${dropMark}`}
           style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
         >
           <span className="block truncate">{board.name}</span>
@@ -65,8 +100,9 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
         key={board.id}
         ref={(el) => el && cardRefs.current.set(board.id, el)}
         onClick={() => onSwitch(board.id)}
+        {...dragProps(board)}
         title={`Переключиться на «${board.name}»`}
-        className={`${base} opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200`}
+        className={`${base} opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200${dropMark}`}
         style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
       >
         <span className="block truncate">{board.name}</span>

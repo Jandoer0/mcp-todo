@@ -19,6 +19,7 @@ export default function Layout({
   boards = [],
   activeBoardId = null,
   onSwitchBoard,
+  onReorderBoard,
   onEditBoard,
   onCreateBoard,
   activeBoard = null,
@@ -85,6 +86,7 @@ export default function Layout({
             boards={boards}
             activeId={activeBoardId}
             onSwitch={onSwitchBoard}
+            onReorder={onReorderBoard}
             onEdit={onEditBoard}
             onCreate={onCreateBoard}
           />
