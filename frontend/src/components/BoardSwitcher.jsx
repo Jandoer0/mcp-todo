@@ -139,7 +139,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
           onClick={onEdit}
           {...dragProps(board)}
           title={`${board.name} — нажмите, чтобы редактировать доску`}
-          className={`${base} scale-110 z-10 font-bold text-sm ring-1 ring-white/90 gpu-layer${dropMark}`}
+          className={`${base} z-10 font-bold text-sm ring-2 ring-white/90 px-4 py-2 -my-0.5${dropMark}`}
           style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
         >
           <span className="block truncate">{board.name}</span>
