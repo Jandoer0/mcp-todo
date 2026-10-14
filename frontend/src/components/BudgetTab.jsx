@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 
-// System budget lists: tasks here count as executed budget (ТЗ §3.1).
-const DONE_LISTS = ['Готово', 'Архив']
+// Property-based budgeting (UPDATE ТЗ): списки со свойством kind='done' дают
+// ФАКТ, остальные (todo/progress) — ПЛАН. ИТОГО — все суммы доски.
 
 // 10000 → «10 000» (ru-RU uses non-breaking spaces as thousand separators)
 function fmt(n) {
@@ -13,21 +13,19 @@ function signed(n) {
   return `${n < 0 ? '-' : '+'}${fmt(n)}`
 }
 
-// Budget of a board: planned vs executed amounts (amount != 0 only).
-export default function BudgetTab({ board, tasks = [] }) {
+export default function BudgetTab({ board, tasks = [], lists = [] }) {
   const [copied, setCopied] = useState(false)
 
   const { plan, fact, entries, doneEntries } = useMemo(() => {
+    const doneNames = new Set(
+      lists.filter((l) => (l.kind || 'todo') === 'done').map((l) => l.name),
+    )
     const entries = tasks.filter((t) => (Number(t.amount) || 0) !== 0)
-    const doneEntries = entries.filter((t) => DONE_LISTS.includes(t.list))
-    const plan = entries.filter((t) => !DONE_LISTS.includes(t.list))
-    return {
-      entries,
-      doneEntries,
-      plan: plan.reduce((s, t) => s + Number(t.amount), 0),
-      fact: doneEntries.reduce((s, t) => s + Number(t.amount), 0),
-    }
-  }, [tasks])
+    const doneEntries = entries.filter((t) => doneNames.has(t.list))
+    const fact = doneEntries.reduce((s, t) => s + Number(t.amount), 0)
+    const total = entries.reduce((s, t) => s + Number(t.amount), 0)
+    return { entries, doneEntries, plan: total - fact, fact }
+  }, [tasks, lists])
 
   const total = plan + fact
 
@@ -50,7 +48,7 @@ export default function BudgetTab({ board, tasks = [] }) {
 
     function planEntriesForReport() {
       return entries
-        .filter((t) => !DONE_LISTS.includes(t.list))
+        .filter((t) => !doneEntries.includes(t))
         .map((t) => `${t.title}: ${signed(Number(t.amount))} ₽`)
         .join('\n')
     }

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 // Edit/create dialog for a board (name, multiline description, color).
 // In edit mode an extra «Бюджет» tab shows the board's financial summary.
-export default function BoardForm({ open, board, boardsCount, tasks = [], onClose, onSubmit, onDelete }) {
+export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(BOARD_PALETTE[1])
@@ -81,7 +81,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], onClos
       )}
 
       {tab === 'budget' ? (
-        <BudgetTab board={board} tasks={tasks} />
+        <BudgetTab board={board} tasks={tasks} lists={lists} />
       ) : (
       <form onSubmit={submit} className="space-y-4">
         <div>

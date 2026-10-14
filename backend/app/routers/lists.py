@@ -6,9 +6,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..auth import get_current_user
 from ..board import (
-    BUDGET_DONE_LISTS,
     PALETTE,
-    PROTECTED_LIST_NAMES,
     ensure_default_lists,
     list_names,
     status_for_kind,
@@ -47,11 +45,6 @@ def create_list(
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Укажите название списка")
-    if name in PROTECTED_LIST_NAMES:
-        raise HTTPException(
-            status_code=400,
-            detail="Нельзя создать список с зарезервированным именем",
-        )
     if name in list_names(db, current_user.id, board_id=board_id):
         raise HTTPException(status_code=400, detail="Список с таким именем уже есть")
     if data.color not in PALETTE:
@@ -97,19 +90,11 @@ def update_list(
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
 
-    # System budget lists (Готово / Архив) are fully immutable.
-    if lst.name in BUDGET_DONE_LISTS:
-        raise HTTPException(
-            status_code=400,
-            detail="Системный список нельзя переименовать или изменить",
-        )
-
-    # All lists are editable: the protected-lists concept is dropped.
+    # All lists are editable: no protected/system names (UPDATE ТЗ).
     if data.name is not None and data.name.strip():
         new = data.name.strip()
-        if new != lst.name and (
-            new in PROTECTED_LIST_NAMES
-            or new in list_names(db, current_user.id, board_id=board_id)
+        if new != lst.name and new in list_names(
+            db, current_user.id, board_id=board_id
         ):
             raise HTTPException(status_code=400, detail="Имя списка занято")
         old = lst.name
@@ -156,9 +141,6 @@ def delete_list(
     )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
-    # System budget lists (Готово / Архив) cannot be deleted.
-    if lst.name in BUDGET_DONE_LISTS:
-        raise HTTPException(status_code=400, detail="Системный список нельзя удалить")
     # Reassign only the owner's tasks to the default "not started" list.
     db.query(Task).filter(
         Task.list == lst.name, Task.user_id == current_user.id

@@ -90,13 +90,10 @@ DEFAULT_LISTS = [
 DONE_LIST = "Готово"
 PROGRESS_LIST = "В работе"
 
-# Names of the protected default lists (cannot be created by users).
-# «В работе» — обычный редактируемый список; защищены «Не начато», «Готово», «Архив».
-PROTECTED_LIST_NAMES = {"Не начато", "Готово", "Архив"}
-
-# Budget system lists (ТЗ бюджетирования): cannot be renamed, deleted or
-# changed in any way. Amounts of tasks in these lists count as executed budget.
-BUDGET_DONE_LISTS = {"Готово", "Архив"}
+# Свойства списков (kind): 'todo' | 'progress' | 'done'. Расчёт бюджета доски
+# опирается на них (UPDATE ТЗ): План = todo/progress, Факт = done.
+# Системных имён больше нет: любые списки переименовываемы, удаляемы,
+# «Не начато»/«Готово»/«Архив» — обычные списки с предустановленными kind.
 
 
 def status_for_list(name: str) -> str:

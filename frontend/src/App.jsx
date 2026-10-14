@@ -434,6 +434,7 @@ export default function App() {
         board={editingBoard}
         boardsCount={boards.length}
         tasks={tasks}
+        lists={lists}
         onClose={() => {
           setBoardFormOpen(false)
           setEditingBoard(null)

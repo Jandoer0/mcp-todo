@@ -219,18 +219,18 @@ def test_task_amount_roundtrip(users):
     assert r.status_code == 200 and r.json()["amount"] == -500
 
 
-def test_budget_system_lists_protected(users):
-    """Готово / Архив cannot be renamed, changed or deleted."""
+def test_budget_lists_fully_editable(users):
+    """UPDATE ТЗ: системных имён больше нет — «Готово»/«Архив» можно
+    переименовывать, изменять и удалять, как любые другие списки."""
     a = users["alice"]
     bid = _first_board(a)
     lists = {l["name"]: l for l in client.get(f"/api/lists?board_id={bid}", headers=a).json()}
-    for name in ("Готово", "Архив"):
-        lst = lists[name]
-        # rename forbidden
-        r = client.put(f"/api/lists/{bid}/{lst['id']}", json={"name": "Выполнено"}, headers=a)
-        assert r.status_code == 400, name
-        # any change forbidden
-        r = client.put(f"/api/lists/{bid}/{lst['id']}", json={"color": "#ef4444"}, headers=a)
-        assert r.status_code == 400, name
-        # delete forbidden
-        assert client.delete(f"/api/lists/{bid}/{lst['id']}", headers=a).status_code == 400
+    done = lists["Готово"]
+    # rename allowed
+    r = client.put(f"/api/lists/{bid}/{done['id']}", json={"name": "Выполнено"}, headers=a)
+    assert r.status_code == 200, r.text
+    # delete allowed
+    assert client.delete(f"/api/lists/{bid}/{done['id']}", headers=a).status_code == 200
+    # reserved names are gone: a list named like a default one can be created
+    r = client.post(f"/api/lists?board_id={bid}", json={"name": "Готово", "color": "#ef4444", "kind": "done"}, headers=a)
+    assert r.status_code == 201, r.text
