@@ -47,6 +47,9 @@ class User(Base):
     # Long-lived API key for the agent (MCP). Stores a SHA-256 hash of the
     # token; the raw token is only ever returned once, at generation time.
     mcp_token_hash = Column(String, nullable=True)
+    # Admin toggle: when False the user cannot configure webhooks, their
+    # existing webhooks are wiped and none of their events are dispatched.
+    webhooks_enabled = Column(Boolean, nullable=False, default=True, server_default="1")
 
 
 # Self-referential many-to-many: a row (blocker_id, blocked_id) means the task
@@ -188,6 +191,10 @@ class Webhook(Base):
     events = Column(JSON, default=list)  # enabled event types
     excluded_events = Column(JSON, default=list)  # always ignored event types
     created_at = Column(DateTime, default=utcnow)
+    # One webhook per board: the board editor owns its single webhook.
+    __table_args__ = (
+        UniqueConstraint("board_id", name="uq_webhooks_board_id"),
+    )
 
     def event_enabled(self, event: str) -> bool:
         """Excluded events always win over the enabled set."""

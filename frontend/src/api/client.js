@@ -27,6 +27,12 @@ export const boardsApi = {
   create: (data) => api.post(`${API_URL}/boards`, data),
   update: (id, data) => api.put(`${API_URL}/boards/${id}`, data),
   remove: (id) => api.delete(`${API_URL}/boards/${id}`),
+  webhook: {
+    get: (boardId) => api.get(`${API_URL}/boards/${boardId}/webhook`),
+    put: (boardId, data) => api.put(`${API_URL}/boards/${boardId}/webhook`, data),
+    remove: (boardId) => api.delete(`${API_URL}/boards/${boardId}/webhook`),
+    test: (boardId) => api.post(`${API_URL}/boards/${boardId}/webhook/test`),
+  },
 }
 
 export const tasksApi = {
@@ -64,10 +70,6 @@ export const adminApi = {
   },
   webhooks: {
     list: () => api.get(`${API_URL}/admin/webhooks`),
-    create: (data) => api.post(`${API_URL}/admin/webhooks`, data),
-    update: (id, data) => api.put(`${API_URL}/admin/webhooks/${id}`, data),
-    remove: (id) => api.delete(`${API_URL}/admin/webhooks/${id}`),
-    test: (id) => api.post(`${API_URL}/admin/webhooks/${id}/test`),
   },
   setDbSizeLimit: (mb) =>
     api.put(`${API_URL}/admin/settings/db_size_limit_mb?limit_mb=${mb}`),

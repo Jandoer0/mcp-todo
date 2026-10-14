@@ -74,6 +74,33 @@ def run_migrations() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN mcp_token_hash VARCHAR"))
             conn.commit()
 
+    # Admin toggle: per-user webhook allowance (older users keep webhooks).
+    with engine.connect() as conn:
+        user_cols = {c["name"] for c in inspector.get_columns("users")}
+        if "webhooks_enabled" not in user_cols:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN webhooks_enabled BOOLEAN DEFAULT 1")
+            )
+            conn.commit()
+
+    # One webhook per board: drop duplicates (keep the lowest id) and add a
+    # unique index. A plain index is used because the column is nullable
+    # and NULL board_ids (legacy rows) must not collide.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "DELETE FROM webhooks WHERE id NOT IN "
+                "(SELECT MIN(id) FROM webhooks WHERE board_id IS NOT NULL "
+                "GROUP BY board_id) AND board_id IS NOT NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_webhooks_board_id "
+                "ON webhooks (board_id) WHERE board_id IS NOT NULL"
+            )
+        )
+
     # Multi-board support: boards table + board_id on tasks/tags/task_lists/
     # webhooks. Legacy rows are assigned to the user's default board.
     from sqlalchemy import inspect as _inspect

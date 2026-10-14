@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..clock import utcnow
 from ..db import SessionLocal
-from ..models import Task, Webhook
+from ..models import Task, User, Webhook
 
 # Re-notify an overdue task at most once a day; deadline reminders once.
 OVERDUE_REPEAT = timedelta(hours=24)
@@ -101,8 +101,13 @@ def dispatch_snapshot(
 ) -> None:
     """Same as dispatch_event but from plain fields — used after a commit when
     the ORM object may already be detached/deleted (e.g. task_deleted).
-    Webhooks are board-scoped: only webhooks bound to the task's board fire."""
-    q = db.query(Webhook).filter(Webhook.user_id == user_id)
+    Webhooks are board-scoped: only webhooks bound to the task's board fire;
+    webhooks of users whose allowance has been revoked never fire."""
+    q = (
+        db.query(Webhook)
+        .join(User, User.id == Webhook.user_id)
+        .filter(Webhook.user_id == user_id, User.webhooks_enabled.is_(True))
+    )
     if board_id is not None:
         q = q.filter(Webhook.board_id == board_id)
     webhooks = q.all()

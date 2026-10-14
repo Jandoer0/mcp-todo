@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     role: str
+    webhooks_enabled: bool = True
     # Stored hashed token is never serialized; only expose whether one is set.
     mcp_token_hash: str | None = Field(default=None, exclude=True)
 
@@ -43,6 +44,7 @@ class UserCreate(BaseModel):
     username: str
     password: str
     role: str | None = "user"
+    webhooks_enabled: bool | None = None
 
 class Token(BaseModel):
     access_token: str
@@ -224,10 +226,12 @@ class WebhookBase(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _name_not_empty(cls, v: str) -> str:
-        if not (v or "").strip():
+    def _name_not_empty(cls, v: str | None) -> str | None:
+        # None is allowed for the board-scoped upsert (WebhookPut defaults it
+        # to the board name); only explicit empty strings are rejected.
+        if v is not None and not v.strip():
             raise ValueError("Укажите название веб-хука")
-        return v.strip()
+        return v
 
     @field_validator("url")
     @classmethod
@@ -265,6 +269,50 @@ class WebhookCreate(WebhookBase):
     user_id: int  # webhook is bound to a specific user (owner of its tasks)
     board_id: int  # ...and to a specific board (only its task events fire)
 
+class WebhookPut(BaseModel):
+    """Payload for the board-scoped upsert (PUT /boards/{id}/webhook):
+    user and board are taken from the caller and the path, one webhook
+    per board. All fields are optional: on update only the provided ones
+    are replaced; on creation url and chat_id are required."""
+
+    name: str | None = None
+    url: str | None = None
+    token: str | None = None
+    chat_id: str | None = None
+    thread_id: str | None = None
+    events: builtins.list[str] | None = None
+    excluded_events: builtins.list[str] | None = None
+
+    @field_validator("url")
+    @classmethod
+    def _url_check(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("Укажите URL приёмника уведомлений")
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("URL должен начинаться с http:// или https://")
+        if " " in v:
+            raise ValueError("URL не должен содержать пробелов")
+        return v
+
+    @field_validator("chat_id")
+    @classmethod
+    def _chat_id_check(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Укажите Telegram Chat ID (например: -1001234567890)")
+        return v
+
+    @field_validator("thread_id")
+    @classmethod
+    def _thread_id_check(cls, v: str | None) -> str | None:
+        return v.strip() if v and v.strip() else None
+
+
 class WebhookUpdate(BaseModel):
     name: str | None = None
     url: str | None = None
@@ -287,5 +335,6 @@ class WebhookResponse(BaseModel):
     events: builtins.list[str] = []
     excluded_events: builtins.list[str] = []
     created_at: datetime
+    board_name: str | None = None  # filled for the admin overview table
 
     model_config = {"from_attributes": True}

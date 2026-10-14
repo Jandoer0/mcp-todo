@@ -1,11 +1,13 @@
 import { BOARD_PALETTE, MAX_BOARDS } from '../constants'
 import Modal from './Modal'
 import BudgetTab from './BudgetTab'
+import WebhookTab from './WebhookTab'
 import { useEffect, useState } from 'react'
 
 // Edit/create dialog for a board (name, multiline description, color).
-// In edit mode an extra «Бюджет» tab shows the board's financial summary.
-export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], onClose, onSubmit, onDelete }) {
+// In edit mode extra tabs show the board's financial summary («Бюджет») and
+// its single webhook («Веб-хуки», only when allowed for the user).
+export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], webhooksEnabled = true, onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(BOARD_PALETTE[1])
@@ -77,10 +79,25 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           >
             Бюджет
           </button>
+          {webhooksEnabled && (
+            <button
+              type="button"
+              onClick={() => setTab('webhooks')}
+              className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
+                tab === 'webhooks'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Веб-хуки
+            </button>
+          )}
         </div>
       )}
 
-      {tab === 'budget' ? (
+      {tab === 'webhooks' ? (
+        <WebhookTab board={board} />
+      ) : tab === 'budget' ? (
         <BudgetTab board={board} tasks={tasks} lists={lists} />
       ) : (
       <form onSubmit={submit} className="space-y-4">

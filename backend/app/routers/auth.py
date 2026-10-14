@@ -18,7 +18,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
     """Lightweight profile for the header's user dropdown."""
-    return {"id": current_user.id, "username": current_user.username, "role": current_user.role}
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "role": current_user.role,
+        "webhooks_enabled": bool(current_user.webhooks_enabled),
+    }
 
 
 @router.get("/registration-status")

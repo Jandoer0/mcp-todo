@@ -22,6 +22,7 @@ export default function App() {
   const [editingBoard, setEditingBoard] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profile, setProfile] = useState(null)
+  const [webhooksEnabled, setWebhooksEnabled] = useState(true)
 
   const {
     tasks,
@@ -53,6 +54,16 @@ export default function App() {
   useEffect(() => {
     if (ready) loadBoards().catch(() => {})
   }, [ready])
+
+  // Whether the user may configure webhooks (admin can revoke the right);
+  // controls the board editor's «Веб-хуки» tab.
+  useEffect(() => {
+    if (!ready) return
+    authApi
+      .me()
+      .then((res) => setWebhooksEnabled(res.data?.webhooks_enabled !== false))
+      .catch(() => setWebhooksEnabled(true))
+  }, [ready, token])
 
   useEffect(() => {
     if (activeBoardId) localStorage.setItem('activeBoard', String(activeBoardId))
@@ -435,6 +446,7 @@ export default function App() {
         boardsCount={boards.length}
         tasks={tasks}
         lists={lists}
+        webhooksEnabled={webhooksEnabled}
         onClose={() => {
           setBoardFormOpen(false)
           setEditingBoard(null)

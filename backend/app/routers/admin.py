@@ -11,7 +11,6 @@ from ..auth import (
 )
 from ..db import get_db
 from ..models import User, Webhook
-from ..services.notification_service import EVENTS
 from ..services import server_stats as server_stats_service
 from ..site_settings import get_bool, set_setting
 
@@ -95,8 +94,13 @@ def update_user(user_id: int, user_in: schemas.UserCreate, db: Session = Depends
     # In a real app we'd check if password is provided and update it
     if user_in.password:
         user.hashed_password = get_password_hash(user_in.password)
-    
+
     user.role = user_in.role
+    if user_in.webhooks_enabled is not None:
+        user.webhooks_enabled = user_in.webhooks_enabled
+        if not user_in.webhooks_enabled:
+            # Disabling webhooks wipes their config: events are not sent.
+            db.query(Webhook).filter(Webhook.user_id == user.id).delete()
     db.commit()
     return {"ok": True, "message": f"User {user.username} updated"}
 
@@ -123,102 +127,27 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
 # --- Webhooks ---
 
-
-def _validate_events(events: list[str], excluded: list[str]) -> None:
-    unknown = [e for e in (*events, *excluded) if e not in EVENTS]
-    if unknown:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Неизвестные события: {', '.join(unknown)}",
-        )
-
-
-def _validate_board(db: Session, user_id: int, board_id: int) -> None:
-    """The webhook's board must belong to the webhook's user."""
-    from ..models import Board
-
-    if not db.query(Board).filter(Board.id == board_id, Board.user_id == user_id).first():
-        raise HTTPException(status_code=404, detail="Board not found")
+# Webhook configuration lives in the board editor (one webhook per board);
+# the admin tab is a read-only overview of every webhook on the server.
 
 
 @router.get("/webhooks", response_model=list[schemas.WebhookResponse])
 def list_webhooks(user_id: int | None = None, db: Session = Depends(get_db)):
+    """All webhooks on the server, sorted by user; board names are included
+    for the read-only admin overview table."""
+    from ..models import Board
+
     query = db.query(Webhook)
     if user_id is not None:
         query = query.filter(Webhook.user_id == user_id)
-    return query.order_by(Webhook.id).all()
-
-
-@router.post("/webhooks", response_model=schemas.WebhookResponse, status_code=status.HTTP_201_CREATED)
-def create_webhook(data: schemas.WebhookCreate, db: Session = Depends(get_db)):
-    if not db.query(User).filter(User.id == data.user_id).first():
-        raise HTTPException(status_code=404, detail="User not found")
-    _validate_board(db, data.user_id, data.board_id)
-    _validate_events(data.events, data.excluded_events)
-    webhook = Webhook(**data.model_dump())
-    db.add(webhook)
-    db.commit()
-    db.refresh(webhook)
-    return webhook
-
-
-@router.put("/webhooks/{webhook_id}", response_model=schemas.WebhookResponse)
-def update_webhook(
-    webhook_id: int,
-    data: schemas.WebhookUpdate,
-    db: Session = Depends(get_db),
-):
-    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
-    if not webhook:
-        raise HTTPException(status_code=404, detail="Webhook not found")
-    payload = data.model_dump(exclude_unset=True)
-    if "board_id" in payload:
-        _validate_board(db, webhook.user_id, payload["board_id"])
-    if "events" in payload or "excluded_events" in payload:
-        _validate_events(
-            payload.get("events", webhook.events or []),
-            payload.get("excluded_events", webhook.excluded_events or []),
+    webhooks = query.order_by(Webhook.user_id, Webhook.id).all()
+    for w in webhooks:
+        w.board_name = (
+            db.query(Board.name).filter(Board.id == w.board_id).scalar()
+            if w.board_id
+            else None
         )
-    for key, value in payload.items():
-        setattr(webhook, key, value)
-    db.commit()
-    db.refresh(webhook)
-    return webhook
-
-
-@router.delete("/webhooks/{webhook_id}")
-def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
-    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
-    if not webhook:
-        raise HTTPException(status_code=404, detail="Webhook not found")
-    db.delete(webhook)
-    db.commit()
-    return {"ok": True}
-
-
-@router.post("/webhooks/{webhook_id}/test")
-async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
-    """Send a test notification synchronously and report the delivery result,
-    so the admin immediately sees whether the endpoint is reachable."""
-    import httpx
-
-    from ..services import notification_service as ns
-
-    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
-    if not webhook:
-        raise HTTPException(status_code=404, detail="Webhook not found")
-    body, headers = ns.build_request(webhook, ns.send_test(webhook))
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(webhook.url, content=body, headers=headers)
-        ok = resp.status_code < 400
-        return {
-            "ok": ok,
-            "status_code": resp.status_code,
-            "error": None if ok else f"HTTP {resp.status_code}",
-        }
-    except Exception as exc:
-        return {"ok": False, "status_code": None, "error": str(exc)}
+    return webhooks
 
 
 @router.get("/users/{user_id}/boards")
