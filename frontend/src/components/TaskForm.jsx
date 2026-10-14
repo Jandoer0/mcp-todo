@@ -372,7 +372,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               <button
                 type="button"
                 onClick={() => setDescPreview((v) => !v)}
-                className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-[10px] font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+                className={`px-2 py-0.5 rounded border text-[10px] font-medium transition-colors ${
+                  descPreview
+                    ? 'bg-blue-500 border-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
+                }`}
               >
                 {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
               </button>
