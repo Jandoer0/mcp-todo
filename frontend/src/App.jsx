@@ -381,7 +381,7 @@ export default function App() {
                       closeFilterMenu()
                     }}
                     className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center hover:bg-slate-100 ${
-                      activeFilter === f.id ? 'font-semibold text-blue-600' : 'text-slate-700'
+                      activeFilter === f.id ? 'font-semibold text-[#22384d] bg-slate-100' : 'text-slate-700'
                     }`}
                   >
                     <span>{f.label}</span>

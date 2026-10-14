@@ -19,7 +19,7 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
           onClick={() => onFilterChange(f.id)}
           className={`flex-1 px-2 py-1 rounded text-center transition-all whitespace-nowrap ${
             activeFilter === f.id 
-              ? 'ring-2 ring-offset-2 ring-green-500 bg-green-50' 
+              ? 'ring-2 ring-offset-2 ring-[#22384d] bg-slate-100' 
               : 'bg-white hover:bg-gray-50'
           }`}
         >
