@@ -561,8 +561,9 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
         raise LookupError("Task not found")
 
     # Snapshot for the webhook event: after the commit below the object may
-    # already be detached (cyclic chains are bulk-deleted).
-    snapshot = (task.id, task.title, task.deadline)
+    # already be detached (cyclic chains are bulk-deleted). board_id must be
+    # snapshotted too — dispatch filters webhooks by the task's board.
+    snapshot = (task.id, task.title, task.deadline, task.board_id)
 
     group_id = task.cycle_group_id if task.is_cyclic else None
     chain_ids = [task_id]
@@ -588,7 +589,9 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
         db.delete(task)
     db.commit()
     cleanup_orphan_tags(db, user.id)
-    notification_service.dispatch_snapshot(db, user.id, *snapshot, "task_deleted")
+    notification_service.dispatch_snapshot(
+        db, user.id, *snapshot, "task_deleted"
+    )
 
 
 def move_task(db: Session, user: User, task_id: int, target_board_id: int) -> Task:

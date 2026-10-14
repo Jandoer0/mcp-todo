@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from test_isolation import client  # noqa: F401  (app with isolated temp DB)
 from test_isolation import _first_board, _register
 
+from app.board import BOARD_PALETTE
 from app.clock import utcnow
 from app.db import SessionLocal  # noqa: F401  (test DB access for cleanup)
 from app.services import notification_service as ns
@@ -125,6 +126,34 @@ def test_excluded_events_block_dispatch():
     finally:
         ns.send_async = orig
         client.delete(f"/api/admin/webhooks/{hook['id']}", headers=hdr)
+
+
+def test_delete_dispatch_is_board_scoped():
+    """Regression: task_deleted must fire only for webhooks bound to the
+    task's board, not to every webhook of the user."""
+    hdr, uid = _admin()
+    hook = _hook(hdr, uid, ["task_deleted"])
+    r = client.post(
+        "/api/boards", headers=hdr, json={"name": "other-board", "color": BOARD_PALETTE[1]}
+    )
+    assert r.status_code == 201, r.text
+    other_board = r.json()["id"]
+    sent, orig = _spy()
+    try:
+        tid = client.post(
+            "/api/tasks", headers=hdr, json={"title": "x", "board_id": other_board}
+        ).json()["id"]
+        client.delete(f"/api/tasks/{tid}", headers=hdr)
+        # The webhook is bound to the default board; the deleted task was on
+        # the other one -> nothing must be sent.
+        assert sent == []
+        tid2 = client.post("/api/tasks", headers=hdr, json={"title": "y"}).json()["id"]
+        client.delete(f"/api/tasks/{tid2}", headers=hdr)
+        assert [p["event"] for p in sent] == ["task_deleted"]
+    finally:
+        ns.send_async = orig
+        client.delete(f"/api/admin/webhooks/{hook['id']}", headers=hdr)
+        client.delete(f"/api/boards/{other_board}", headers=hdr)
 
 
 def test_task_updated_and_priority_changed():

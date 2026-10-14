@@ -91,13 +91,13 @@ def _build(webhook: Webhook, task_id, title: str, deadline, event: str,
 def dispatch_event(db: Session, user_id: int, task: Task, event: str) -> None:
     """Fire the event to every webhook of the user subscribed to this board."""
     dispatch_snapshot(
-        db, user_id, task.id, task.title, task.deadline, event, board_id=task.board_id
+        db, user_id, task.id, task.title, task.deadline, task.board_id, event
     )
 
 
 def dispatch_snapshot(
-    db: Session, user_id: int, task_id: int, title: str, deadline, event: str,
-    board_id: int | None = None,
+    db: Session, user_id: int, task_id: int, title: str, deadline,
+    board_id: int | None, event: str,
 ) -> None:
     """Same as dispatch_event but from plain fields — used after a commit when
     the ORM object may already be detached/deleted (e.g. task_deleted).
