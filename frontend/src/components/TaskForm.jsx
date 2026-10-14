@@ -362,24 +362,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </div>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Доска</label>
-            <select
-              id="task-board"
-              value={targetBoardId ?? ''}
-              onChange={(e) => setTargetBoardId(Number(e.target.value))}
-              className="w-full p-2 border rounded"
-            >
-              {boards.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              При переносе сбрасываются теги и блокирующие связи.
-            </p>
-          </div>
-          <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
             <textarea
               id="task-description"
@@ -409,6 +391,24 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
             <p className="text-xs text-gray-500 mt-1">
               Эти задачи должны быть выполнены до того, как данную можно будет отметить «Готово».
+            </p>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Доска</label>
+            <select
+              id="task-board"
+              value={targetBoardId ?? ''}
+              onChange={(e) => setTargetBoardId(Number(e.target.value))}
+              className="w-full p-2 border rounded"
+            >
+              {boards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              При переносе сбрасываются теги и блокирующие связи.
             </p>
           </div>
       <div className="md:col-span-2 flex justify-between items-center mt-4">
