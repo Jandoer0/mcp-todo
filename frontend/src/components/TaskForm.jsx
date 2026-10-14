@@ -341,10 +341,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 )}
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Необязательно: планируемые доходы и расходы. Доход — синий, расход — красный. Оставьте пустым, если сумма не нужна.
-            </p>
-          </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
             <textarea
