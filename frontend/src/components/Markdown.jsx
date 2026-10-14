@@ -16,7 +16,7 @@ export default function Markdown({ text, className = '' }) {
   if (!html) return null
   return (
     <div
-      className={`text-sm leading-relaxed text-slate-700 break-words ${className}`}
+      className={`markdown-body text-sm leading-relaxed text-slate-700 break-words ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )
