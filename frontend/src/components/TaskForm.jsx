@@ -341,6 +341,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 )}
               </div>
             </div>
+          </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
             <textarea
