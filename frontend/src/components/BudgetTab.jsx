@@ -16,7 +16,7 @@ function signed(n) {
 export default function BudgetTab({ board, tasks = [], lists = [] }) {
   const [copied, setCopied] = useState(false)
 
-  const { plan, fact, entries, doneEntries, doneNames } = useMemo(() => {
+  const { plan, fact, entries, doneEntries, doneNames, income, expense } = useMemo(() => {
     const doneNames = new Set(
       lists.filter((l) => (l.kind || 'todo') === 'done').map((l) => l.name),
     )
@@ -24,7 +24,13 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
     const doneEntries = entries.filter((t) => doneNames.has(t.list))
     const fact = doneEntries.reduce((s, t) => s + Number(t.amount), 0)
     const total = entries.reduce((s, t) => s + Number(t.amount), 0)
-    return { entries, doneEntries, doneNames, plan: total - fact, fact }
+    const income = entries
+      .filter((t) => Number(t.amount) > 0)
+      .reduce((s, t) => s + Number(t.amount), 0)
+    const expense = entries
+      .filter((t) => Number(t.amount) < 0)
+      .reduce((s, t) => s + Number(t.amount), 0)
+    return { entries, doneEntries, doneNames, plan: total - fact, fact, income, expense }
   }, [tasks, lists])
 
   // Финансовый список: сначала задачи с ближайшим дедлайном, задачи без
@@ -51,6 +57,9 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
       line,
       `ПЛАН: ${signed(plan)} ₽`,
       `ФАКТ: ${signed(fact)} ₽`,
+      line,
+      `ВСЕГО ДОХОД: ${signed(income)} ₽`,
+      `ВСЕГО РАСХОД: ${signed(expense)} ₽`,
       `ИТОГО: ${signed(total)} ₽`,
     ]
       .filter(Boolean)
@@ -75,8 +84,8 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
 
   return (
     <div className="space-y-4">
-      {/* Итоги: план / факт / общий баланс */}
-      <div className="grid grid-cols-3 gap-2 text-center">
+      {/* Итоги: план / факт / доход / расход / баланс */}
+      <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
         <div className="rounded border border-slate-200 bg-slate-50 p-2">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
           <div className="font-bold text-slate-800">{signed(plan)} ₽</div>
@@ -87,6 +96,18 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
         </div>
         <div className="rounded border border-slate-200 bg-slate-50 p-2">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ИТОГО</div>
+          <div className="font-bold text-slate-800">{signed(total)} ₽</div>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Всего доход</div>
+          <div className="font-bold text-green-600">{signed(income)} ₽</div>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Всего расход</div>
+          <div className="font-bold text-red-600">{signed(expense)} ₽</div>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Итого (баланс)</div>
           <div className="font-bold text-slate-800">{signed(total)} ₽</div>
         </div>
       </div>

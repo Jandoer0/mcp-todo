@@ -220,8 +220,16 @@ def test_mcp_budget_tools(users):
     tasks = json.loads(list_tasks(tok, board_id=bid))
     assert next(x for x in tasks if x["id"] == t["id"])["amount"] == 25000
     # бюджет: «Готово» имеет kind=done → сумма в нём попадает в ФАКТ
-    assert "ИТОГО: +25000" in get_board_budget(tok, board_id=bid)
-    assert "ПЛАН: +25000" in get_board_budget(tok, board_id=bid)
+    b = get_board_budget(tok, board_id=bid)
+    assert "ИТОГО: +25000" in b
+    assert "ПЛАН: +25000" in b
+    assert "ВСЕГО ДОХОД: +25000" in b
+    assert "ВСЕГО РАСХОД: +0" in b
+    # расход даёт ненулевой ВСЕГО РАСХОД, доход не меняется
+    create_task(tok, board_id=bid, title="Отель", amount=-5000)
+    b = get_board_budget(tok, board_id=bid)
+    assert "ВСЕГО ДОХОД: +25000" in b
+    assert "ВСЕГО РАСХОД: -5000" in b
     # чужая доска недоступна
     tok_b = _mcp_token(users["bob"])
     assert "Error: Board not found" in get_board_budget(tok_b, board_id=bid)

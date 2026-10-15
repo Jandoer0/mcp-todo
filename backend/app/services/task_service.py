@@ -671,12 +671,16 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
     ]
     total = sum(e["amount"] for e in entries)
     fact = sum(e["amount"] for e in entries if e["list"] in done_names)
+    income = sum(e["amount"] for e in entries if e["amount"] > 0)
+    expense = sum(e["amount"] for e in entries if e["amount"] < 0)
     return {
         "board_id": board.id,
         "board_name": board.name,
         "plan": total - fact,
         "fact": fact,
         "total": total,
+        "income": income,
+        "expense": expense,
         "entries": entries,
     }
 

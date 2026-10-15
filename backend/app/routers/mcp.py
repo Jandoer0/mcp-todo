@@ -461,6 +461,8 @@ def get_board_budget(auth_token: str, board_id: int) -> str:
             f"ПЛАН: {b['plan']:+g}",
             f"ФАКТ: {b['fact']:+g}",
             f"ИТОГО: {b['total']:+g}",
+            f"ВСЕГО ДОХОД: {b['income']:+g}",
+            f"ВСЕГО РАСХОД: {b['expense']:+g}",
             "Entries:",
         ]
         lines += [
