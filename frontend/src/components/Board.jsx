@@ -74,12 +74,6 @@ export default function Board({
 
 
 
-  // Cascade-in: each visible card gets a small stagger delay based on its
-  // global position, so tasks fade in one after another (каскадом). The delay
-  // index only changes when the set of task ids changes — regular updates
-  // (swipes, edits) reuse the DOM nodes and do not replay the animation.
-  const order = new Map(visible.map((t, i) => [t.id, Math.min(i, 12)]))
-
   // Collapsible groups: collapsed by default for «Архив», expanded otherwise.
   // Keys may be absent while lists are still loading, so fall back to defaults.
   const [collapsed, setCollapsed] = useState({})
@@ -119,7 +113,6 @@ export default function Board({
                 <div
                   key={task.id}
                   className="task-appear mb-2 break-inside-avoid"
-                  style={{ animationDelay: `${(order.get(task.id) || 0) * 55}ms` }}
                 >
                   <TaskCard
                     task={task}
