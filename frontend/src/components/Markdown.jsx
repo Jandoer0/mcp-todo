@@ -2,8 +2,28 @@ import { useMemo } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
+// Highlight-разметка: ==текст== → <mark> (жёлтый фон через CSS .markdown-body mark).
+const highlightExtension = {
+  name: 'highlight',
+  level: 'inline',
+  start(src) {
+    return src.indexOf('==')
+  },
+  tokenizer(src) {
+    const match = /^==(?![\s=])((?:[^=]|=(?!=))+?)==(?!=)/.exec(src)
+    if (match) {
+      return { type: 'highlight', raw: match[0], tokens: this.lexer.inlineTokens(match[1]) }
+    }
+  },
+  renderer(token) {
+    return `<mark>${this.parser.parseInline(token.tokens)}</mark>`
+  },
+}
+
+marked.use({ extensions: [highlightExtension] })
+
 // Markdown → sanitized HTML. Used for task descriptions; supports headers,
-// bold/italic, lists, links, code, blockquotes.
+// bold/italic, lists, links, code, blockquotes, ==highlight==.
 export function renderMarkdown(text) {
   if (!text) return ''
   const html = marked.parse(String(text), { breaks: true, gfm: true })

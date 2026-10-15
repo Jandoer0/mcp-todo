@@ -120,6 +120,8 @@ html {
 .markdown-body h3, .markdown-body h4 { font-size: 0.95rem; }
 .markdown-body a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
 .markdown-body a:hover { color: #1d4ed8; }
+/* ==highlight== → жёлтый фон */
+.markdown-body mark { background-color: #fef08a; color: inherit; padding: 0 2px; border-radius: 3px; }
 .markdown-body code {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
