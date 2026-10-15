@@ -43,15 +43,16 @@ export default function Markdown({ text, className = '', onToggleCheckItem }) {
     if (!onToggleCheckItem) return
     const target = e.target
     if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return
-    e.preventDefault()
+    // preventDefault здесь НЕ нужен: он откатывает клик браузера (чекбокс
+    // «мерцает» вкл→выкл) до ре-рендера. Вместо этого состояние зафиксирует
+    // ре-рендер из обновлённого markdown-источника (см. handleToggleCheckItem).
     const boxes = Array.from(
       e.currentTarget.querySelectorAll('input[type=checkbox]')
     )
     const index = boxes.indexOf(target)
     if (index !== -1) {
       // Браузер переключает checked ДО dispatch'а click, поэтому состояние
-      // после клика — это target.checked (preventDefault откатит визуально,
-      // но новое состояние вернётся с ре-рендером из нового текста).
+      // после клика — это target.checked; его и передаём наружу.
       onToggleCheckItem(index, target.checked)
     }
   }
