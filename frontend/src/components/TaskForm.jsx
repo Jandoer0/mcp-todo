@@ -95,6 +95,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const [changes, setChanges] = useState([])
 
+  const [changes, setChanges] = useState([])
+
   // Снапшот listOptions для сброса формы: ref позволяет не включать listOptions
   // в зависимости эффекта инициализации — иначе после быстрого обновления
   // (чекбоксы в предпросмотре) перезагрузка списков пересоздавала бы массив
