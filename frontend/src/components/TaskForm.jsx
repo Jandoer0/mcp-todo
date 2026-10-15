@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { tasksApi } from '../api/client'
 import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
@@ -95,6 +95,27 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const [changes, setChanges] = useState([])
 
+  // Снапшот listOptions для сброса формы: ref позволяет не включать listOptions
+  // в зависимости эффекта инициализации — иначе после быстрого обновления
+  // (чекбоксы в предпросмотре) перезагрузка списков пересоздавала бы массив
+  // и эффект затирал бы несохранённые правки формы старым описанием задачи.
+  const listOptionsRef = useRef(listOptions)
+  listOptionsRef.current = listOptions
+
+  // Инициализация формы — один раз на открытие (open + конкретная задача),
+  // а не на каждую смену ссылок task/listOptions (см. комментарий выше).
+  const initKeyRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) {
+      initKeyRef.current = null
+      return
+    }
+    const initKey = task ? `task:${task.id}` : `new:${defaultBoardId ?? ''}`
+    if (initKeyRef.current === initKey) return
+    initKeyRef.current = initKey
+    const listOptions = listOptionsRef.current
+
   useEffect(() => {
     if (!open) return
     setChanges([])
@@ -133,7 +154,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setTargetBoardId(defaultBoardId ?? null)
       setDescPreview(false)
     }
-  }, [open, task, listOptions, defaultBoardId])
+  }, [open, task, defaultBoardId])
 
   if (!open) return null
 
