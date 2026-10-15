@@ -23,6 +23,7 @@ const EMPTY = {
   chat_id: '',
   thread_id: '',
   events: [],
+  // excluded_events всегда пуст — набор событий определяется только чекбоксами «События»
   excluded_events: [],
 }
 
@@ -71,7 +72,8 @@ export default function WebhookTab({ board }) {
                 chat_id: w.chat_id || '',
                 thread_id: w.thread_id || '',
                 events: w.events || [],
-                excluded_events: w.excluded_events || [],
+                // существующие исключения не тянем в форму: набор событий задаётся только чекбоксами
+                excluded_events: [],
               }
             : EMPTY,
         )
@@ -206,16 +208,6 @@ export default function WebhookTab({ board }) {
           value={data.events}
           onChange={(events) => setData({ ...data, events })}
         />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Исключённые события</label>
-        <EventMultiSelect
-          value={data.excluded_events}
-          onChange={(excluded_events) => setData({ ...data, excluded_events })}
-        />
-        <p className="text-[10px] text-slate-500 mt-1">
-          Игнорируются, даже если выбраны в общем списке.
-        </p>
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
       {message && <p className="text-sm text-green-600">{message}</p>}
