@@ -426,6 +426,7 @@ export default function App() {
         task={editingTask}
         tasks={tasks}
         boards={boards}
+        defaultBoardId={activeBoardId}
         onMove={handleMoveTask}
         lists={lists}
         tags={tags}

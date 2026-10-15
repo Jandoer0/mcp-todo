@@ -74,7 +74,7 @@ function toDatetimeLocal(value) {
   return local.toISOString().slice(0, 16)
 }
 
-export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], onMove, onQuickUpdate }) {
+export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], defaultBoardId = null, onMove, onQuickUpdate }) {
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
@@ -130,10 +130,10 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setSelectedBlockers([])
       setAmountType('expense')
       setAmountStr('')
-      setTargetBoardId(null)
+      setTargetBoardId(defaultBoardId ?? null)
       setDescPreview(false)
     }
-  }, [open, task, listOptions])
+  }, [open, task, listOptions, defaultBoardId])
 
   if (!open) return null
 
