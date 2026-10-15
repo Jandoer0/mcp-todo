@@ -114,11 +114,11 @@ export default function Board({
               <span className="text-xs text-white/60">({group.items.length})</span>
             </button>
             {!isCollapsed(group.name) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+            <div className="md:columns-2 md:gap-2">
               {group.items.map((task) => (
                 <div
                   key={task.id}
-                  className="task-appear"
+                  className="task-appear mb-2 break-inside-avoid"
                   style={{ animationDelay: `${(order.get(task.id) || 0) * 55}ms` }}
                 >
                   <TaskCard
