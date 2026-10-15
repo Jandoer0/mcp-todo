@@ -84,7 +84,6 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
 
   return (
     <div className="space-y-4">
-      {/* Итоги: план / факт / доход / расход / баланс */}
       <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
         <div className="rounded border border-slate-200 bg-slate-50 p-2">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
@@ -105,10 +104,6 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
         <div className="rounded border border-slate-200 bg-slate-50 p-2">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Всего расход</div>
           <div className="font-bold text-red-600">{signed(expense)} ₽</div>
-        </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Итого (баланс)</div>
-          <div className="font-bold text-slate-800">{signed(total)} ₽</div>
         </div>
       </div>
 
