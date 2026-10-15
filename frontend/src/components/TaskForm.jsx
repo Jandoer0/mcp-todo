@@ -95,8 +95,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const [changes, setChanges] = useState([])
 
-  const [changes, setChanges] = useState([])
-
   // Снапшот listOptions для сброса формы: ref позволяет не включать listOptions
   // в зависимости эффекта инициализации — иначе после быстрого обновления
   // (чекбоксы в предпросмотре) перезагрузка списков пересоздавала бы массив
@@ -117,9 +115,6 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     if (initKeyRef.current === initKey) return
     initKeyRef.current = initKey
     const listOptions = listOptionsRef.current
-
-  useEffect(() => {
-    if (!open) return
     setChanges([])
     if (task) {
       tasksApi.changes(task.id)
