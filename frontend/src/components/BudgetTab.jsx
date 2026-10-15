@@ -44,30 +44,32 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
     })
 
   const total = plan + fact
+  const incomeSum = Math.abs(income) + Math.abs(expense)
+  const expenseAbs = Math.abs(expense)
 
   const buildReport = () => {
     const line = '--------------------------------'
     const rows = (list) =>
-      list.map((t) => `${t.title}: ${signed(Number(t.amount))} ₽`).join('\n')
+      list.map((t) => `${t.title}: ${signed(Number(t.amount))}`).join('\n')
     return [
       `${board.name} — Бюджет`,
       line,
       rows(sortEntries(doneEntries)),
       planEntriesForReport(),
       line,
-      `ПЛАН: ${signed(plan)} ₽`,
-      `ФАКТ: ${signed(fact)} ₽`,
+      `ПЛАН: ${signed(plan)}`,
+      `ФАКТ: ${signed(fact)}`,
       line,
-      `ВСЕГО ДОХОД: ${signed(income)} ₽`,
-      `ВСЕГО РАСХОД: ${signed(expense)} ₽`,
-      `ИТОГО: ${signed(total)} ₽`,
+      `ВСЕГО ДОХОД: ${signed(income)}`,
+      `ВСЕГО РАСХОД: ${signed(expense)}`,
+      `ИТОГО: ${signed(total)}`,
     ]
       .filter(Boolean)
       .join('\n')
 
     function planEntriesForReport() {
       return sortEntries(entries.filter((t) => !doneEntries.includes(t)))
-        .map((t) => `${t.title}: ${signed(Number(t.amount))} ₽`)
+        .map((t) => `${t.title}: ${signed(Number(t.amount))}`)
         .join('\n')
     }
   }
@@ -84,30 +86,50 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
 
   return (
     <div className="space-y-4">
-      {/* Итоги: план / факт / итого, ниже — доход / расход */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded border border-slate-200 bg-slate-50 p-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
-            <div className="font-bold text-slate-800">{signed(plan)} ₽</div>
+      {/* Сводный блок баланса: крупный итог + распределение доход/расход */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="text-center">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Баланс доски
           </div>
-          <div className="rounded border border-slate-200 bg-slate-50 p-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Факт</div>
-            <div className="font-bold text-slate-800">{signed(fact)} ₽</div>
-          </div>
-          <div className="rounded border border-slate-200 bg-white p-2 ring-1 ring-slate-300">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ИТОГО</div>
-            <div className="font-bold text-slate-900">{signed(total)} ₽</div>
+          <div
+            className={`mt-0.5 text-3xl font-extrabold tabular-nums ${
+              total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
+            }`}
+          >
+            {signed(total)}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="rounded border border-slate-200 bg-slate-50 p-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Всего доход</div>
-            <div className="font-bold text-green-600">{signed(income)} ₽</div>
+
+        {/* План / Факт */}
+        <div className="mt-3 grid grid-cols-2 divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
+            <div className="font-bold tabular-nums text-slate-800">{signed(plan)}</div>
           </div>
-          <div className="rounded border border-slate-200 bg-slate-50 p-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Всего расход</div>
-            <div className="font-bold text-red-600">{signed(expense)} ₽</div>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Факт</div>
+            <div className="font-bold tabular-nums text-slate-800">{signed(fact)}</div>
+          </div>
+        </div>
+
+        {/* Полоса распределения доход/расход */}
+        <div className="mt-3">
+          <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
+            {incomeSum > 0 && <div className="bg-green-500" style={{ width: `${(income / incomeSum) * 100}%` }} />}
+            {expenseAbs > 0 && <div className="bg-red-500" style={{ width: `${(expenseAbs / incomeSum) * 100}%` }} />}
+          </div>
+          <div className="mt-2 flex items-center justify-between text-sm">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="text-slate-500">Доходы</span>
+              <span className="font-bold tabular-nums text-green-600">{signed(income)}</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-slate-500">Расходы</span>
+              <span className="font-bold tabular-nums text-red-600">{signed(expense)}</span>
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+            </span>
           </div>
         </div>
       </div>
