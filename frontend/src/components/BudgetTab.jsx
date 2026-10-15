@@ -88,24 +88,21 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
     <div className="space-y-4">
       {/* Сводный блок баланса: крупный итог + распределение доход/расход */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-center">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Баланс доски
-          </div>
-          <div
-            className={`mt-0.5 text-3xl font-extrabold tabular-nums ${
-              total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
-            }`}
-          >
-            {signed(total)}
-          </div>
-        </div>
-
-        {/* План / Факт */}
-        <div className="mt-3 grid grid-cols-2 divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
+        {/* План / Баланс / Факт — одна строка */}
+        <div className="grid grid-cols-3 items-center divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
             <div className="font-bold tabular-nums text-slate-800">{signed(plan)}</div>
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Баланс доски</div>
+            <div
+              className={`text-xl font-extrabold tabular-nums ${
+                total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
+              }`}
+            >
+              {signed(total)}
+            </div>
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Факт</div>
