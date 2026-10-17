@@ -17,6 +17,12 @@ from starlette.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (ensures models are registered)
 from .config import settings
+from .site_settings import (
+    ensure_defaults,
+    get_int,
+    get_int_ns,
+    get_setting_ns,
+)
 from .db import Base, SessionLocal, engine
 from .routers import admin, auth, boards, lists, mcp, summary, tags, tasks
 
@@ -446,22 +452,62 @@ from .routers.tags import cleanup_orphan_tags
 
 with SessionLocal() as _db:
     cleanup_orphan_tags(_db)
+    # Seed every admin-panel tunable (site_settings.DEFAULTS) and warm the
+    # settings cache used by middleware / validators / the webhook sender.
+    ensure_defaults(_db)
 
 # --- JSON API (mounted at /api) ---
 api = FastAPI(title="OmniTask API")
 
 # DoS guard: reject oversized request bodies before they are buffered and
-# parsed (Pydantic would otherwise happily eat hundreds of MBs).
-MAX_BODY_BYTES = 2 * 1024 * 1024  # 2 MB
+# parsed (Pydantic would otherwise happily eat hundreds of MBs). The cap is
+# an admin-panel setting (max_body_mb), default 2 MB.
+MAX_BODY_BYTES = 2 * 1024 * 1024  # fallback, overridden by the setting
+
+# Maintenance flag + scheduler handle for admin.py (reschedule on change).
+app_scheduler = None
+
+_MAINTENANCE_OPEN = ("/health", "/auth/login", "/auth/registration-status")
+
+
+@api.middleware("http")
+async def _maintenance_mode(request, call_next):
+    """Return 503 for everyone except admins while maintenance_mode is on.
+    Health checks and the login page stay reachable so an admin can sign in.
+    (MCP routes live outside this app and are not affected.)"""
+    if get_setting_ns("maintenance_mode", "false") not in ("true", "1", "yes", "on"):
+        return await call_next(request)
+    path = request.url.path
+    if any(path.endswith(p) for p in _MAINTENANCE_OPEN):
+        return await call_next(request)
+    auth_hdr = request.headers.get("authorization", "")
+    token = auth_hdr[7:] if auth_hdr[:7].lower() == "bearer " else ""
+    if token:
+        from .auth import decode_access_token
+        from .models import User
+
+        payload = decode_access_token(token)
+        if payload and payload.get("sub"):
+            with SessionLocal() as db:
+                user = (
+                    db.query(User).filter(User.username == payload["sub"]).first()
+                )
+                if user is not None and user.role == "admin":
+                    return await call_next(request)
+    return JSONResponse(
+        {"detail": "Сервис на обслуживании. Зайдите позже."}, status_code=503
+    )
 
 
 @api.middleware("http")
 async def _body_size_limit(request, call_next):
     cl = request.headers.get("content-length", "")
-    if cl.isdigit() and int(cl) > MAX_BODY_BYTES:
-        return JSONResponse(
-            {"detail": "Слишком большой запрос"}, status_code=413
-        )
+    if cl.isdigit():
+        limit_mb = get_int_ns("max_body_mb", 2)
+        if int(cl) > max(1, limit_mb) * 1024 * 1024:
+            return JSONResponse(
+                {"detail": "Слишком большой запрос"}, status_code=413
+            )
     return await call_next(request)
 
 
@@ -510,17 +556,21 @@ async def start_scheduler():
 
     from .services import notification_service
 
+    global app_scheduler
     notification_service.set_main_loop(asyncio.get_running_loop())
+    with SessionLocal() as _db:
+        scan_every = get_int(_db, "scheduler_interval_min", 30)
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
         notification_service.check_due_tasks,
         trigger="interval",
-        minutes=30,
+        minutes=scan_every,
         id="check_due_tasks",
         max_instances=1,
         coalesce=True,
     )
     scheduler.start()
+    app_scheduler = scheduler
 
 
 # --- Static frontend serving ---

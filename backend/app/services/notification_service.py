@@ -24,10 +24,12 @@ from sqlalchemy.orm import Session
 from ..clock import utcnow
 from ..db import SessionLocal
 from ..models import Task, User, Webhook
+from ..site_settings import get_int, get_int_ns
 
-# Re-notify an overdue task at most once a day; deadline reminders once.
-OVERDUE_REPEAT = timedelta(hours=24)
-DEADLINE_WINDOW = timedelta(hours=24)
+# Defaults for the scheduler tunables (admin panel → Server): how far ahead
+# a deadline counts as "approaching" and how often an overdue task re-fires.
+DEFAULT_DEADLINE_WINDOW_HOURS = 24
+DEFAULT_OVERDUE_REPEAT_HOURS = 24
 
 EVENTS = (
     "task_created",
@@ -189,7 +191,10 @@ async def _send(url: str, secret: str | None, payload: dict) -> None:
         from ..security import validate_webhook_url
 
         validate_webhook_url(url)
-        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+        timeout = get_int_ns("webhook_timeout_sec", 10)
+        async with httpx.AsyncClient(
+            timeout=timeout, follow_redirects=False
+        ) as client:
             resp = await client.post(url, content=body, headers=headers)
             resp.raise_for_status()
     except Exception as exc:  # never break the request because of a webhook
@@ -202,6 +207,10 @@ def check_due_tasks() -> None:
     db = SessionLocal()
     try:
         now = utcnow()
+        window = timedelta(hours=get_int(db, "deadline_window_hours", DEFAULT_DEADLINE_WINDOW_HOURS))
+        repeat_hours = get_int(db, "overdue_repeat_hours", DEFAULT_OVERDUE_REPEAT_HOURS)
+        # 0 = notify once, never re-fire for the same overdue task.
+        overdue_repeat = timedelta(hours=repeat_hours) if repeat_hours > 0 else None
         tasks = (
             db.query(Task)
             .filter(Task.status != "done", Task.deadline.isnot(None))
@@ -209,8 +218,8 @@ def check_due_tasks() -> None:
         )
         for task in tasks:
             if task.deadline < now:
-                event, repeat = "task_overdue", OVERDUE_REPEAT
-            elif task.deadline <= now + DEADLINE_WINDOW:
+                event, repeat = "task_overdue", overdue_repeat
+            elif task.deadline <= now + window:
                 event, repeat = "deadline_approaching", None
             else:
                 continue

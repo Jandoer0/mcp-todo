@@ -10,7 +10,7 @@ const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0
 // side card to switch context, click the centered card to edit it; a special
 // "+ Создать доску" card closes the strip. The number of boards visible at
 // once depends on the viewport width (mobile shows ~3, wide desktop 6-7).
-export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCreate, onReorder }) {
+export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCreate, onReorder, maxBoards = MAX_BOARDS }) {
   const wrapRef = useRef(null)
   const stripRef = useRef(null)
   const cardRefs = useRef(new Map())
@@ -170,7 +170,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     )
   }
 
-  const canCreate = boards.length < MAX_BOARDS // hard limit enforced server-side
+  const canCreate = boards.length < maxBoards // hard limit enforced server-side
 
   return (
     <div ref={wrapRef} className="relative flex-1 min-w-0 overflow-hidden h-10">

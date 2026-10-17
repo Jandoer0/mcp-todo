@@ -128,3 +128,111 @@ def test_field_length_limits():
         json={"name": "evil", "color": "red; DROP TABLE tags", "board_id": board_id},
     )
     assert r.status_code == 422, r.text
+
+
+def _sec_admin():
+    """Register a user, promote to admin in the DB, return headers."""
+    from app.db import SessionLocal
+
+    client.post(
+        "/api/auth/register", json={"username": "secadmin", "password": "secret123"}
+    )
+    db = SessionLocal()
+    try:
+        from app.models import User
+
+        u = db.query(User).filter(User.username == "secadmin").first()
+        if u and u.role != "admin":
+            u.role = "admin"
+            db.commit()
+    finally:
+        db.close()
+    r = client.post(
+        "/api/auth/login", json={"username": "secadmin", "password": "secret123"}
+    )
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+def test_admin_settings_roundtrip():
+    """GET returns every tunable; a password_min_length change takes effect
+    immediately without a restart."""
+    hdr = _sec_admin()
+    r = client.get("/api/admin/settings", headers=hdr)
+    assert r.status_code == 200
+    data = r.json()
+    for key in (
+        "session_expire_minutes", "login_rate_limit", "login_max_attempts",
+        "login_window_sec", "register_rate_limit_per_hour", "password_min_length",
+        "max_body_mb", "maintenance_mode", "scheduler_interval_min",
+        "deadline_window_hours", "overdue_repeat_hours", "webhook_timeout_sec",
+        "max_boards_per_user", "max_description_length",
+    ):
+        assert key in data, key
+    try:
+        assert client.put(
+            "/api/admin/settings", headers=hdr, json={"password_min_length": 10}
+        ).status_code == 200
+        # 8-char password now rejected, 10-char accepted.
+        r = client.post(
+            "/api/auth/register",
+            json={"username": "pwuser1", "password": "12345678"},
+        )
+        assert r.status_code == 422
+        r = client.post(
+            "/api/auth/register",
+            json={"username": "pwuser1", "password": "1234567890"},
+        )
+        assert r.status_code == 200, r.text
+    finally:
+        client.put(
+            "/api/admin/settings", headers=hdr, json={"password_min_length": 6}
+        )
+
+
+def test_maintenance_mode_blocks_non_admins():
+    hdr = _sec_admin()
+    user_hdr = _register("maintuser")
+    user_board = _first_board(user_hdr)
+    user_tasks = f"/api/tasks?board_id={user_board}"
+    try:
+        assert client.put(
+            "/api/admin/settings", headers=hdr, json={"maintenance_mode": True}
+        ).status_code == 200
+        # Regular user: blocked...
+        assert client.get(user_tasks, headers=user_hdr).status_code == 503
+        # ...but login and health stay open...
+        r = client.post(
+            "/api/auth/login",
+            json={"username": "maintuser", "password": "secret123"},
+        )
+        assert r.status_code == 200
+        assert client.get("/api/health").status_code == 200
+        # ...and admins keep full access.
+        assert client.get("/api/admin/settings", headers=hdr).status_code == 200
+    finally:
+        client.put(
+            "/api/admin/settings", headers=hdr, json={"maintenance_mode": False}
+        )
+    # Off again: the user is served normally.
+    assert client.get(user_tasks, headers=user_hdr).status_code == 200
+
+
+def test_max_boards_setting_applies():
+    """The board cap is read from settings, not the constant."""
+    hdr = _sec_admin()
+    try:
+        assert client.put(
+            "/api/admin/settings", headers=hdr, json={"max_boards_per_user": 1}
+        ).status_code == 200
+        user_hdr = _register("boardsuser")  # gets 1 default board
+        r = client.post(
+            "/api/boards",
+            headers=user_hdr,
+            json={"name": "Extra", "color": "#0ea5e9"},
+        )
+        assert r.status_code == 400
+        assert "Максимальное количество досок" in r.json()["detail"]
+    finally:
+        client.put(
+            "/api/admin/settings", headers=hdr, json={"max_boards_per_user": 20}
+        )

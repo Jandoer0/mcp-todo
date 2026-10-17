@@ -23,6 +23,7 @@ export default function Layout({
   onEditBoard,
   onCreateBoard,
   activeBoard = null,
+  maxBoards,
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -85,6 +86,7 @@ export default function Layout({
           <BoardSwitcher
             boards={boards}
             activeId={activeBoardId}
+            maxBoards={maxBoards}
             onSwitch={onSwitchBoard}
             onReorder={onReorderBoard}
             onEdit={onEditBoard}

@@ -48,9 +48,11 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
-      '/sse': 'http://localhost:8000',
-      '/messages': 'http://localhost:8000',
+      // API_PROXY lets you point the dev server at another backend port
+      // (e.g. API_PROXY=http://localhost:8001 for an isolated test stand).
+      '/api': process.env.API_PROXY || 'http://localhost:8000',
+      '/sse': process.env.API_PROXY || 'http://localhost:8000',
+      '/messages': process.env.API_PROXY || 'http://localhost:8000',
     },
   },
   build: {

@@ -61,6 +61,7 @@ export const adminApi = {
   updateUser: (id, data) => api.put(`${API_URL}/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`${API_URL}/admin/users/${id}`),
   getSettings: () => api.get(`${API_URL}/admin/settings`),
+  updateSettings: (data) => api.put(`${API_URL}/admin/settings`, data),
   getStats: () => api.get(`${API_URL}/admin/stats`),
   setRegistration: (enabled) =>
     api.put(`${API_URL}/admin/settings/allow_registration?enabled=${enabled}`),

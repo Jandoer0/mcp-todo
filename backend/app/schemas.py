@@ -83,7 +83,9 @@ class Token(BaseModel):
 
 class TaskBase(BaseModel):
     title: str = Field(min_length=1, max_length=MAX_TITLE)
-    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION)
+    # Description cap is a server setting (admin panel); the validator below
+    # falls back to MAX_DESCRIPTION when the setting is not loaded.
+    description: str | None = None
     list: str | None = Field(default="Входящие", max_length=MAX_LIST_NAME)
     start_date: datetime | None = None
     deadline: datetime | None = None
@@ -100,6 +102,18 @@ class TaskBase(BaseModel):
     reminder_days: int | None = Field(default=0, ge=0, le=365)
     # Financial weight: positive = income, negative = expense (0 = no budget)
     amount: float | None = Field(default=0.0, allow_inf_nan=False, ge=-1e12, le=1e12)
+
+    @field_validator("description")
+    @classmethod
+    def _description_length(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        from .site_settings import get_int_ns
+
+        limit = get_int_ns("max_description_length", MAX_DESCRIPTION)
+        if len(v) > limit:
+            raise ValueError(f"Описание длиннее {limit} символов")
+        return v
 
     @field_validator("cycle_period")
     @classmethod
@@ -223,6 +237,43 @@ class SummaryResponse(BaseModel):
 class SettingsResponse(BaseModel):
     allow_registration: bool
     db_size_limit_mb: int = 0
+    # --- Security ---
+    session_expire_minutes: int = 480
+    login_rate_limit: bool = True
+    login_max_attempts: int = 10
+    login_window_sec: int = 300
+    register_rate_limit_per_hour: int = 30
+    password_min_length: int = 6
+    max_body_mb: int = 2
+    maintenance_mode: bool = False
+    # --- Notifications / scheduler ---
+    scheduler_interval_min: int = 30
+    deadline_window_hours: int = 24
+    overdue_repeat_hours: int = 24
+    webhook_timeout_sec: int = 10
+    # --- Limits ---
+    max_boards_per_user: int = 20
+    max_description_length: int = 50_000
+
+
+class AdminSettingsUpdate(BaseModel):
+    """Partial update of the tunables (PUT /admin/settings); only the
+    provided fields are written. Bounds keep admin input sane."""
+
+    session_expire_minutes: int | None = Field(default=None, ge=60, le=43_200)
+    login_rate_limit: bool | None = None
+    login_max_attempts: int | None = Field(default=None, ge=1, le=1000)
+    login_window_sec: int | None = Field(default=None, ge=30, le=86_400)
+    register_rate_limit_per_hour: int | None = Field(default=None, ge=0, le=10_000)
+    password_min_length: int | None = Field(default=None, ge=4, le=128)
+    max_body_mb: int | None = Field(default=None, ge=1, le=100)
+    maintenance_mode: bool | None = None
+    scheduler_interval_min: int | None = Field(default=None, ge=1, le=1440)
+    deadline_window_hours: int | None = Field(default=None, ge=1, le=720)
+    overdue_repeat_hours: int | None = Field(default=None, ge=0, le=720)
+    webhook_timeout_sec: int | None = Field(default=None, ge=1, le=120)
+    max_boards_per_user: int | None = Field(default=None, ge=1, le=1000)
+    max_description_length: int | None = Field(default=None, ge=1000, le=1_000_000)
 
 
 class ServerStatsResponse(BaseModel):

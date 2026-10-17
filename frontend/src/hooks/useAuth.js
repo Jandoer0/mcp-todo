@@ -5,6 +5,7 @@ export function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [isAdmin, setIsAdmin] = useState(false)
   const [allowRegistration, setAllowRegistration] = useState(true)
+  const [passwordMin, setPasswordMin] = useState(6)
   const [ready, setReady] = useState(false)
   const [view, setView] = useState(token ? 'tasks' : 'login')
 
@@ -36,7 +37,10 @@ export function useAuth() {
   useEffect(() => {
     authApi
       .registrationStatus()
-      .then((res) => setAllowRegistration(res.data?.enabled !== false))
+      .then((res) => {
+        setAllowRegistration(res.data?.enabled !== false)
+        setPasswordMin(res.data?.password_min_length || 6)
+      })
       .catch(() => setAllowRegistration(true))
   }, [])
   // a broken dashboard.
@@ -101,5 +105,5 @@ export function useAuth() {
     if (token) checkAdmin()
   }, [token, checkAdmin])
 
-  return { token, isAdmin, view, ready, setView, login, register, logout, checkAdmin, allowRegistration }
+  return { token, isAdmin, view, ready, setView, login, register, logout, checkAdmin, allowRegistration, passwordMin }
 }

@@ -12,7 +12,7 @@ from ..auth import (
 from ..db import get_db
 from ..models import User, Webhook
 from ..services import server_stats as server_stats_service
-from ..site_settings import get_bool, set_setting
+from ..site_settings import DEFAULTS, get_bool, get_int, get_setting, set_setting
 
 router = APIRouter(
     prefix="/admin",
@@ -21,12 +21,67 @@ router = APIRouter(
 )
 
 
-@router.get("/settings", response_model=schemas.SettingsResponse)
-def get_settings(db: Session = Depends(get_db)):
+def _current_settings(db: Session) -> dict:
+    """Every tunable exposed by the admin panel (settings table + db quota)."""
+    from ..site_settings import get_setting as _get
+
+    def _int(key: str) -> int:
+        try:
+            return int(str(_get(db, key, DEFAULTS[key])).strip())
+        except (TypeError, ValueError):
+            return int(DEFAULTS[key])
+
+    def _bool(key: str) -> bool:
+        return get_bool(db, key, DEFAULTS[key] == "true")
+
     return {
         "allow_registration": get_bool(db, "allow_registration", True),
         "db_size_limit_mb": server_stats_service.get_db_size_limit_mb(db),
+        "session_expire_minutes": _int("session_expire_minutes"),
+        "login_rate_limit": _bool("login_rate_limit"),
+        "login_max_attempts": _int("login_max_attempts"),
+        "login_window_sec": _int("login_window_sec"),
+        "register_rate_limit_per_hour": _int("register_rate_limit_per_hour"),
+        "password_min_length": _int("password_min_length"),
+        "max_body_mb": _int("max_body_mb"),
+        "maintenance_mode": _bool("maintenance_mode"),
+        "scheduler_interval_min": _int("scheduler_interval_min"),
+        "deadline_window_hours": _int("deadline_window_hours"),
+        "overdue_repeat_hours": _int("overdue_repeat_hours"),
+        "webhook_timeout_sec": _int("webhook_timeout_sec"),
+        "max_boards_per_user": _int("max_boards_per_user"),
+        "max_description_length": _int("max_description_length"),
     }
+
+
+@router.get("/settings", response_model=schemas.SettingsResponse)
+def get_settings(db: Session = Depends(get_db)):
+    return _current_settings(db)
+
+
+@router.put("/settings", response_model=schemas.SettingsResponse)
+def update_settings(data: schemas.AdminSettingsUpdate, db: Session = Depends(get_db)):
+    """Partial update of the tunables; only provided fields are written.
+    The scan-interval change is applied to the running scheduler immediately."""
+    changed = data.model_dump(exclude_unset=True)
+    for key, value in changed.items():
+        set_setting(db, key, "true" if value is True else "false" if value is False else value)
+    if "scheduler_interval_min" in changed:
+        _reschedule_scheduler(changed["scheduler_interval_min"])
+    return _current_settings(db)
+
+
+def _reschedule_scheduler(minutes: int) -> None:
+    """Apply a new scan interval to the running APScheduler job, if any."""
+    try:
+        from .. import main as _main
+
+        if _main.app_scheduler is not None:
+            _main.app_scheduler.reschedule_job(
+                "check_due_tasks", trigger="interval", minutes=minutes
+            )
+    except Exception:  # scheduler absence must not fail the settings save
+        pass
 
 
 @router.put("/settings/allow_registration", response_model=schemas.SettingsResponse)

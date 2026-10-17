@@ -16,12 +16,14 @@ from ..config import settings
 from ..db import get_db
 from ..models import User
 from ..security import attempt_allowed, reset_attempts
-from ..site_settings import get_bool
+from ..site_settings import get_bool, get_int
+from ..site_settings import get_int
 from ..services import server_stats
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Brute-force protection: per-username login attempts and per-IP signups.
+# Defaults for the brute-force guard; the live values are DB settings
+# (admin panel → Server), see site_settings.DEFAULTS.
 LOGIN_MAX_ATTEMPTS = 10
 LOGIN_WINDOW_SEC = 300
 REGISTER_MAX_PER_IP = 30
@@ -29,27 +31,41 @@ REGISTER_WINDOW_SEC = 3600
 
 
 @router.get("/me")
-def me(current_user: User = Depends(get_current_user)):
-    """Lightweight profile for the header's user dropdown."""
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lightweight profile for the header's user dropdown.
+    Also carries a couple of public policy values the UI needs (board cap,
+    password hint) so the frontend has no hard-coded duplicates."""
+    from ..board import MAX_BOARDS_PER_USER
+
     return {
         "id": current_user.id,
         "username": current_user.username,
         "role": current_user.role,
         "webhooks_enabled": bool(current_user.webhooks_enabled),
+        "max_boards": get_int(db, "max_boards_per_user", MAX_BOARDS_PER_USER),
+        "password_min_length": get_int(db, "password_min_length", 6),
     }
 
 
 @router.get("/registration-status")
 def registration_status(db: Session = Depends(get_db)):
-    """Public flag so the login screen can hide the register option."""
-    return {"enabled": get_bool(db, "allow_registration", True)}
+    """Public flag so the login screen can hide the register option.
+    Also carries the current password policy for the register hint."""
+    return {
+        "enabled": get_bool(db, "allow_registration", True),
+        "password_min_length": get_int(db, "password_min_length", 6),
+    }
 
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register(user: schemas.UserCreate, request: Request, db: Session = Depends(get_db)):
     user.username = (user.username or "").strip()
     ip = request.client.host if request.client else "unknown"
-    if not attempt_allowed(f"register:{ip}", REGISTER_MAX_PER_IP, REGISTER_WINDOW_SEC):
+    # 0 in the setting turns the cap off entirely.
+    reg_cap = get_int(db, "register_rate_limit_per_hour", REGISTER_MAX_PER_IP)
+    if reg_cap > 0 and not attempt_allowed(
+        f"register:{ip}", reg_cap, REGISTER_WINDOW_SEC
+    ):
         raise HTTPException(
             status_code=429, detail="Слишком много попыток регистрации. Попробуйте позже."
         )
@@ -59,8 +75,9 @@ def register(user: schemas.UserCreate, request: Request, db: Session = Depends(g
         )
     if len(user.username) < 3:
         raise HTTPException(status_code=422, detail="Имя пользователя от 3 символов")
-    if len(user.password) < 6:
-        raise HTTPException(status_code=422, detail="Пароль от 6 символов")
+    min_pw = get_int(db, "password_min_length", 6)
+    if len(user.password) < min_pw:
+        raise HTTPException(status_code=422, detail=f"Пароль от {min_pw} символов")
     if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already registered")
     if server_stats.db_size_exceeded(db):
@@ -87,7 +104,12 @@ def register(user: schemas.UserCreate, request: Request, db: Session = Depends(g
 def login(user: schemas.UserCreate, db: Session = Depends(get_db)):
     user.username = (user.username or "").strip()
     limit_key = f"login:{user.username.lower()}"
-    if not attempt_allowed(limit_key, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SEC):
+    rate_on = get_bool(db, "login_rate_limit", True)
+    if rate_on and not attempt_allowed(
+        limit_key,
+        get_int(db, "login_max_attempts", LOGIN_MAX_ATTEMPTS),
+        get_int(db, "login_window_sec", LOGIN_WINDOW_SEC),
+    ):
         raise HTTPException(
             status_code=429, detail="Слишком много попыток входа. Попробуйте позже."
         )
@@ -100,8 +122,11 @@ def login(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if not verify_password(user.password or "", db_user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     reset_attempts(limit_key)  # successful login clears the counter
+    expire_min = get_int(
+        db, "session_expire_minutes", settings["ACCESS_TOKEN_EXPIRE_MINUTES"]
+    )
     token = create_access_token(
         data={"sub": db_user.username},
-        expires_delta=timedelta(minutes=settings["ACCESS_TOKEN_EXPIRE_MINUTES"]),
+        expires_delta=timedelta(minutes=expire_min),
     )
     return {"access_token": token, "token_type": "bearer"}

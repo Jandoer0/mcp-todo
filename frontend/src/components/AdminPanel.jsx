@@ -23,6 +23,62 @@ function formatUptime(sec) {
   return `${m} мин`
 }
 
+// Admin-panel tunables (PUT /admin/settings), grouped for the Server tab.
+const TUNABLE_GROUPS = [
+  {
+    key: 'security',
+    title: 'Безопасность',
+    fields: [
+      { key: 'session_expire_minutes', label: 'Срок жизни сессии, мин', min: 60, max: 43200 },
+      { key: 'login_rate_limit', label: 'Rate-limit входа (защита от перебора)', bool: true },
+      { key: 'login_max_attempts', label: 'Попыток входа на имя', min: 1, max: 1000 },
+      { key: 'login_window_sec', label: 'Окно rate-limit, сек', min: 30, max: 86400 },
+      {
+        key: 'register_rate_limit_per_hour',
+        label: 'Регистраций в час на IP (0 — выкл.)',
+        min: 0,
+        max: 10000,
+      },
+      { key: 'password_min_length', label: 'Мин. длина пароля', min: 4, max: 128 },
+      { key: 'max_body_mb', label: 'Макс. размер запроса, МБ', min: 1, max: 100 },
+      {
+        key: 'maintenance_mode',
+        label: 'Режим обслуживания: 503 всем, кроме админов',
+        bool: true,
+        danger: true,
+      },
+    ],
+  },
+  {
+    key: 'notify',
+    title: 'Уведомления и планировщик',
+    fields: [
+      { key: 'scheduler_interval_min', label: 'Интервал проверки задач, мин', min: 1, max: 1440 },
+      { key: 'deadline_window_hours', label: '«Дедлайн приближается», за ч', min: 1, max: 720 },
+      {
+        key: 'overdue_repeat_hours',
+        label: 'Повтор о просрочке, ч (0 — один раз)',
+        min: 0,
+        max: 720,
+      },
+      { key: 'webhook_timeout_sec', label: 'Таймаут веб-хука, сек', min: 1, max: 120 },
+    ],
+  },
+  {
+    key: 'limits',
+    title: 'Лимиты',
+    fields: [
+      { key: 'max_boards_per_user', label: 'Макс. досок на пользователя', min: 1, max: 1000 },
+      {
+        key: 'max_description_length',
+        label: 'Макс. описание задачи, симв.',
+        min: 1000,
+        max: 1000000,
+      },
+    ],
+  },
+]
+
 export default function AdminPanel({
   users,
   onDeleteUser,
@@ -48,6 +104,10 @@ export default function AdminPanel({
   const [stats, setStats] = useState(null)
   const [dbLimit, setDbLimit] = useState('')
   const [savingLimit, setSavingLimit] = useState(false)
+  // Admin-panel tunables (session length, rate limits, scheduler, caps).
+  const [tunable, setTunable] = useState(null)
+  const [savingGroup, setSavingGroup] = useState(null)
+  const [savedGroup, setSavedGroup] = useState(null)
 
   if (!open) return null
 
@@ -61,7 +121,43 @@ export default function AdminPanel({
   const openTab = (t) => {
     setTab(t)
     if (t === 'webhooks' && webhooks === null) loadWebhooks()
-    if (t === 'server' && stats === null) loadStats()
+    if (t === 'server' && stats === null) {
+      loadStats()
+      loadTunables()
+    }
+  }
+
+  const loadTunables = () => {
+    adminApi
+      .getSettings()
+      .then((r) => setTunable(r.data))
+      .catch(() => setTunable(null))
+  }
+
+  // Save one group (security / notifications / limits); only number fields
+  // present and parseable are sent, booleans go as-is.
+  const handleSaveGroup = async (group) => {
+    if (!tunable) return
+    const payload = {}
+    for (const f of group.fields) {
+      if (f.bool) {
+        payload[f.key] = Boolean(tunable[f.key])
+      } else {
+        const n = parseInt(tunable[f.key], 10)
+        if (!Number.isNaN(n)) payload[f.key] = n
+      }
+    }
+    setSavingGroup(group.key)
+    try {
+      const res = await adminApi.updateSettings(payload)
+      setTunable(res.data)
+      setSavedGroup(group.key)
+      setTimeout(() => setSavedGroup(null), 2000)
+    } catch (e) {
+      alert(formatApiError(e, 'Ошибка сохранения настроек'))
+    } finally {
+      setSavingGroup(null)
+    }
   }
 
   const loadStats = () => {
@@ -476,6 +572,75 @@ export default function AdminPanel({
                     </button>
                   </div>
                 </section>
+
+                {tunable ? (
+                  TUNABLE_GROUPS.map((group) => (
+                    <section
+                      key={group.key}
+                      className="bg-gray-50/50 rounded-lg p-4 mb-4 border"
+                    >
+                      <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
+                        {group.title}
+                      </h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {group.fields.map((f) =>
+                          f.bool ? (
+                            <label
+                              key={f.key}
+                              className={`flex items-start gap-2 text-sm ${
+                                f.danger ? 'text-red-600' : 'text-gray-700'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={Boolean(tunable[f.key])}
+                                onChange={(e) =>
+                                  setTunable({ ...tunable, [f.key]: e.target.checked })
+                                }
+                                className="mt-0.5"
+                              />
+                              <span>{f.label}</span>
+                            </label>
+                          ) : (
+                            <label key={f.key} className="text-xs text-gray-500">
+                              {f.label}
+                              <input
+                                type="number"
+                                min={f.min}
+                                max={f.max}
+                                value={tunable[f.key] ?? ''}
+                                onChange={(e) =>
+                                  setTunable({ ...tunable, [f.key]: e.target.value })
+                                }
+                                className="mt-1 w-full p-2 border rounded text-sm text-gray-800"
+                              />
+                            </label>
+                          )
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 mt-3">
+                        <button
+                          onClick={() => handleSaveGroup(group)}
+                          disabled={savingGroup === group.key}
+                          className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                          Сохранить
+                        </button>
+                        {savedGroup === group.key && (
+                          <span className="text-sm text-green-600">Сохранено ✓</span>
+                        )}
+                        {group.key === 'security' && tunable.maintenance_mode && (
+                          <span className="text-xs text-red-500">
+                            Включён: не-админы получают 503, вход доступен только
+                            администраторам
+                          </span>
+                        )}
+                      </div>
+                    </section>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 mb-4">Загрузка настроек…</p>
+                )}
 
                 <section className="bg-gray-50/50 rounded-lg p-4 border">
                   <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">

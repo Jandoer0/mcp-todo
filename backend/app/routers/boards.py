@@ -10,6 +10,7 @@ from ..db import get_db
 from ..models import Board, Tag, Task, TaskList, User, Webhook
 from ..services import notification_service
 from ..services.notification_service import EVENTS
+from ..site_settings import get_int
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 
@@ -61,10 +62,11 @@ def create_board(
     ):
         raise HTTPException(status_code=400, detail="Доска с таким именем уже есть")
     owned = db.query(Board).filter(Board.user_id == current_user.id)
-    if owned.count() >= MAX_BOARDS_PER_USER:
+    boards_limit = get_int(db, "max_boards_per_user", MAX_BOARDS_PER_USER)
+    if owned.count() >= boards_limit:
         raise HTTPException(
             status_code=400,
-            detail=f"Максимальное количество досок — {MAX_BOARDS_PER_USER}",
+            detail=f"Максимальное количество досок — {boards_limit}",
         )
     if data.color not in BOARD_PALETTE:
         raise HTTPException(status_code=400, detail="Цвет должен быть из палитры досок")
@@ -261,7 +263,12 @@ async def test_board_webhook(
         from ..security import validate_webhook_url
 
         validate_webhook_url(webhook.url)
-        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+        from ..site_settings import get_int
+
+        timeout = get_int(db, "webhook_timeout_sec", 10)
+        async with httpx.AsyncClient(
+            timeout=timeout, follow_redirects=False
+        ) as client:
             resp = await client.post(webhook.url, content=body, headers=headers)
         if resp.is_redirect:
             return {

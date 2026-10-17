@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 // Edit/create dialog for a board (name, multiline description, color).
 // In edit mode extra tabs show the board's financial summary («Бюджет») and
 // its single webhook («Веб-хуки», only when allowed for the user).
-export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], webhooksEnabled = true, onClose, onSubmit, onDelete }) {
+export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], webhooksEnabled = true, maxBoards = MAX_BOARDS, onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(BOARD_PALETTE[1])
@@ -143,8 +143,8 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           </div>
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
-        {!isEdit && boardsCount >= MAX_BOARDS && (
-          <p className="text-sm text-red-500">Достигнут лимит: максимум {MAX_BOARDS} досок.</p>
+        {!isEdit && boardsCount >= maxBoards && (
+          <p className="text-sm text-red-500">Достигнут лимит: максимум {maxBoards} досок.</p>
         )}
         <div className="flex items-center gap-2 pt-2">
           {isEdit && (
@@ -161,7 +161,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           </button>
           <button
             type="submit"
-            disabled={!isEdit && boardsCount >= MAX_BOARDS}
+            disabled={!isEdit && boardsCount >= maxBoards}
             className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium disabled:opacity-50"
           >
             Сохранить

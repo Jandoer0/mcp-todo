@@ -12,7 +12,7 @@ import BoardForm from './components/BoardForm'
 import AdminPanel from './components/AdminPanel'
 
 export default function App() {
-  const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration } =
+  const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration, passwordMin } =
     useAuth()
 
   // --- Boards (multi-board support) ---
@@ -61,7 +61,11 @@ export default function App() {
     if (!ready) return
     authApi
       .me()
-      .then((res) => setWebhooksEnabled(res.data?.webhooks_enabled !== false))
+      .then((res) => {
+        setWebhooksEnabled(res.data?.webhooks_enabled !== false)
+        // /me also carries UI policy values (board cap, password hint).
+        setProfile(res.data)
+      })
       .catch(() => setWebhooksEnabled(true))
   }, [ready, token])
 
@@ -310,6 +314,7 @@ export default function App() {
         onRegister={handleRegister}
         error={authError}
         allowRegistration={allowRegistration}
+        passwordMin={passwordMin}
       />
     )
   }
@@ -333,6 +338,7 @@ export default function App() {
         setEditingBoard(null)
         setBoardFormOpen(true)
       }}
+      maxBoards={profile?.max_boards}
     >
       <Dashboard 
         summary={summary} 
@@ -448,6 +454,7 @@ export default function App() {
         open={boardFormOpen}
         board={editingBoard}
         boardsCount={boards.length}
+        maxBoards={profile?.max_boards}
         tasks={tasks}
         lists={lists}
         webhooksEnabled={webhooksEnabled}

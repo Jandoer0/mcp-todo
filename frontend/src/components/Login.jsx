@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export default function Login({ onLogin, onRegister, error, allowRegistration = true }) {
+export default function Login({ onLogin, onRegister, error, allowRegistration = true, passwordMin = 6 }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState('login')
@@ -46,6 +46,11 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-2 mb-4 border rounded"
         />
+        {mode === 'register' && (
+          <p className="-mt-2 mb-4 text-xs text-gray-500">
+            Пароль — минимум {passwordMin} символов
+          </p>
+        )}
         <button
           type="submit"
           className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
