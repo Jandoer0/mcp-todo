@@ -1,8 +1,33 @@
 import builtins
+import re
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_validator
+
+from .security import validate_webhook_url
+
+# Shared limits: the SQLite columns are unbounded VARCHARs, so schemas are
+# the only guard against absurd values (DB bloat / UI breakage / DoS).
+MAX_TITLE = 200
+MAX_DESCRIPTION = 50_000
+MAX_LIST_NAME = 100
+MAX_TAG_NAME = 50
+_MAX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _check_color(v: str | None) -> str | None:
+    if v is None:
+        return v
+    if not _MAX_COLOR.match(v or ""):
+        raise ValueError("Цвет должен быть в формате #rrggbb")
+    return v
+
+
+def _check_kind(v: str | None) -> str | None:
+    if v is not None and v not in ("todo", "progress", "done"):
+        raise ValueError("kind должен быть todo, progress или done")
+    return v
 
 
 class BoardResponse(BaseModel):
@@ -15,15 +40,19 @@ class BoardResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class BoardCreate(BaseModel):
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
     color: str = "#0ea5e9"
 
+    _color_check = field_validator("color")(_check_color)
+
 class BoardUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
     color: str | None = None
-    position: int | None = None
+    position: int | None = Field(default=None, ge=0, le=1_000_000)
+
+    _color_check = field_validator("color")(_check_color)
 
 class UserResponse(BaseModel):
     id: int
@@ -41,8 +70,10 @@ class UserResponse(BaseModel):
         return bool(self.mcp_token_hash)
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
+    # min password length is enforced in /auth/register (admin updates may
+    # send an empty password meaning "keep the current one").
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(default="", max_length=256)
     role: str | None = "user"
     webhooks_enabled: bool | None = None
 
@@ -51,12 +82,12 @@ class Token(BaseModel):
     token_type: str
 
 class TaskBase(BaseModel):
-    title: str
-    description: str | None = None
-    list: str | None = "Входящие"
+    title: str = Field(min_length=1, max_length=MAX_TITLE)
+    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION)
+    list: str | None = Field(default="Входящие", max_length=MAX_LIST_NAME)
     start_date: datetime | None = None
     deadline: datetime | None = None
-    priority: int | None = 1
+    priority: int | None = Field(default=1, ge=1, le=3)
     tags: builtins.list[str] | None = []
     # Owning board (required for creation; verified server-side)
     board_id: int | None = None
@@ -65,10 +96,17 @@ class TaskBase(BaseModel):
     # Cyclic task settings
     is_cyclic: bool | None = False
     cycle_period: str | None = None  # daily | weekly | monthly | yearly
-    cycle_interval: int | None = 1
-    reminder_days: int | None = 0
+    cycle_interval: int | None = Field(default=1, ge=1, le=365)
+    reminder_days: int | None = Field(default=0, ge=0, le=365)
     # Financial weight: positive = income, negative = expense (0 = no budget)
-    amount: float | None = 0.0
+    amount: float | None = Field(default=0.0, allow_inf_nan=False, ge=-1e12, le=1e12)
+
+    @field_validator("cycle_period")
+    @classmethod
+    def _cycle_period_check(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("daily", "weekly", "monthly", "yearly"):
+            raise ValueError("cycle_period: daily | weekly | monthly | yearly")
+        return v
 
 class TaskCreate(TaskBase):
     pass
@@ -107,25 +145,35 @@ class TaskListResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class TaskListCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=MAX_LIST_NAME)
     color: str | None = None
-    position: int | None = None
+    position: int | None = Field(default=None, ge=0, le=1_000_000)
     # 'todo' | 'progress' | 'done' | None (regular list)
     kind: str | None = None
 
+    _color_check = field_validator("color")(_check_color)
+    _kind_check = field_validator("kind")(_check_kind)
+
 class TaskListUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=MAX_LIST_NAME)
     color: str | None = None
-    position: int | None = None
+    position: int | None = Field(default=None, ge=0, le=1_000_000)
     kind: str | None = None
 
+    _color_check = field_validator("color")(_check_color)
+    _kind_check = field_validator("kind")(_check_kind)
+
 class TagCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=MAX_TAG_NAME)
     color: str
 
+    _color_check = field_validator("color")(_check_color)
+
 class TagUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=MAX_TAG_NAME)
     color: str | None = None
+
+    _color_check = field_validator("color")(_check_color)
 
 class TaskResponse(BaseModel):
     id: int
@@ -205,7 +253,8 @@ class CycleLogResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class TaskBulkUpdate(BaseModel):
-    tasks: list[dict[str, Any]]
+    # Bounded: a single bulk request may not carry an unbounded task list.
+    tasks: list[dict[str, Any]] = Field(max_length=500)
 
 class TaskMove(BaseModel):
     board_id: int
@@ -216,11 +265,11 @@ class BulkUpdateResponse(BaseModel):
     errors: list[dict[str, Any]] = []
 
 class WebhookBase(BaseModel):
-    name: str
-    url: str
-    token: str | None = None
-    chat_id: str
-    thread_id: str | None = None
+    name: str | None = Field(default=None, max_length=100)
+    url: str = Field(max_length=2048)
+    token: str | None = Field(default=None, max_length=256)  # HMAC secret
+    chat_id: str = Field(max_length=100)
+    thread_id: str | None = Field(default=None, max_length=50)
     events: builtins.list[str] = []
     excluded_events: builtins.list[str] = []
 
@@ -239,11 +288,10 @@ class WebhookBase(BaseModel):
         v = (v or "").strip()
         if not v:
             raise ValueError("Укажите URL приёмника уведомлений")
-        if not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("URL должен начинаться с http:// или https://")
         if " " in v:
             raise ValueError("URL не должен содержать пробелов")
-        return v
+        # SSRF guard: http(s) only, public hosts only (see security.py).
+        return validate_webhook_url(v)
 
     @field_validator("chat_id")
     @classmethod
@@ -275,11 +323,11 @@ class WebhookPut(BaseModel):
     per board. All fields are optional: on update only the provided ones
     are replaced; on creation url and chat_id are required."""
 
-    name: str | None = None
-    url: str | None = None
-    token: str | None = None
-    chat_id: str | None = None
-    thread_id: str | None = None
+    name: str | None = Field(default=None, max_length=100)
+    url: str | None = Field(default=None, max_length=2048)
+    token: str | None = Field(default=None, max_length=256)  # HMAC secret
+    chat_id: str | None = Field(default=None, max_length=100)
+    thread_id: str | None = Field(default=None, max_length=50)
     events: builtins.list[str] | None = None
     excluded_events: builtins.list[str] | None = None
 
@@ -291,11 +339,10 @@ class WebhookPut(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Укажите URL приёмника уведомлений")
-        if not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("URL должен начинаться с http:// или https://")
         if " " in v:
             raise ValueError("URL не должен содержать пробелов")
-        return v
+        # SSRF guard: http(s) only, public hosts only (see security.py).
+        return validate_webhook_url(v)
 
     @field_validator("chat_id")
     @classmethod

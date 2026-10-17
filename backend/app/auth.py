@@ -14,13 +14,21 @@ from .config import settings
 from .db import get_db
 from .models import User
 
+from functools import lru_cache
+
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 bearer = HTTPBearer(auto_error=False)
 
 
+@lru_cache
+def dummy_password_hash() -> str:
+    """A real argon2 hash of random bytes: used to keep login timing uniform
+    when the username does not exist (no cheap early-out)."""
+    return pwd_context.hash(secrets.token_urlsafe(16))
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
-
 
 def get_password_hash(password: str) -> str:
     # argon2 has no 72-byte limit, but guard just in case

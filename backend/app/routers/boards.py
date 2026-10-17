@@ -256,8 +256,19 @@ async def test_board_webhook(
         webhook, notification_service.send_test(webhook)
     )
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        # Re-validate right before delivery (SSRF / DNS-rebinding guard) and
+        # never follow redirects: a public URL must not bounce us inside.
+        from ..security import validate_webhook_url
+
+        validate_webhook_url(webhook.url)
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
             resp = await client.post(webhook.url, content=body, headers=headers)
+        if resp.is_redirect:
+            return {
+                "ok": False,
+                "status_code": resp.status_code,
+                "error": "Редиректы запрещены",
+            }
         ok = resp.status_code < 400
         return {
             "ok": ok,

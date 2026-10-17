@@ -62,6 +62,9 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.username == user_in.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already taken")
+    if not user_in.password:
+        # An empty password would mean "login without a password".
+        raise HTTPException(status_code=422, detail="Пароль обязателен")
 
     user = User(
         username=user_in.username,

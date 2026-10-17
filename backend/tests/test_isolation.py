@@ -13,6 +13,9 @@ os.makedirs(_TMP + "/static", exist_ok=True)
 os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["DATABASE_URL"] = "sqlite:///" + _TMP + "/test.db"
 os.environ["STATIC_DIR"] = _TMP + "/static"
+# Webhook delivery tests post to 127.0.0.1 — opt out of the SSRF guard for
+# the test session (the app resolves this env on every webhook request).
+os.environ["WEBHOOK_ALLOW_PRIVATE"] = "1"
 
 from app.main import starlette_app
 

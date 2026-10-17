@@ -184,7 +184,12 @@ async def _send(url: str, secret: str | None, payload: dict) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = _signed_headers(secret, body)
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        # Re-validate right before delivery: the host may have re-pointed to
+        # an internal address since the webhook was saved (DNS rebinding).
+        from ..security import validate_webhook_url
+
+        validate_webhook_url(url)
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
             resp = await client.post(url, content=body, headers=headers)
             resp.raise_for_status()
     except Exception as exc:  # never break the request because of a webhook

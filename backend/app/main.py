@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
-from starlette.responses import FileResponse, HTMLResponse
+from starlette.responses import JSONResponse
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 
@@ -410,9 +410,20 @@ def ensure_admin(db) -> None:
     if admin_name:
         user = db.query(User).filter(User.username == admin_name).first()
         if not user:
+            # Never fall back to a well-known default password: if none is
+            # provided, generate a random one and show it once in the logs.
+            password = os.getenv("ADMIN_PASSWORD")
+            if not password:
+                import secrets
+
+                password = secrets.token_urlsafe(16)
+                print(
+                    f"[security] ADMIN_PASSWORD not set — one-time generated "
+                    f"password for '{admin_name}': {password}"
+                )
             user = User(
                 username=admin_name,
-                hashed_password=get_password_hash(os.getenv("ADMIN_PASSWORD", "admin")),
+                hashed_password=get_password_hash(password),
                 role="admin",
             )
             db.add(user)
@@ -438,6 +449,20 @@ with SessionLocal() as _db:
 
 # --- JSON API (mounted at /api) ---
 api = FastAPI(title="OmniTask API")
+
+# DoS guard: reject oversized request bodies before they are buffered and
+# parsed (Pydantic would otherwise happily eat hundreds of MBs).
+MAX_BODY_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+@api.middleware("http")
+async def _body_size_limit(request, call_next):
+    cl = request.headers.get("content-length", "")
+    if cl.isdigit() and int(cl) > MAX_BODY_BYTES:
+        return JSONResponse(
+            {"detail": "Слишком большой запрос"}, status_code=413
+        )
+    return await call_next(request)
 
 
 def _cors_middleware():
@@ -518,20 +543,6 @@ class NoCacheStaticFiles(StaticFiles):
         if "text/html" in (resp.media_type or "") or path.endswith(self.NO_STORE_SUFFIXES):
             resp.headers["Cache-Control"] = "no-store"
         return resp
-
-
-async def serve_frontend(request):
-    path = request.path_params.get("path", "index.html")
-    full = os.path.join(static_dir, path)
-    if os.path.exists(full) and os.path.isfile(full):
-        resp = FileResponse(full)
-        if path.endswith(("sw.js", "registerSW.js", "manifest.webmanifest")):
-            resp.headers["Cache-Control"] = "no-store"
-        return resp
-    index = os.path.join(static_dir, "index.html")
-    if os.path.exists(index):
-        return FileResponse(index, media_type="text/html")
-    return HTMLResponse("<h1>OmniTask</h1><p>Frontend not built.</p>")
 
 
 starlette_app = Starlette(
