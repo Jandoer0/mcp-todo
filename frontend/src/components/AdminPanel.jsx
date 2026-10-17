@@ -547,6 +547,27 @@ export default function AdminPanel({
 
                 <section className="bg-gray-50/50 rounded-lg p-4 mb-4 border">
                   <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
+                    Количество записей
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      ['Пользователи', stats.counts.users],
+                      ['Доски', stats.counts.boards],
+                      ['Задачи', stats.counts.tasks],
+                      ['Списки', stats.counts.lists],
+                      ['Теги', stats.counts.tags],
+                      ['Веб-хуки', stats.counts.webhooks],
+                    ].map(([label, n]) => (
+                      <div key={label} className="bg-card border rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">{label}</span>
+                        <span className="font-semibold text-sm">{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="bg-gray-50/50 rounded-lg p-4 mb-4 border">
+                  <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
                     Ограничение размера БД
                   </h2>
                   <div className="flex items-end gap-2">
@@ -641,27 +662,6 @@ export default function AdminPanel({
                 ) : (
                   <p className="text-sm text-gray-500 mb-4">Загрузка настроек…</p>
                 )}
-
-                <section className="bg-gray-50/50 rounded-lg p-4 border">
-                  <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
-                    Количество записей
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {[
-                      ['Пользователи', stats.counts.users],
-                      ['Доски', stats.counts.boards],
-                      ['Задачи', stats.counts.tasks],
-                      ['Списки', stats.counts.lists],
-                      ['Теги', stats.counts.tags],
-                      ['Веб-хуки', stats.counts.webhooks],
-                    ].map(([label, n]) => (
-                      <div key={label} className="bg-card border rounded-lg p-3 flex justify-between items-center">
-                        <span className="text-sm text-gray-600">{label}</span>
-                        <span className="font-semibold text-sm">{n}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
               </div>
             )}
           </div>
