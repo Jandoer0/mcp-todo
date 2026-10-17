@@ -68,11 +68,17 @@ function BlockersProgress({ blockers }) {
       onMouseEnter={show}
       onMouseLeave={() => setPos(null)}
     >
-      <div className="h-1.5 rounded-full bg-slate-300/70 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-blue-500 transition-all duration-300"
-          style={{ width: `${pct}%` }}
-        />
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 min-w-0 h-1.5 rounded-full bg-slate-300/70 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {/* Amount of blocking tasks: done/total */}
+        <span className="text-[10px] leading-none text-slate-500 shrink-0 tabular-nums">
+          {done}/{total}
+        </span>
       </div>
       {pos && createPortal(
         <div
