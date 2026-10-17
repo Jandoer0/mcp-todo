@@ -20,7 +20,7 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
           className={`flex-1 px-2 py-1 rounded text-center transition-all whitespace-nowrap ${
             activeFilter === f.id 
               ? 'ring-2 ring-offset-2 ring-[#22384d] bg-slate-100' 
-              : 'bg-white hover:bg-gray-50'
+              : 'bg-card hover:bg-card-hover'
           }`}
         >
           <span className={`text-sm font-bold ${f.color}`}>{f.value}</span>

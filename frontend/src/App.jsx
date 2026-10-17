@@ -358,7 +358,7 @@ export default function App() {
           <div className="md:hidden relative">
             <button
               onClick={() => (filterMenuOpen ? closeFilterMenu() : (clearTimeout(filterMenuTimer.current), setFilterMenuClosing(false), setFilterMenuOpen(true)))}
-              className="bg-white text-slate-700 px-3 py-2 rounded shadow-sm text-sm flex items-center gap-1 whitespace-nowrap"
+              className="bg-card text-slate-700 px-3 py-2 rounded shadow-sm text-sm flex items-center gap-1 whitespace-nowrap"
             >
               {FILTERS.find((f) => f.id === activeFilter)?.label || 'Фильтры'}
               <span className={`text-[10px] transition-transform ${filterMenuOpen ? 'rotate-180' : ''}`}>▼</span>

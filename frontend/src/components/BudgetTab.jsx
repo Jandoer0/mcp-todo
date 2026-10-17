@@ -87,7 +87,7 @@ export default function BudgetTab({ board, tasks = [], lists = [] }) {
   return (
     <div className="space-y-4">
       {/* Сводный блок баланса: крупный итог + распределение доход/расход */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-card p-4 shadow-sm">
         {/* План / Баланс / Факт — одна строка */}
         <div className="grid grid-cols-3 items-center divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
           <div>

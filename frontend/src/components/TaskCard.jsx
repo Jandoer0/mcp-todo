@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 import { formatAmount } from './TaskForm'
@@ -29,6 +30,73 @@ function DateChip({ value }) {
     >
       {formatDate(value)}
     </span>
+  )
+}
+
+// Progress bar for blocking tasks: fills as blockers move to a list with
+// the "done" property (kind='done'). Hover shows a tooltip with the blocker
+// list — rendered via portal because the card has overflow-hidden.
+function BlockersProgress({ blockers }) {
+  const [pos, setPos] = useState(null) // { left, top, bottom } viewport coords
+  const [above, setAbove] = useState(true)
+  const tipRef = useRef(null)
+  const total = blockers.length
+  const done = blockers.filter((b) => b.isDone).length
+  const pct = total ? Math.round((done / total) * 100) : 0
+
+  // Flip the tooltip below the bar when there is not enough room above.
+  useLayoutEffect(() => {
+    if (pos && above && tipRef.current && pos.top - tipRef.current.offsetHeight < 4) {
+      setAbove(false)
+    }
+  }, [pos, above])
+
+  const show = (e) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 268)), top: r.top, bottom: r.bottom })
+    setAbove(true)
+  }
+
+  return (
+    <div
+      className="flex-1 min-w-0 py-1 -my-1 cursor-help"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-label={`Блокирующие задачи: ${done} из ${total}`}
+      onMouseEnter={show}
+      onMouseLeave={() => setPos(null)}
+    >
+      <div className="h-1.5 rounded-full bg-slate-300/70 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-blue-500 transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {pos && createPortal(
+        <div
+          ref={tipRef}
+          className="fixed z-[60] w-max max-w-[260px] px-2 py-1.5 rounded-lg bg-slate-800 text-white text-[11px] leading-snug shadow-lg pointer-events-none"
+          style={
+            above
+              ? { left: pos.left, bottom: window.innerHeight - pos.top + 8 }
+              : { left: pos.left, top: pos.bottom + 8 }
+          }
+        >
+          <div className="font-semibold mb-1">Блокирующие задачи: {done} из {total}</div>
+          <ul>
+            {blockers.map((b) => (
+              <li key={b.id} className="flex items-center gap-1.5">
+                <span className={b.isDone ? 'text-green-400' : 'text-slate-400'}>{b.isDone ? '✓' : '○'}</span>
+                <span className={b.isDone ? 'line-through opacity-70' : ''}>{b.title}</span>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body
+      )}
+    </div>
   )
 }
 
@@ -89,6 +157,14 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const doneListName =
     (lists.find((l) => l.kind === 'done' && l.name !== 'Архив') || lists.find((l) => l.kind === 'done') || {})
       .name || 'Готово'
+
+  // Blockers with titles and their "done" state (their list has kind='done')
+  // — drives the progress bar on the card.
+  const blockers = (task.blocked_by || []).map((id) => {
+    const bt = allTasks.find((t) => t.id === id)
+    const bList = bt ? lists.find((l) => l.name === bt.list) : null
+    return { id, title: bt ? bt.title : `#${id}`, isDone: !!bList && bList.kind === 'done' }
+  })
 
   const moveTo = (targetName) => {
     if (lists.find((l) => l.name === targetName)?.kind === 'done' && task.is_blocked) {
@@ -277,7 +353,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           if (!dragging && Math.abs(dragX) < CLICK_SLOP) onEdit(task)
         }}
         style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
-        className={`relative bg-white rounded-md shadow-sm overflow-hidden py-2 px-2 ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
+        className={`relative bg-card rounded-md shadow-sm overflow-hidden py-2 px-2 ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
       >
         {/* Line 1: title, bold, single line */}
         <div
@@ -315,13 +391,12 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           </div>
         </div>
 
-        {/* Line 4: tags then blocking tasks, one centered line. When the row
-            overflows, each half is capped at 50% of the card width so a part
-            of BOTH tags and blockers stays visible (tags show their tail near
-            the center, blockers show their head). */}
-        {(((task.tags || []).length > 0) ||
-          (task.is_blocked || (task.blocked_by && task.blocked_by.length > 0))) && (
-          <div className="mt-1 flex justify-center gap-1 overflow-hidden">
+        {/* Line 4: tags then the blockers progress bar, one line. Each half
+            is capped at 50% of the card width so both stay visible on
+            overflow. The bar fills as blockers move to a "done" list;
+            hover shows the blocker list (see BlockersProgress). */}
+        {(((task.tags || []).length > 0) || blockers.length > 0) && (
+          <div className="mt-1 flex items-center gap-1.5 overflow-hidden">
             <div className="flex gap-1 min-w-0 max-w-[50%] justify-end overflow-hidden whitespace-nowrap">
               {(task.tags || []).map((t, i) => {
                 const name = typeof t === 'string' ? t : (t.name || t)
@@ -339,20 +414,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                 )
               })}
             </div>
-            <div className="flex gap-1 min-w-0 max-w-[50%] overflow-hidden whitespace-nowrap">
-              {(task.blocked_by || []).map((bid) => {
-                const bTask = allTasks.find((t) => t.id === bid)
-                return (
-                  <span
-                    key={`b${bid}`}
-                    className="px-1 rounded bg-slate-100 border border-slate-300 text-[10px] text-slate-600 shrink-0"
-                    title={bTask ? bTask.title : bid}
-                  >
-                    {bTask ? bTask.title : bid}
-                  </span>
-                )
-              })}
-            </div>
+            {blockers.length > 0 && <BlockersProgress blockers={blockers} />}
           </div>
         )}
 

@@ -203,7 +203,7 @@ export default function AdminPanel({
                 </label>
               </section>
 
-              <div className="bg-white rounded-lg border overflow-hidden">
+              <div className="bg-card rounded-lg border overflow-hidden">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50">
                     <tr className="text-xs uppercase text-gray-500">
@@ -260,7 +260,7 @@ export default function AdminPanel({
               пользователем в окне редактирования доски (вкладка «Веб-хуки»,
               один веб-хук на доску).
             </p>
-            <div className="bg-white rounded-lg border overflow-x-auto">
+            <div className="bg-card rounded-lg border overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-gray-50">
                   <tr className="text-xs uppercase text-gray-500">
@@ -490,7 +490,7 @@ export default function AdminPanel({
                       ['Теги', stats.counts.tags],
                       ['Веб-хуки', stats.counts.webhooks],
                     ].map(([label, n]) => (
-                      <div key={label} className="bg-white border rounded-lg p-3 flex justify-between items-center">
+                      <div key={label} className="bg-card border rounded-lg p-3 flex justify-between items-center">
                         <span className="text-sm text-gray-600">{label}</span>
                         <span className="font-semibold text-sm">{n}</span>
                       </div>
