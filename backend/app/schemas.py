@@ -30,12 +30,34 @@ def _check_kind(v: str | None) -> str | None:
     return v
 
 
+class CurrencyResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    symbol: str
+    rate: float | None = None  # value of 1 unit in base units (USD); None = не указан
+
+    model_config = {"from_attributes": True}
+
+class CurrencyCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=10)
+    name: str = Field(min_length=1, max_length=100)
+    symbol: str = Field(default="", max_length=10)
+    rate: float | None = Field(default=None, gt=0, allow_inf_nan=False, le=1e9)
+
+class CurrencyUpdate(BaseModel):
+    code: str | None = Field(default=None, min_length=1, max_length=10)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    symbol: str | None = Field(default=None, max_length=10)
+    rate: float | None = Field(default=None, gt=0, allow_inf_nan=False, le=1e9)
+
 class BoardResponse(BaseModel):
     id: int
     name: str
     description: str | None = None
     color: str
     position: int
+    report_currency_id: int | None = None  # валюта расчёта бюджета
 
     model_config = {"from_attributes": True}
 
@@ -51,6 +73,8 @@ class BoardUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     color: str | None = None
     position: int | None = Field(default=None, ge=0, le=1_000_000)
+    # Валюта расчёта бюджета: id валюты пользователя или None (базовая USD)
+    report_currency_id: int | None = None
 
     _color_check = field_validator("color")(_check_color)
 
@@ -102,6 +126,8 @@ class TaskBase(BaseModel):
     reminder_days: int | None = Field(default=0, ge=0, le=365)
     # Financial weight: positive = income, negative = expense (0 = no budget)
     amount: float | None = Field(default=0.0, allow_inf_nan=False, ge=-1e12, le=1e12)
+    # Currency of the amount (мультивалютность); None = базовая валюта (USD)
+    currency_id: int | None = None
 
     @field_validator("description")
     @classmethod
@@ -140,6 +166,7 @@ class TaskUpdate(BaseModel):
     cycle_interval: int | None = None
     reminder_days: int | None = None
     amount: float | None = None
+    currency_id: int | None = None
 
 class TagResponse(BaseModel):
     id: int
@@ -210,6 +237,7 @@ class TaskResponse(BaseModel):
     reminder_days: int | None = 0
     cycle_dormant: bool = False  # cyclic task outside its reminder window
     amount: float = 0.0  # financial weight (income + / expense -)
+    currency_id: int | None = None  # валюта суммы (NULL = базовая)
 
     model_config = {"from_attributes": True}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
-import { adminApi, authApi, boardsApi, tasksApi } from './api/client'
+import { adminApi, authApi, boardsApi, currenciesApi, tasksApi } from './api/client'
 import Login from './components/Login'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
@@ -10,6 +10,7 @@ import TaskForm from './components/TaskForm'
 import ListsManager from './components/ListsManager'
 import BoardForm from './components/BoardForm'
 import AdminPanel from './components/AdminPanel'
+import CurrencyManager from './components/CurrencyManager'
 
 export default function App() {
   const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration, passwordMin } =
@@ -23,6 +24,19 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [profile, setProfile] = useState(null)
   const [webhooksEnabled, setWebhooksEnabled] = useState(true)
+  // «Параметры валют»: список валют пользователя + открытие окна управления
+  const [currencies, setCurrencies] = useState([])
+  const [currenciesOpen, setCurrenciesOpen] = useState(false)
+
+  const loadCurrencies = () =>
+    currenciesApi
+      .list()
+      .then((res) => setCurrencies(res.data || []))
+      .catch(() => {})
+
+  useEffect(() => {
+    if (ready) loadCurrencies()
+  }, [ready, token])
 
   const {
     tasks,
@@ -325,6 +339,10 @@ export default function App() {
       onAdmin={openAdmin}
       onLogout={logout}
       onProfile={openProfile}
+      onCurrencies={() => {
+        loadCurrencies()
+        setCurrenciesOpen(true)
+      }}
       boards={boards}
       activeBoardId={activeBoardId}
       activeBoard={activeBoard}
@@ -501,6 +519,29 @@ export default function App() {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setProfileOpen(false)}
+                className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currenciesOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4"
+          onClick={() => setCurrenciesOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 max-h-[90dvh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold mb-4">Параметры валют</h2>
+            <CurrencyManager currencies={currencies} onChanged={loadCurrencies} />
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setCurrenciesOpen(false)}
                 className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded"
               >
                 Закрыть

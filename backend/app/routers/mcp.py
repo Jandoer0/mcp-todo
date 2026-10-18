@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
-from ..models import Task, User
+from ..models import Currency, Task, User
 from ..services import task_service
 from ..services.task_service import advance_deadline, cycle_log, regenerate_cycle
 
@@ -48,6 +48,67 @@ def _extract_args(kwargs: dict) -> dict:
     if "args" in kwargs and isinstance(kwargs["args"], dict):
         return kwargs["args"]
     return kwargs
+
+
+def _resolve_currency(db: Session, user: User, code: str) -> Currency | None:
+    """Find the user's currency by code (case-insensitive)."""
+    return (
+        db.query(Currency)
+        .filter(Currency.user_id == user.id, Currency.code == (code or "").upper())
+        .first()
+    )
+
+
+@mcp.tool()
+def list_currencies(auth_token: str) -> str:
+    """List the user's currencies (код, название, символ, курс к базовой USD)."""
+    import json as _json
+
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    db = _session()
+    try:
+        from ..services.currency_service import list_currencies as _list
+
+        return _json.dumps(
+            [
+                {
+                    "id": c.id,
+                    "code": c.code,
+                    "name": c.name,
+                    "symbol": c.symbol,
+                    "rate": c.rate,
+                }
+                for c in _list(db, user)
+            ],
+            ensure_ascii=False,
+        )
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def update_currency_rate(auth_token: str, code: str, rate: float) -> str:
+    """Set the rate of a user currency (value of 1 unit in base USD).
+    Example: rate 0.011 for RUB means 10 000 RUB ≈ 110 USD."""
+    user = get_user_from_token(auth_token)
+    if not user:
+        return "Error: Invalid or missing authentication token"
+    db = _session()
+    try:
+        from ..services.currency_service import CurrencyError, update_currency
+
+        cur = _resolve_currency(db, user, code)
+        if not cur:
+            return f"Error: Currency not found: {code}"
+        try:
+            update_currency(db, user, cur.id, {"rate": rate})
+        except CurrencyError as e:
+            return f"Error: {e.message}"
+        return f"Rate of {cur.code} set to {rate}"
+    finally:
+        db.close()
 
 
 def _parse_dt(value):
@@ -183,6 +244,7 @@ def list_tasks(auth_token: str, board_id: int, status: str | None = None, cyclic
                     "deadline": str(t.deadline) if t.deadline else None,
                     "list": t.list,
                     "amount": float(t.amount or 0),
+                    "currency_id": t.currency_id,
                     "tags": [tg.name for tg in t.tags],
                     "blocked_by": t.blocked_by,
                     "is_cyclic": bool(t.is_cyclic),
@@ -215,11 +277,13 @@ def create_task(
     cycle_interval: int = 1,
     reminder_days: int = 0,
     amount: float = 0.0,
+    currency_code: str | None = None,
 ) -> str:
     """Create a new task on the given board. Priority scale: 1 = Low, 2 = Medium, 3 = High.
     Dates (start_date, deadline) accept 'YYYY-MM-DD' or ISO 8601 strings.
     Cyclic tasks: cycle_period is daily|weekly|monthly|yearly, cycle_interval = every N periods,
-    reminder_days = days before deadline when the task becomes visible in the main lists."""
+    reminder_days = days before deadline when the task becomes visible in the main lists.
+    currency_code resolves the amount's currency by code (e.g. RUB, USD)."""
     data = _extract_args(locals())
     _parse_task_dates(data)
 
@@ -241,6 +305,13 @@ def create_task(
         return "Error: Invalid or missing authentication token"
     db = _session()
     try:
+        code = data.get("currency_code")
+        if code:
+            cur = _resolve_currency(db, user, code)
+            if not cur:
+                return f"Error: Currency not found: {code}"
+            data["currency_id"] = cur.id
+        data.pop("currency_code", None)
         try:
             task = task_service.create_task(db, user, data)
         except task_service.TaskError as e:
@@ -269,9 +340,11 @@ def update_task(
     cycle_interval: int | None = None,
     reminder_days: int | None = None,
     amount: float | None = None,
+    currency_code: str | None = None,
 ) -> str:
     """Update an existing task (must belong to the given board). Priority scale: 1 = Low, 2 = Medium, 3 = High.
-    Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration."""
+    Setting status='done' on a cyclic task completes the cycle: logs history and spawns the next iteration.
+    currency_code resolves the amount's currency by code (e.g. RUB, USD)."""
     data = _extract_args(locals())
     
     token = data.get("auth_token")
@@ -307,6 +380,12 @@ def update_task(
             return "Task not found"
         if existing.board_id != board_id:
             return "Error: Task not found on this board"
+        code = update_data.pop("currency_code", None)
+        if code:
+            cur = _resolve_currency(db, user, code)
+            if not cur:
+                return f"Error: Currency not found: {code}"
+            update_data["currency_id"] = cur.id
         # `list` is a builtin name in the tool signature; map it through.
         try:
             task = task_service.update_task(db, user, t_id, update_data)
@@ -457,7 +536,21 @@ def get_board_budget(auth_token: str, board_id: int) -> str:
         except LookupError:
             return "Error: Board not found"
         lines = [
-            f"Budget of board '{b['board_name']}' (id {b['board_id']}):",
+            f"Budget of board '{b['board_name']}' (id {b['board_id']})"
+            + (
+                f" in {b['report_currency']['code']}"
+                if b.get("report_currency")
+                else ""
+            )
+            + ":",
+        ]
+        if b.get("missing_rate"):
+            lines.append(
+                "WARNING: у одной или нескольких валют не указан курс — "
+                "обновите параметры валют (update_currency_rate), "
+                "итоги могут быть неполными."
+            )
+        lines += [
             f"ПЛАН: {b['plan']:+g}",
             f"ФАКТ: {b['fact']:+g}",
             f"ИТОГО: {b['total']:+g}",
@@ -466,7 +559,12 @@ def get_board_budget(auth_token: str, board_id: int) -> str:
             "Entries:",
         ]
         lines += [
-            f"- {e['title']} [{e['list']}]: {e['amount']:+g}"
+            f"- {e['title']} [{e['list']}]: {e['amount']:+g} {e['currency_code'] or ''}"
+            + (
+                f" (≈ {e['converted']:+g} {b['report_currency']['code']})"
+                if e.get("converted") is not None and b.get("report_currency")
+                else ""
+            )
             for e in b["entries"]
         ] or ["- (нет задач с ненулевой суммой)"]
         return "\n".join(lines)

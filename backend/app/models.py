@@ -19,6 +19,30 @@ from sqlalchemy.orm import relationship
 from .db import Base
 
 
+class Currency(Base):
+    """A user-defined currency for budgeting (мультивалютность).
+
+    Rates are stored per user (strict isolation): ``rate`` is the value of
+    one unit of this currency expressed in the base unit (USD). Conversion
+    between two currencies: amount * rate(src) / rate(dst). A missing/zero
+    rate means "курс не указан" — the budget UI shows a warning instead of
+    silently guessing a value.
+    """
+
+    __tablename__ = "currencies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    code = Column(String)  # short code, uppercase letters/digits (RUB, USD…)
+    name = Column(String)  # human-readable name (Рубли (РФ)…)
+    symbol = Column(String)  # display symbol (₽, $, €)
+    # Value of 1 unit in base units (USD). NULL/0 = not set (warn in UI).
+    rate = Column(Float, nullable=True)
+    __table_args__ = (
+        UniqueConstraint("user_id", "code", name="uq_currencies_user_code"),
+    )
+
+
 class Board(Base):
     """A user's workspace (доска). Every board owns its own tasks, lists and
     tags; entities are never shared between boards. Max 20 boards per user."""
@@ -32,6 +56,8 @@ class Board(Base):
     color = Column(String, default="#0ea5e9")  # from BOARD_PALETTE
     position = Column(Integer, default=0)
     created_at = Column(DateTime, default=utcnow)
+    # Report currency of the budget tab (валюта расчёта); NULL = user's base.
+    report_currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     __table_args__ = (
         UniqueConstraint("user_id", "name", name="uq_boards_user_name"),
     )
@@ -85,6 +111,8 @@ class Task(Base):
     status = Column(String, default="todo")  # todo | in_progress | done
     # Financial weight (бюджетирование): positive = income, negative = expense.
     amount = Column("amount", Float, default=0.0)
+    # Currency of the amount (мультивалютность); NULL = user's base currency.
+    currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     tag = Column(String, nullable=True)  # legacy single-tag column (unused)
     list = Column(String, default="Входящие")  # задел под Канбан-доску
     created_at = Column(DateTime, default=utcnow)

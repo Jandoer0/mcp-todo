@@ -17,6 +17,7 @@ from ..board import PALETTE, list_colors, status_for_kind
 from ..models import (
     TaskChangeLog,
     Board,
+    Currency,
     Tag,
     Task,
     TaskCycleLog,
@@ -299,6 +300,7 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
         cycle_group_id=task.cycle_group_id,
         reminder_days=task.reminder_days,
         amount=task.amount or 0.0,
+        currency_id=task.currency_id,
     )
     next_task.tags = list(task.tags)
     cycle_log(db, task.user_id, task.cycle_group_id, task, "completed")
@@ -647,7 +649,16 @@ def move_task(db: Session, user: User, task_id: int, target_board_id: int) -> Ta
 def board_budget(db: Session, user: User, board_id: int) -> dict:
     """Board budget (property-based, UPDATE ТЗ): План = суммы в списках со
     свойством todo/progress, Факт = в списках со свойством done, ИТОГО = все
-    суммы доски. Amount == 0 не участвует."""
+    суммы доски. Amount == 0 не участвует.
+
+    Мультивалютность: каждая запись несёт сумму в своей валюте (code + rate),
+    а все итоги и converted даются в валюте расчёта доски (report_currency_id,
+    по умолчанию базовая USD). Расчёты — Decimal; missing_rate=True, когда у
+    какой-то валюты не указан курс (UI показывает предупреждение)."""
+    from decimal import Decimal, ROUND_HALF_UP
+
+    from .currency_service import convert_amount, rates_map
+
     board = _resolve_board(db, user, board_id)
     done_names = {
         l.name
@@ -665,24 +676,72 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
         )
         .all()
     )
-    entries = [
-        {"id": t.id, "title": t.title, "list": t.list, "amount": float(t.amount or 0)}
-        for t in tasks
-    ]
-    total = sum(e["amount"] for e in entries)
-    fact = sum(e["amount"] for e in entries if e["list"] in done_names)
-    income = sum(e["amount"] for e in entries if e["amount"] > 0)
-    expense = sum(e["amount"] for e in entries if e["amount"] < 0)
+    rates = rates_map(db, user.id)
+    target_id = board.report_currency_id
+    if target_id is None:
+        target_id = (
+            db.query(Currency)
+            .filter(Currency.user_id == user.id, Currency.code == "USD")
+            .first()
+        )
+        target_id = target_id.id if target_id else None
+    target_rate = rates.get(target_id)
+
+    entries = []
+    missing_rate = target_id is None or not target_rate
+    for t in tasks:
+        # NULL currency = базовая (USD, rate 1); иная валюта без курса → warning
+        src_rate = rates.get(t.currency_id) if t.currency_id else 1.0
+        if t.currency_id and not src_rate:
+            missing_rate = True
+        converted = convert_amount(t.amount or 0, src_rate or 0, target_rate)
+        if converted is None:
+            missing_rate = True
+        entries.append(
+            {
+                "id": t.id,
+                "title": t.title,
+                "list": t.list,
+                "amount": float(t.amount or 0),
+                "currency_id": t.currency_id,
+                "currency_code": cur_code if (cur_code := _currency_code(db, t.currency_id)) else None,
+                "converted": float(converted) if converted is not None else None,
+            }
+        )
+
+    def _sum_converted(rows) -> Decimal:
+        return sum(
+            (Decimal(str(e["converted"])) for e in rows if e["converted"] is not None),
+            Decimal(0),
+        )
+
+    total = _sum_converted(entries)
+    fact = _sum_converted(e for e in entries if e["list"] in done_names)
+    income = _sum_converted(e for e in entries if e["amount"] > 0)
+    expense = _sum_converted(e for e in entries if e["amount"] < 0)
+    cur = db.query(Currency).filter(Currency.id == target_id).first() if target_id else None
     return {
         "board_id": board.id,
         "board_name": board.name,
-        "plan": total - fact,
-        "fact": fact,
-        "total": total,
-        "income": income,
-        "expense": expense,
+        "report_currency_id": target_id,
+        "report_currency": {"id": cur.id, "code": cur.code, "symbol": cur.symbol}
+        if cur
+        else None,
+        "missing_rate": missing_rate,
+        "plan": float((total - fact).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "fact": float(fact.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "total": float(total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "income": float(income.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "expense": float(expense.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
         "entries": entries,
     }
+
+
+def _currency_code(db: Session, currency_id: int | None) -> str | None:
+    if not currency_id:
+        return None
+    cur = db.query(Currency).filter(Currency.id == currency_id).first()
+    return cur.code if cur else None
 
 
 def count_tasks(db: Session, user: User, board_id: int | None = None) -> dict:

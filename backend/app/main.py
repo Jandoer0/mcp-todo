@@ -24,7 +24,7 @@ from .site_settings import (
     get_setting_ns,
 )
 from .db import Base, SessionLocal, engine
-from .routers import admin, auth, boards, lists, mcp, summary, tags, tasks
+from .routers import admin, auth, boards, currencies, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
 
@@ -132,6 +132,26 @@ def run_migrations() -> None:
                     f"ON {table} (board_id)"
                 )
             )
+    # Multi-currency budget: currencies table + currency_id on tasks and
+    # report_currency_id on boards. Base currency is USD (rate = 1.0).
+    if "currencies" not in existing_tables:
+        Base.metadata.tables["currencies"].create(bind=engine)
+    with engine.connect() as conn:
+        cols = {c["name"] for c in inspector.get_columns("tasks")}
+        if "currency_id" not in cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN currency_id INTEGER"))
+            conn.commit()
+        board_cols = {c["name"] for c in inspector.get_columns("boards")}
+        if "report_currency_id" not in board_cols:
+            conn.execute(
+                text("ALTER TABLE boards ADD COLUMN report_currency_id INTEGER")
+            )
+            conn.commit()
+    with engine.begin() as conn:
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_tasks_currency_id ON tasks (currency_id)")
+        )
+
     _backfill_boards()
 
     # Tags + task_lists rebuilds: the multi-board schema scopes name uniqueness
@@ -286,6 +306,7 @@ def run_migrations() -> None:
         seed_lists(db)
         seed_boards(db)
         migrate_legacy_tags(db)
+        seed_currencies(db)
     finally:
         db.close()
 
@@ -395,6 +416,15 @@ def seed_lists(db) -> None:
             task.list = "Не начато"
         task.status = status_for_list(task.list)
     db.commit()
+
+
+def seed_currencies(db) -> None:
+    """Ensure every user has the default currency set (RUB/USD/EUR)."""
+    from .models import User
+    from .services.currency_service import ensure_default_currencies
+
+    for user in db.query(User).all():
+        ensure_default_currencies(db, user.id)
 
 
 def ensure_admin(db) -> None:
@@ -541,6 +571,7 @@ api.include_router(summary.router)
 api.include_router(admin.router)
 api.include_router(lists.router)
 api.include_router(tags.router)
+api.include_router(currencies.router)
 
 
 @api.get("/health")

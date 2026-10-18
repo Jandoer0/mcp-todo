@@ -22,6 +22,13 @@ export const authApi = {
   me: () => api.get(`${API_URL}/auth/me`),
 }
 
+export const currenciesApi = {
+  list: () => api.get(`${API_URL}/currencies`),
+  create: (data) => api.post(`${API_URL}/currencies`, data),
+  update: (id, data) => api.put(`${API_URL}/currencies/${id}`, data),
+  remove: (id) => api.delete(`${API_URL}/currencies/${id}`),
+}
+
 export const boardsApi = {
   list: () => api.get(`${API_URL}/boards`),
   create: (data) => api.post(`${API_URL}/boards`, data),
@@ -33,6 +40,7 @@ export const boardsApi = {
     remove: (boardId) => api.delete(`${API_URL}/boards/${boardId}/webhook`),
     test: (boardId) => api.post(`${API_URL}/boards/${boardId}/webhook/test`),
   },
+  budget: (boardId) => api.get(`${API_URL}/boards/${boardId}/budget`),
 }
 
 export const tasksApi = {

@@ -99,6 +99,13 @@ def update_board(
     current_user: User = Depends(get_current_user),
 ):
     board = get_own_board(db, current_user, board_id)
+    if data.report_currency_id is not None:
+        # Валюта расчёта должна принадлежать пользователю (изоляция).
+        from ..services.currency_service import get_own_currency
+
+        if not get_own_currency(db, current_user, data.report_currency_id):
+            raise HTTPException(status_code=400, detail="Валюта не найдена")
+        board.report_currency_id = data.report_currency_id
     if data.name is not None and data.name.strip():
         name = data.name.strip()
         if len(name) > MAX_NAME_LEN:
@@ -145,6 +152,22 @@ def delete_board(
     db.delete(board)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{board_id}/budget")
+def get_board_budget(
+    board_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Мультивалютный бюджет доски: итоги в валюте расчёта (Decimal на
+    бэкенде), записи — в оригинальных валютах + конвертированный эквивалент."""
+    from ..services import task_service
+
+    try:
+        return task_service.board_budget(db, current_user, board_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Доска не найдена") from None
 
 
 # --- Board webhook (one per board) ------------------------------------------

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { tasksApi } from '../api/client'
+import { tasksApi, currenciesApi } from '../api/client'
 import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
@@ -9,7 +9,6 @@ import Markdown from './Markdown'
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
 const PRIORITY_LABELS = { 1: 'Низкий', 2: 'Средний', 3: 'Высокий' }
-const CURRENCY = '₽'
 
 // «-10000» → «-10 000» (только для отображения в маркере)
 export function formatAmount(v) {
@@ -81,6 +80,9 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   // Финансовый вес: направление (доход + / расход -) и сумма (только положительная)
   const [amountType, setAmountType] = useState('expense')
   const [amountStr, setAmountStr] = useState('')
+  // Валюта суммы (мультивалютность): список подгружается с бэкенда
+  const [currencies, setCurrencies] = useState([])
+  const [currencyId, setCurrencyId] = useState(null)
   // Целевая доска для переноса задачи (только в режиме редактирования)
   const [targetBoardId, setTargetBoardId] = useState(null)
   // Предпросмотр Markdown описания: в «Изменить задачу» открываем сразу
@@ -92,6 +94,17 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
     [lists]
   )
+
+  // Валюты пользователя (для селектора у суммы) — один раз при монтировании
+  useEffect(() => {
+    currenciesApi
+      .list()
+      .then((res) => setCurrencies(res.data || []))
+      .catch(() => setCurrencies([]))
+  }, [])
+
+  // Символ выбранной валюты (для подсказки в поле суммы)
+  const currencySymbol = currencies.find((c) => c.id === currencyId)?.symbol || ''
 
   const [changes, setChanges] = useState([])
 
@@ -138,6 +151,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       const amt = Number(task.amount) || 0
       setAmountType(amt < 0 ? 'expense' : 'income')
       setAmountStr(amt !== 0 ? String(Math.abs(amt)) : '')
+      setCurrencyId(task.currency_id ?? null)
       setTargetBoardId(task.board_id ?? null)
       setDescPreview(true)
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
@@ -148,6 +162,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setSelectedBlockers([])
       setAmountType('expense')
       setAmountStr('')
+      setCurrencyId(null)
       setTargetBoardId(defaultBoardId ?? null)
       setDescPreview(false)
     }
@@ -227,6 +242,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     // Финансовый вес: отправляем при изменении (или всегда для новой задачи)
     const newAmount = computeAmount()
     if (!task || newAmount !== (Number(task.amount) || 0)) payload.amount = newAmount
+    // Валюта суммы: отправляем при изменении (или всегда для новой задачи);
+    // без суммы валюта не имеет смысла — сбрасываем в базовую (NULL)
+    if (!task || currencyId !== (task.currency_id ?? null)) {
+      payload.currency_id = newAmount === 0 ? null : currencyId
+    }
 
     // Cyclic settings: send when changed or when enabling cyclicity.
     const cycleChanged =
@@ -404,10 +424,24 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 />
                 {amountStr && (
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">
-                    {amountType === 'income' ? '+' : '-'}{amountStr} {CURRENCY}
+                    {amountType === 'income' ? '+' : '-'}{amountStr} {currencySymbol}
                   </span>
                 )}
               </div>
+              {/* Валюта операции (из «Параметров валют» пользователя) */}
+              <select
+                value={currencyId ?? ''}
+                onChange={(e) => setCurrencyId(e.target.value ? Number(e.target.value) : null)}
+                className="w-28 p-2 border rounded text-sm shrink-0"
+                title="Валюта суммы"
+              >
+                {currencies.length === 0 && <option value="">—</option>}
+                {currencies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="md:col-span-2">
