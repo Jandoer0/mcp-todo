@@ -767,3 +767,116 @@ def count_tasks(db: Session, user: User, board_id: int | None = None) -> dict:
         "done": _count(status="done"),
         "overdue": overdue_q.count(),
     }
+
+
+def board_cashflow(db: Session, user: User, board_id: int) -> dict:
+    """Финансовый график доски (вкладка «График»): раскладка сумм задач по
+    дням для прогноза баланса.
+
+    Характер события определяется датами задачи:
+      • обе даты (start_date + deadline) — «поток»: сумма равномерно
+        распределяется на каждый день интервала (включительно);
+      • иначе («спик») — вся сумма падает на один день: deadline, а без него
+        start_date; без обеих дат задача в график не попадает (некуда
+        привязать к календарю).
+
+    Все суммы конвертируются в валюту расчёта доски (Decimal, как в
+    board_budget); missing_rate=True — есть валюты без курса. Каждое событие
+    несёт итог в валюте расчёта (converted) и дневную долю (per_day).
+    День детализации собирает фронтенд из per_day/converted."""
+    from datetime import timedelta
+
+    from decimal import Decimal, ROUND_HALF_UP
+
+    from .currency_service import convert_amount, default_currency, rates_map
+
+    board = _resolve_board(db, user, board_id)
+    done_names = {
+        l.name
+        for l in db.query(TaskList)
+        .filter(TaskList.user_id == user.id, TaskList.board_id == board.id)
+        .all()
+        if (l.kind or "todo") == "done"
+    }
+    tasks = (
+        db.query(Task)
+        .filter(
+            Task.user_id == user.id,
+            Task.board_id == board.id,
+            func.coalesce(Task.amount, 0) != 0,
+        )
+        .all()
+    )
+    rates = rates_map(db, user.id)
+    default = default_currency(db, user)
+    target_id = board.report_currency_id or (default.id if default else None)
+    target_rate = rates.get(target_id)
+
+    missing_rate = target_id is None or not target_rate
+    events = []
+    for t in tasks:
+        if t.currency_id:
+            src_rate = rates.get(t.currency_id)
+            if not src_rate:
+                missing_rate = True
+        else:
+            src_rate = rates.get(default.id) if default else 1.0
+            if default and not src_rate:
+                missing_rate = True
+        converted = convert_amount(t.amount or 0, src_rate or 0, target_rate)
+        if converted is None:
+            missing_rate = True
+            continue  # без курса день расписать нельзя — событие пропускается
+        if t.start_date and t.deadline:
+            start = t.start_date.date()
+            end = t.deadline.date()
+            if end < start:  # инвертированный интервал — разворачиваем
+                start, end = end, start
+            days = (end - start).days + 1
+            per_day = (converted / Decimal(days)).quantize(
+                Decimal("0.0001"), rounding=ROUND_HALF_UP
+            )
+            events.append(
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "type": "stream",
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                    "days": days,
+                    "converted": float(converted),
+                    "per_day": float(per_day),
+                    "currency_code": _currency_code(db, t.currency_id),
+                    "done": t.list in done_names,
+                }
+            )
+        else:
+            anchor = (t.deadline or t.start_date)
+            if anchor is None:  # нет дат — задача не попадает на график
+                continue
+            anchor = anchor.date()
+            events.append(
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "type": "spike",
+                    "start": anchor.isoformat(),
+                    "end": anchor.isoformat(),
+                    "days": 1,
+                    "converted": float(converted),
+                    "per_day": float(converted),
+                    "currency_code": _currency_code(db, t.currency_id),
+                    "done": t.list in done_names,
+                }
+            )
+    cur = db.query(Currency).filter(Currency.id == target_id).first() if target_id else None
+    return {
+        "board_id": board.id,
+        "board_name": board.name,
+        "report_currency_id": target_id,
+        "report_currency": {"id": cur.id, "code": cur.code, "symbol": cur.symbol}
+        if cur
+        else None,
+        "missing_rate": missing_rate,
+        "events": events,
+    }

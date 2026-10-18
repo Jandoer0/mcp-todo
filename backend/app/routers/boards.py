@@ -170,6 +170,24 @@ def get_board_budget(
         raise HTTPException(status_code=404, detail="Доска не найдена") from None
 
 
+# --- Board cashflow (financial chart) ---------------------------------------
+
+
+@router.get("/{board_id}/cashflow")
+def get_board_cashflow(
+    board_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Раскладка сумм задач по дням для вкладки «График» (спики/потоки)."""
+    from ..services import task_service
+
+    try:
+        return task_service.board_cashflow(db, current_user, board_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Доска не найдена") from None
+
+
 # --- Board webhook (one per board) ------------------------------------------
 
 # The board editor's «Веб-хуки» tab edits the single webhook of this board.

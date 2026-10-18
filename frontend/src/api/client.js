@@ -42,6 +42,7 @@ export const boardsApi = {
     test: (boardId) => api.post(`${API_URL}/boards/${boardId}/webhook/test`),
   },
   budget: (boardId) => api.get(`${API_URL}/boards/${boardId}/budget`),
+  cashflow: (boardId) => api.get(`${API_URL}/boards/${boardId}/cashflow`),
 }
 
 export const tasksApi = {

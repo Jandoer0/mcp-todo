@@ -1,6 +1,7 @@
 import { BOARD_PALETTE, MAX_BOARDS } from '../constants'
 import Modal from './Modal'
 import BudgetTab from './BudgetTab'
+import ChartTab from './ChartTab'
 import WebhookTab from './WebhookTab'
 import { useEffect, useState } from 'react'
 
@@ -79,6 +80,17 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           >
             Бюджет
           </button>
+          <button
+            type="button"
+            onClick={() => setTab('chart')}
+            className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === 'chart'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            График
+          </button>
           {webhooksEnabled && (
             <button
               type="button"
@@ -99,6 +111,8 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
         <WebhookTab board={board} />
       ) : tab === 'budget' ? (
         <BudgetTab board={board} tasks={tasks} lists={lists} />
+      ) : tab === 'chart' ? (
+        <ChartTab board={board} />
       ) : (
       <form onSubmit={submit} className="space-y-4">
         <div>
