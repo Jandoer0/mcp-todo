@@ -197,43 +197,42 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
               </div>
             </div>
           ) : (
-            /* Просмотр */
+            /* Просмотр: первая (дефолтная) валюта — в зелёной рамке-бирке */
             <div
               key={c.id}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2"
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${
+                idx === 0 ? 'border-green-500 bg-green-50/40' : 'border-slate-200'
+              }`}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                {/* Порядок: вверх/вниз; первая валюта = по умолчанию */}
-                <div className="flex flex-col shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => move(idx, -1)}
-                    disabled={idx === 0}
-                    className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
-                    title="Выше"
-                  >
-                    ▲
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => move(idx, 1)}
-                    disabled={idx === currencies.length - 1}
-                    className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
-                    title="Ниже"
-                  >
-                    ▼
-                  </button>
-                </div>
-                <span className="w-14 shrink-0 font-bold text-slate-700 text-sm">{c.code}</span>
-                <span className="w-6 shrink-0 text-center text-slate-400">{c.symbol}</span>
-                <span className="truncate text-sm text-slate-600">{c.name}</span>
-                {idx === 0 && (
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
-                    по умолчанию
-                  </span>
-                )}
+              {/* Порядок: вверх/вниз; первая валюта = по умолчанию */}
+              <div className="flex flex-col shrink-0">
+                <button
+                  type="button"
+                  onClick={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
+                  title="Выше"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(idx, 1)}
+                  disabled={idx === currencies.length - 1}
+                  className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
+                  title="Ниже"
+                >
+                  ▼
+                </button>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Идентичность валюты: код · символ · название */}
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="shrink-0 font-bold text-slate-700 text-sm">{c.code}</span>
+                <span className="w-5 shrink-0 text-center text-slate-400">{c.symbol}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-slate-600">{c.name}</span>
+              </div>
+              {/* Курс и кнопка редактирования */}
+              <div className="flex shrink-0 items-center gap-2">
                 <span
                   className={`text-xs tabular-nums ${
                     c.rate ? 'text-slate-500' : 'text-red-500 font-semibold'

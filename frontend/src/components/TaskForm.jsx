@@ -80,6 +80,9 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   // Финансовый вес: направление (доход + / расход -) и сумма (только положительная)
   const [amountType, setAmountType] = useState('expense')
   const [amountStr, setAmountStr] = useState('')
+  // Компактный режим строки суммы на мобильных: переключатель Доход/Расход
+  // сворачивается в кнопку-знак (+/−), освобождая место полю ввода
+  const [amountCompact, setAmountCompact] = useState(false)
   // Валюта суммы (мультивалютность): список подгружается с бэкенда
   const [currencies, setCurrencies] = useState([])
   const [currencyId, setCurrencyId] = useState(null)
@@ -105,6 +108,16 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   // Символ выбранной валюты (для подсказки в поле суммы)
   const currencySymbol = currencies.find((c) => c.id === currencyId)?.symbol || ''
+
+  // Компактный режим строки суммы на узких экранах (< ~480px)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 479px)')
+    const apply = () => setAmountCompact(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
 
   const [changes, setChanges] = useState([])
 
@@ -385,35 +398,49 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Сумма (финансовый вес)</label>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
+            <div className="flex gap-2">
+              {/* Доход/Расход: на мобильных — кнопка-знак (+/−), на десктопе — переключатель */}
+              {amountCompact ? (
                 <button
                   type="button"
-                  onClick={() => setAmountType('income')}
-                  className={`px-3 text-sm font-medium transition-colors ${
-                    amountType === 'income'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  onClick={() => setAmountType(amountType === 'income' ? 'expense' : 'income')}
+                  title={amountType === 'income' ? 'Доход (нажмите для расхода)' : 'Расход (нажмите для дохода)'}
+                  className={`w-11 shrink-0 rounded text-lg font-bold text-white transition-colors ${
+                    amountType === 'income' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'
                   }`}
                 >
-                  Доход
+                  {amountType === 'income' ? '+' : '−'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setAmountType('expense')}
-                  className={`px-3 text-sm font-medium transition-colors ${
-                    amountType === 'expense'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  Расход
-                </button>
-              </div>
+              ) : (
+                <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setAmountType('income')}
+                    className={`px-3 text-sm font-medium transition-colors ${
+                      amountType === 'income'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    Доход
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAmountType('expense')}
+                    className={`px-3 text-sm font-medium transition-colors ${
+                      amountType === 'expense'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    Расход
+                  </button>
+                </div>
+              )}
               {/* Поле суммы: рамка-контейнер (синяя/красная), символ валюты — в потоке,
                   без абсолютного оверлея (раньше он дублировал и наслаивался на ввод) */}
               <div
-                className={`flex flex-1 min-w-[8rem] items-center border rounded ${
+                className={`flex flex-1 min-w-0 items-center border rounded ${
                   amountType === 'income' ? 'border-blue-300' : 'border-red-300'
                 }`}
               >
@@ -438,6 +465,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 value={currencyId ?? ''}
                 onChange={(e) => setCurrencyId(e.target.value ? Number(e.target.value) : null)}
                 className="p-2 border rounded text-sm shrink-0"
+                style={amountCompact ? { maxWidth: '5.5rem' } : undefined}
                 title="Валюта суммы"
               >
                 {currencies.length === 0 && <option value="">—</option>}
