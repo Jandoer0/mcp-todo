@@ -33,6 +33,18 @@ def create_currency(
         raise HTTPException(status_code=400, detail=e.message) from None
 
 
+@router.post("/reorder")
+def reorder_currencies(
+    data: schemas.CurrencyReorder,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Сохранить новый порядок валют (полный список id). Первая валюта
+    становится валютой по умолчанию во всех выпадающих списках."""
+    currency_service.reorder_currencies(db, current_user, data.ids)
+    return {"ok": True}
+
+
 @router.put("/{currency_id}", response_model=schemas.CurrencyResponse)
 def update_currency(
     currency_id: int,

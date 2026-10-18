@@ -162,7 +162,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setSelectedBlockers([])
       setAmountType('expense')
       setAmountStr('')
-      setCurrencyId(null)
+      // Валюта по умолчанию — первая в пользовательском порядке
+      setCurrencyId(currencies[0]?.id ?? null)
       setTargetBoardId(defaultBoardId ?? null)
       setDescPreview(false)
     }

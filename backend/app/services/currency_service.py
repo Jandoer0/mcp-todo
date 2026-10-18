@@ -12,6 +12,7 @@ Conversion model: ``rate`` = value of 1 unit of the currency in base units
 """
 from decimal import Decimal, ROUND_HALF_UP
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models import Board, Currency, User
@@ -38,33 +39,54 @@ class CurrencyError(Exception):
 
 def ensure_default_currencies(db: Session, user_id: int) -> None:
     """Seed the three starter currencies (RUB/USD/EUR) for a user.
-    Idempotent: called at registration and at startup."""
+    Idempotent: called at registration and at startup. USD goes first —
+    it becomes the default currency (первая в выпадающих списках)."""
     existing = {
-        c.code
+        c.code: c
         for c in db.query(Currency).filter(Currency.user_id == user_id).all()
     }
     added = False
     for code, name, symbol, rate in DEFAULT_CURRENCIES:
         if code in existing:
             continue
+        # USD — position 0 (первая/дефолтная), остальные по порядку добавления.
+        position = 0 if code == "USD" else 1
         db.add(
-            Currency(user_id=user_id, code=code, name=name, symbol=symbol, rate=rate)
+            Currency(
+                user_id=user_id,
+                code=code,
+                name=name,
+                symbol=symbol,
+                rate=rate,
+                position=position,
+            )
         )
         added = True
     if added:
         db.commit()
+        # Уплотняем позиции (EUR и RUB не должны совпадать).
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            reorder_currencies(
+                db, user, [c.id for c in list_currencies(db, user)]
+            )
 
 
 def list_currencies(db: Session, user: User) -> list[Currency]:
-    """The user's currencies, base (USD) first then by code."""
-    currencies = (
+    """The user's currencies in display order (position, then id). The first
+    one is the user's default currency in every dropdown."""
+    return (
         db.query(Currency)
         .filter(Currency.user_id == user.id)
-        .order_by(Currency.id)
+        .order_by(Currency.position, Currency.id)
         .all()
     )
-    currencies.sort(key=lambda c: (c.code != "USD", c.code))
-    return currencies
+
+
+def default_currency(db: Session, user: User) -> Currency | None:
+    """The user's default currency: the first in display order."""
+    currencies = list_currencies(db, user)
+    return currencies[0] if currencies else None
 
 
 def get_own_currency(db: Session, user: User, currency_id: int) -> Currency | None:
@@ -89,12 +111,19 @@ def create_currency(db: Session, user: User, data: dict) -> Currency:
         raise CurrencyError(f"Валюта с кодом {code} уже существует")
     if db.query(Currency).filter(Currency.user_id == user.id).count() >= MAX_CURRENCIES:
         raise CurrencyError(f"Максимальное количество валют — {MAX_CURRENCIES}")
+    # Значит: max(position) + 1 — новая валюта в конец списка.
+    max_pos = (
+        db.query(func.max(Currency.position))
+        .filter(Currency.user_id == user.id)
+        .scalar()
+    )
     currency = Currency(
         user_id=user.id,
         code=code,
         name=(data.get("name") or "").strip() or code,
         symbol=(data.get("symbol") or "").strip() or code,
         rate=parse_rate(data.get("rate")),
+        position=(max_pos + 1) if max_pos is not None else 0,
     )
     db.add(currency)
     db.commit()
@@ -130,8 +159,9 @@ def update_currency(db: Session, user: User, currency_id: int, data: dict) -> Cu
 
 
 def delete_currency(db: Session, user: User, currency_id: int) -> None:
-    """Delete a currency. Tasks that used it fall back to the base currency
-    (currency_id = NULL); a board report currency falls back likewise."""
+    """Delete a currency. Tasks that used it fall back to the default currency
+    (currency_id = NULL); a board report currency falls back likewise.
+    Оставшиеся валюты перенумеровываются плотно (0..n-1)."""
     currency = get_own_currency(db, user, currency_id)
     if not currency:
         raise LookupError("Currency not found")
@@ -144,6 +174,29 @@ def delete_currency(db: Session, user: User, currency_id: int) -> None:
         Task.user_id == user.id, Task.currency_id == currency_id
     ).update({"currency_id": None}, synchronize_session=False)
     db.delete(currency)
+    db.commit()
+    # Уплотняем порядок после удаления.
+    reorder_currencies(
+        db, user, [c.id for c in list_currencies(db, user)]
+    )
+
+
+def reorder_currencies(db: Session, user: User, ordered_ids: list[int]) -> None:
+    """Persist a full display order (позиции 0..n-1). Чужие/несуществующие id
+    молча пропускаются; пропущенные валюты сохраняют относительный порядок
+    после перечисленных."""
+    currencies = list_currencies(db, user)
+    by_id = {c.id: c for c in currencies}
+    pos = 0
+    for cid in ordered_ids or []:
+        cur = by_id.pop(cid, None)
+        if cur and cur.position != pos:
+            cur.position = pos
+        pos += 1
+    for cur in by_id.values():  # остальные — в исходном порядке в конец
+        if cur.position != pos:
+            cur.position = pos
+        pos += 1
     db.commit()
 
 

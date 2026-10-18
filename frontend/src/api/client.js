@@ -27,6 +27,7 @@ export const currenciesApi = {
   create: (data) => api.post(`${API_URL}/currencies`, data),
   update: (id, data) => api.put(`${API_URL}/currencies/${id}`, data),
   remove: (id) => api.delete(`${API_URL}/currencies/${id}`),
+  reorder: (ids) => api.post(`${API_URL}/currencies/reorder`, { ids }),
 }
 
 export const boardsApi = {

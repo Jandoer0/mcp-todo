@@ -98,7 +98,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
   }
 
   const remove = async (c) => {
-    if (!confirm(`Удалить валюту «${c.code}»? Задачи с ней перейдут в базовую валюту (USD).`)) return
+    if (!confirm(`Удалить валюту «${c.code}»? Задачи с ней перейдут в дефолтную валюту.`)) return
     setEditError('')
     try {
       await currenciesApi.remove(c.id)
@@ -106,6 +106,21 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       onChanged?.()
     } catch (err) {
       setEditError(err?.response?.data?.detail || 'Не удалось удалить валюту')
+    }
+  }
+
+  // Перестановка валюты вверх/вниз: полный порядок сохраняется на бэкенде;
+  // первая валюта списка становится валютой по умолчанию.
+  const move = async (index, dir) => {
+    const ids = currencies.map((c) => c.id)
+    const target = index + dir
+    if (target < 0 || target >= ids.length) return
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+    try {
+      await currenciesApi.reorder(ids)
+      onChanged?.()
+    } catch (err) {
+      setEditError(err?.response?.data?.detail || 'Не удалось изменить порядок')
     }
   }
 
@@ -149,7 +164,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
         {currencies.length === 0 && (
           <p className="text-sm text-slate-400">Валют пока нет — добавьте первую ниже.</p>
         )}
-        {currencies.map((c) =>
+        {currencies.map((c, idx) =>
           editingId === c.id ? (
             /* Редактирование: все поля доступны */
             <div key={c.id} className="rounded-lg border border-blue-300 bg-blue-50/40 p-3 space-y-2">
@@ -188,9 +203,35 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
               className="rounded-lg border border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2"
             >
               <div className="flex items-center gap-2 min-w-0">
+                {/* Порядок: вверх/вниз; первая валюта = по умолчанию */}
+                <div className="flex flex-col shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => move(idx, -1)}
+                    disabled={idx === 0}
+                    className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
+                    title="Выше"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(idx, 1)}
+                    disabled={idx === currencies.length - 1}
+                    className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
+                    title="Ниже"
+                  >
+                    ▼
+                  </button>
+                </div>
                 <span className="w-14 shrink-0 font-bold text-slate-700 text-sm">{c.code}</span>
                 <span className="w-6 shrink-0 text-center text-slate-400">{c.symbol}</span>
                 <span className="truncate text-sm text-slate-600">{c.name}</span>
+                {idx === 0 && (
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+                    по умолчанию
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span

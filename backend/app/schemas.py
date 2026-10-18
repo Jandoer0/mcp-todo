@@ -36,6 +36,7 @@ class CurrencyResponse(BaseModel):
     name: str
     symbol: str
     rate: float | None = None  # value of 1 unit in base units (USD); None = не указан
+    position: int = 0  # порядок отображения; первая валюта = по умолчанию
 
     model_config = {"from_attributes": True}
 
@@ -50,6 +51,11 @@ class CurrencyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     symbol: str | None = Field(default=None, max_length=10)
     rate: float | None = Field(default=None, gt=0, allow_inf_nan=False, le=1e9)
+
+class CurrencyReorder(BaseModel):
+    """Полный порядок валют пользователя (id по порядку отображения)."""
+
+    ids: list[int] = Field(max_length=100)
 
 class BoardResponse(BaseModel):
     id: int

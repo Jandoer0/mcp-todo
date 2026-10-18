@@ -657,7 +657,7 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
     какой-то валюты не указан курс (UI показывает предупреждение)."""
     from decimal import Decimal, ROUND_HALF_UP
 
-    from .currency_service import convert_amount, rates_map
+    from .currency_service import convert_amount, default_currency, rates_map
 
     board = _resolve_board(db, user, board_id)
     done_names = {
@@ -677,23 +677,25 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
         .all()
     )
     rates = rates_map(db, user.id)
-    target_id = board.report_currency_id
-    if target_id is None:
-        target_id = (
-            db.query(Currency)
-            .filter(Currency.user_id == user.id, Currency.code == "USD")
-            .first()
-        )
-        target_id = target_id.id if target_id else None
+    # Валюта по умолчанию = первая в пользовательском порядке; задачи без
+    # валюты (NULL) считаются заданными в ней.
+    default = default_currency(db, user)
+    target_id = board.report_currency_id or (default.id if default else None)
     target_rate = rates.get(target_id)
 
     entries = []
     missing_rate = target_id is None or not target_rate
     for t in tasks:
-        # NULL currency = базовая (USD, rate 1); иная валюта без курса → warning
-        src_rate = rates.get(t.currency_id) if t.currency_id else 1.0
-        if t.currency_id and not src_rate:
-            missing_rate = True
+        # NULL currency = валюта по умолчанию (первая в списке); иная валюта
+        # без курса → warning. Нет валют вообще → считаем в базовой (rate 1).
+        if t.currency_id:
+            src_rate = rates.get(t.currency_id)
+            if not src_rate:
+                missing_rate = True
+        else:
+            src_rate = rates.get(default.id) if default else 1.0
+            if default and not src_rate:
+                missing_rate = True
         converted = convert_amount(t.amount or 0, src_rate or 0, target_rate)
         if converted is None:
             missing_rate = True

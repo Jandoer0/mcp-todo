@@ -147,8 +147,54 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
         </p>
       )}
 
-      {/* Сводный блок баланса: крупный итог + распределение доход/расход */}
-      <div className="rounded-xl border border-slate-200 bg-card p-4 shadow-sm">
+      {/* Сводный блок баланса — мобильный: «чек-выписка» (вертикальные строки
+          с точечными лидерами — цифры не наезжают друг на друга при любой длине) */}
+      <div className="md:hidden rounded-xl border border-slate-200 bg-card p-4 shadow-sm space-y-3">
+        {/* Герой: общий баланс крупно по центру */}
+        <div className="rounded-lg bg-slate-50 py-3 text-center">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Баланс доски
+          </div>
+          <div
+            className={`text-3xl font-extrabold tabular-nums leading-tight ${
+              total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
+            }`}
+          >
+            {signed(total)}
+          </div>
+          {reportCode && (
+            <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              {reportCode}
+            </div>
+          )}
+        </div>
+
+        {/* Полоса распределения доход/расход */}
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+          {incomeAbs > 0 && <div className="bg-green-500" style={{ width: `${(incomeAbs / incomeSum) * 100}%` }} />}
+          {expenseAbs > 0 && <div className="bg-red-500" style={{ width: `${(expenseAbs / incomeSum) * 100}%` }} />}
+        </div>
+
+        {/* Строки-выписка: метка ······ значение (чек-стиль) */}
+        <div className="space-y-2">
+          {[
+            { label: 'Доходы', value: income, dot: 'bg-green-500', text: 'text-green-600' },
+            { label: 'Расходы', value: expense, dot: 'bg-red-500', text: 'text-red-600' },
+            { label: 'План', value: plan, dot: 'bg-slate-300', text: 'text-slate-800' },
+            { label: 'Факт', value: fact, dot: 'bg-slate-400', text: 'text-slate-800' },
+          ].map((row) => (
+            <div key={row.label} className="flex items-baseline gap-2 text-sm">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${row.dot}`} />
+              <span className="shrink-0 text-slate-500">{row.label}</span>
+              <span className="min-w-4 flex-1 border-b border-dotted border-slate-200" />
+              <span className={`shrink-0 font-bold tabular-nums ${row.text}`}>{signed(row.value)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Сводный блок баланса — десктоп: план / баланс / факт в строку */}
+      <div className="hidden md:block rounded-xl border border-slate-200 bg-card p-4 shadow-sm">
         {/* План / Баланс / Факт — одна строка */}
         <div className="grid grid-cols-3 items-center divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
           <div>

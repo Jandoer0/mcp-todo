@@ -147,6 +147,24 @@ def run_migrations() -> None:
                 text("ALTER TABLE boards ADD COLUMN report_currency_id INTEGER")
             )
             conn.commit()
+        # Порядок валют (первая в списке = валюта по умолчанию). Бэкфилл:
+        # USD — первым, остальные по id.
+        cur_cols = {c["name"] for c in inspector.get_columns("currencies")}
+        if "position" not in cur_cols:
+            conn.execute(
+                text("ALTER TABLE currencies ADD COLUMN position INTEGER DEFAULT 0")
+            )
+            conn.execute(
+                text(
+                    "UPDATE currencies SET position = CASE WHEN code = 'USD' THEN 0 "
+                    "ELSE 1 + (SELECT COUNT(*) FROM currencies c2 "
+                    "WHERE c2.user_id = currencies.user_id AND c2.code = 'USD') "
+                    "+ (SELECT COUNT(*) FROM currencies c3 "
+                    "WHERE c3.user_id = currencies.user_id AND c3.code <> 'USD' "
+                    "AND c3.id < currencies.id)"
+                )
+            )
+            conn.commit()
     with engine.begin() as conn:
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_tasks_currency_id ON tasks (currency_id)")

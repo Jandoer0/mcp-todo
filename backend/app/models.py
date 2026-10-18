@@ -38,6 +38,9 @@ class Currency(Base):
     symbol = Column(String)  # display symbol (₽, $, €)
     # Value of 1 unit in base units (USD). NULL/0 = not set (warn in UI).
     rate = Column(Float, nullable=True)
+    # Display order across all currency dropdowns; the first currency is the
+    # user's default (new tasks and the budget's report currency fallback).
+    position = Column(Integer, default=0)
     __table_args__ = (
         UniqueConstraint("user_id", "code", name="uq_currencies_user_code"),
     )
