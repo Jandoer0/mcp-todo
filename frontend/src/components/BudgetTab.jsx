@@ -83,15 +83,12 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
   const expenseAbs = Math.abs(expense)
   const incomeSum = incomeAbs + expenseAbs
 
-  // Строка записи: «Билеты: -10 000 RUB (≈ -110 USD)»
+  // Строка записи: сумма только в валюте расчёта («Билеты: -110»);
+  // без курса — исходная сумма с кодом валюты (см. предупреждение выше).
   const entryLine = (e) => {
-    const orig = `${signed(e.amount)}${e.currency_code ? ` ${e.currency_code}` : ''}`
-    const hasOwn = !!e.currency_code
-    const conv =
-      e.converted != null && (hasOwn || reportCode !== 'USD')
-        ? ` (≈ ${signed(e.converted)} ${reportCode})`
-        : ''
-    return `${e.title}: ${orig}${conv}`
+    const value =
+      e.converted != null ? signed(e.converted) : `${signed(e.amount)}${e.currency_code ? ` ${e.currency_code}` : ''}`
+    return `${e.title}: ${value}`
   }
 
   const buildReport = () => {
@@ -201,7 +198,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
         </p>
       ) : (
         <div className="rounded border border-slate-200 divide-y divide-slate-100 max-h-[min(33rem,50dvh)] overflow-y-auto">
-          {/* финансовый вид: сумма в оригинальной валюте + эквивалент */}
+          {/* финансовый вид: суммы в валюте расчёта доски */}
           {sortEntries(entries).map((e) => {
             const dim = doneNames.has(e.list)
             return (
@@ -210,12 +207,9 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
                   {e.title}
                 </span>
                 <span className={`shrink-0 font-mono tabular-nums text-right ${dim ? 'text-slate-300' : 'text-slate-600'}`}>
-                  {signed(e.amount)}
-                  {e.currency_code && <span className="font-sans"> {e.currency_code}</span>}
-                  {e.converted != null && (e.currency_code || reportCode !== 'USD') && (
-                    <span className={`font-sans ${dim ? 'text-slate-200' : 'text-slate-400'}`}>
-                      {' '}(≈ {signed(e.converted)} {reportCode})
-                    </span>
+                  {e.converted != null ? signed(e.converted) : signed(e.amount)}
+                  {e.converted == null && e.currency_code && (
+                    <span className="font-sans" title="Курс не указан"> {e.currency_code} ⚠</span>
                   )}
                 </span>
               </div>
