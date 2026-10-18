@@ -133,9 +133,8 @@ export default function Layout({
                   closeMenu()
                   onCurrencies?.()
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
               >
-                <span className="w-5 h-5 flex items-center justify-center text-base leading-none">₽€$</span>
                 Параметры валют
               </button>
               <div className="border-t border-gray-100 my-1" />

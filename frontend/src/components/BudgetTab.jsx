@@ -123,15 +123,15 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
 
   return (
     <div className="space-y-4">
-      {/* Валюта расчёта: селектор + предупреждение о курсах */}
-      <div className="flex items-center justify-between gap-2">
-        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 shrink-0">
+      {/* Валюта расчёта: метка и селектор в одном компактном блоке */}
+      <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Валюта расчёта
-        </label>
+        </span>
         <select
           value={reportCurrency?.id ?? ''}
           onChange={(e) => changeReportCurrency(e.target.value ? Number(e.target.value) : null)}
-          className="p-1.5 border rounded text-sm"
+          className="bg-transparent border-0 p-0 text-sm font-semibold text-slate-700 cursor-pointer outline-none focus:ring-0"
         >
           {currencies.map((c) => (
             <option key={c.id} value={c.id}>

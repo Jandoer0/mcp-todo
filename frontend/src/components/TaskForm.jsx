@@ -384,7 +384,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Сумма (финансовый вес)</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
                 <button
                   type="button"
@@ -409,7 +409,13 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                   Расход
                 </button>
               </div>
-              <div className="relative flex-1">
+              {/* Поле суммы: рамка-контейнер (синяя/красная), символ валюты — в потоке,
+                  без абсолютного оверлея (раньше он дублировал и наслаивался на ввод) */}
+              <div
+                className={`flex flex-1 min-w-[8rem] items-center border rounded ${
+                  amountType === 'income' ? 'border-blue-300' : 'border-red-300'
+                }`}
+              >
                 <input
                   type="text"
                   inputMode="decimal"
@@ -420,19 +426,17 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                     const v = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
                     if (/^\d*(\.\d*)?$/.test(v)) setAmountStr(v)
                   }}
-                  className={`w-full p-2 border rounded ${amountType === 'income' ? 'border-blue-300' : 'border-red-300'}`}
+                  className="w-full min-w-0 bg-transparent p-2 border-0 outline-none focus:ring-0"
                 />
-                {amountStr && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">
-                    {amountType === 'income' ? '+' : '-'}{amountStr} {currencySymbol}
-                  </span>
+                {currencySymbol && (
+                  <span className="pr-2 text-sm text-slate-400 shrink-0">{currencySymbol}</span>
                 )}
               </div>
               {/* Валюта операции (из «Параметров валют» пользователя) */}
               <select
                 value={currencyId ?? ''}
                 onChange={(e) => setCurrencyId(e.target.value ? Number(e.target.value) : null)}
-                className="w-28 p-2 border rounded text-sm shrink-0"
+                className="p-2 border rounded text-sm shrink-0"
                 title="Валюта суммы"
               >
                 {currencies.length === 0 && <option value="">—</option>}
