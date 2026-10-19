@@ -14,8 +14,16 @@ function signed(n) {
 }
 
 function shortDate(iso) {
-  const d = new Date(`${iso}T00:00:00`)
+  // Принимает ISO-строку ("2026-11-23") или объект Date.
+  const d = iso instanceof Date ? iso : new Date(`${iso}T00:00:00`)
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
+
+// Левая/правая граница видимого окна (Date) — для подписи периода.
+function windowEdge(win, side) {
+  const d = new Date(win.start)
+  d.setDate(d.getDate() + (side === 'end' ? win.spanDays : 0))
+  return d
 }
 
 function longDate(iso) {
@@ -69,9 +77,30 @@ export default function ChartTab({ board }) {
     return out
   }, [data, win])
 
-  // Ежедневное изменение и накопленный баланс.
-  const series = useMemo(() => {
-    if (!data) return []
+  // Полный ряд баланса: от первой до последней финансовой даты (объединяя
+  // окно просмотра и все события). Накопленный баланс считается по всей ленте,
+  // а не от начала окна — иначе событие, «уехавшее» за край окна, вычёркивалось
+  // бы из баланса и ложно рождало кассовые разрывы.
+  const fullDays = useMemo(() => {
+    if (!data || !days.length) return []
+    const events = (data.events || []).filter((e) => showDone || !e.done)
+    let start = new Date(days[0].date)
+    let end = new Date(days[days.length - 1].date)
+    for (const e of events) {
+      const es = new Date(`${e.start}T12:00:00`)
+      const ee = new Date(`${e.end}T12:00:00`)
+      if (es < start) start = es
+      if (ee > end) end = ee
+    }
+    const out = []
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      out.push({ key: dayKey(d), date: new Date(d) })
+    }
+    return out
+  }, [data, days, showDone])
+
+  const fullSeries = useMemo(() => {
+    if (!data || !fullDays.length) return []
     const events = (data.events || []).filter((e) => showDone || !e.done)
     const change = new Map() // key → { delta, parts: [{title, amount, type, done}] }
     for (const e of events) {
@@ -83,7 +112,7 @@ export default function ChartTab({ board }) {
         change.set(key, cell)
       }
       if (e.type === 'stream') {
-        for (const d of days) {
+        for (const d of fullDays) {
           if (d.key >= e.start && d.key <= e.end) push(d.key)
         }
       } else {
@@ -91,13 +120,19 @@ export default function ChartTab({ board }) {
       }
     }
     let balance = 0
-    return days.map((d) => {
+    return fullDays.map((d) => {
       const cell = change.get(d.key)
       const delta = cell ? cell.delta : 0
       balance += delta
       return { key: d.key, delta, balance, parts: cell ? cell.parts : [] }
     })
-  }, [data, days, showDone])
+  }, [data, fullDays, showDone])
+
+  // Срез полного ряда под текущее окно просмотра (для отображения/навигации).
+  const series = useMemo(() => {
+    const winKeys = new Set(days.map((d) => d.key))
+    return fullSeries.filter((p) => winKeys.has(p.key))
+  }, [fullSeries, days])
 
   const breaks = useMemo(() => series.filter((p) => p.balance < 0), [series])
   const minBalance = useMemo(() => series.reduce((m, p) => Math.min(m, p.balance), 0), [series])
@@ -172,31 +207,6 @@ export default function ChartTab({ board }) {
         </p>
       )}
 
-      {/* Кассовые разрывы */}
-      {breaks.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-          <div className="text-sm font-semibold text-red-700">
-            ⚠ Кассовые разрывы ({breaks.length})
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {breaks.slice(0, 12).map((b) => (
-              <button
-                key={b.key}
-                type="button"
-                onClick={() => setSelected(b.key)}
-                className="rounded-full bg-white border border-red-300 px-2.5 py-0.5 text-xs font-semibold text-red-600 tabular-nums hover:bg-red-100"
-              >
-                {shortDate(b.key)} · {signed(b.balance)}
-              </button>
-            ))}
-            {breaks.length > 12 && <span className="text-xs text-red-500 self-center">и ещё {breaks.length - 12}…</span>}
-          </div>
-          <div className="mt-1 text-xs text-red-600">
-            Минимальный прогнозный баланс: {signed(minBalance)} {currency}
-          </div>
-        </div>
-      )}
-
       {/* Панель навигации по шкале времени */}
       {days.length > 0 && (
         <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-card p-2.5 shadow-sm">
@@ -211,13 +221,7 @@ export default function ChartTab({ board }) {
           </button>
           <span className="min-w-[10rem] shrink-0 text-center text-sm font-semibold text-slate-700 tabular-nums">
             {win
-              ? `${shortDate(win.start.toISOString().slice(0, 10))} — ${shortDate(
-                  (() => {
-                    const e = new Date(win.start)
-                    e.setDate(e.getDate() + win.spanDays)
-                    return e
-                  })(),
-                )}`
+              ? `${shortDate(windowEdge(win, 'start'))} — ${shortDate(windowEdge(win, 'end'))}`
               : 'Период'}
           </span>
           <button
@@ -248,6 +252,31 @@ export default function ChartTab({ board }) {
           <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 tabular-nums">
             <span>{shortDate(series[0].key)}</span>
             <span>{shortDate(series[series.length - 1].key)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Кассовые разрывы */}
+      {breaks.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+          <div className="text-sm font-semibold text-red-700">
+            ⚠ Кассовые разрывы ({breaks.length})
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {breaks.slice(0, 12).map((b) => (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => setSelected(b.key)}
+                className="rounded-full bg-white border border-red-300 px-2.5 py-0.5 text-xs font-semibold text-red-600 tabular-nums hover:bg-red-100"
+              >
+                {shortDate(b.key)} · {signed(b.balance)}
+              </button>
+            ))}
+            {breaks.length > 12 && <span className="text-xs text-red-500 self-center">и ещё {breaks.length - 12}…</span>}
+          </div>
+          <div className="mt-1 text-xs text-red-600">
+            Минимальный прогнозный баланс: {signed(minBalance)} {currency}
           </div>
         </div>
       )}
