@@ -879,4 +879,24 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
         else None,
         "missing_rate": missing_rate,
         "events": events,
+        # Границы окна просмотра: min = самая ранняя финансовая дата − 5 дней,
+        # max = самая поздняя финансовая дата + 5 дней. Определяются только по
+        # задачам, имеющим start_date или deadline (спики + концы потоков).
+        "window": _cashflow_window(events),
     }
+
+
+def _cashflow_window(events) -> dict | None:
+    """Вычислить границы окна просмотра графика по имеющимся событиям.
+    Мин = самая ранняя дата события минус 5 дней, макс = самая поздняя дата
+    события плюс 5 дней. Возвращает {start, end} (ISO-даты) или None, если
+    событий нет."""
+    if not events:
+        return None
+    from datetime import date as _date, timedelta
+
+    dates = [_date.fromisoformat(d) for e in events for d in (e["start"], e["end"])]
+    min_d = min(dates) - timedelta(days=5)
+    max_d = max(dates) + timedelta(days=5)
+    return {"start": min_d.isoformat(), "end": max_d.isoformat()}
+

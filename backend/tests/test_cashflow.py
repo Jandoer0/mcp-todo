@@ -80,3 +80,22 @@ def test_cashflow_missing_rate_excludes_task():
     # поведение: если rate = null у валюты задачи — она исключается.
     r = client.get(f"/api/boards/{bid}/cashflow", headers=h).json()
     assert r["missing_rate"] is False
+
+
+def test_cashflow_window_bounds():
+    """Границы окна просмотра: min = ранняя дата − 5 дней, max = поздняя + 5 дней."""
+    h = _register("cf_window")
+    bid = _board(h)
+    client.post("/api/tasks", headers=h, json={"board_id": bid, "title": "Ранняя", "amount": -100, "deadline": "2026-03-01T00:00:00"})
+    client.post("/api/tasks", headers=h, json={"board_id": bid, "title": "Поздняя", "amount": 200, "deadline": "2026-03-31T00:00:00"})
+
+    r = client.get(f"/api/boards/{bid}/cashflow", headers=h).json()
+    assert r["window"] == {"start": "2026-02-24", "end": "2026-04-05"}
+
+
+def test_cashflow_window_empty():
+    """Без финансовых задач окно просмотра не возвращается."""
+    h = _register("cf_win_empty")
+    bid = _board(h)
+    r = client.get(f"/api/boards/{bid}/cashflow", headers=h).json()
+    assert r["window"] is None

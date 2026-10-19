@@ -30,32 +30,44 @@ export default function ChartTab({ board }) {
   const [selected, setSelected] = useState(null) // ISO-дата дня
   const [showDone, setShowDone] = useState(true)
 
+  // Окно по умолчанию: от «сегодня» до max(последнее событие, +90 дней).
+  // Хранится как { start: Date, spanDays: число дней } — стрелки сдвигают весь
+  // видимый диапазон синхронно (привычный размер ряда сохраняется).
+  const [win, setWin] = useState(null)
+  const WEEK = 7 * 24 * 60 * 60 * 1000 // шаг смещения окна — 1 неделя
+
   useEffect(() => {
     if (!board?.id) return
     boardsApi
       .cashflow(board.id)
-      .then((res) => setData(res.data))
+      .then((res) => {
+        const d = res.data
+        setData(d)
+        const events = d.events || []
+        const today = new Date()
+        today.setHours(12, 0, 0, 0)
+        let last = new Date(today)
+        last.setDate(last.getDate() + 90)
+        for (const e of events) {
+          const end = new Date(`${e.end}T12:00:00`)
+          if (end > last) last = end
+        }
+        setWin({ start: today, spanDays: Math.round((last - today) / (24 * 60 * 60 * 1000)) })
+      })
       .catch(() => setData(null))
   }, [board?.id])
 
-  // Ряд дней: от сегодня до max(дата последнего события, +90 дней).
+  // Ряд дней: внутри текущего окна просмотра.
   const days = useMemo(() => {
-    if (!data) return []
-    const events = (data.events || []).filter((e) => showDone || !e.done)
-    const today = new Date()
-    today.setHours(12, 0, 0, 0)
-    let last = new Date(today)
-    last.setDate(last.getDate() + 90)
-    for (const e of events) {
-      const end = new Date(`${e.end}T12:00:00`)
-      if (end > last) last = end
-    }
+    if (!data || !win) return []
     const out = []
-    for (const d = new Date(today); d <= last; d.setDate(d.getDate() + 1)) {
+    const end = new Date(win.start)
+    end.setDate(end.getDate() + win.spanDays)
+    for (const d = new Date(win.start); d <= end; d.setDate(d.getDate() + 1)) {
       out.push({ key: dayKey(d), date: new Date(d) })
     }
     return out
-  }, [data, showDone])
+  }, [data, win])
 
   // Ежедневное изменение и накопленный баланс.
   const series = useMemo(() => {
@@ -121,6 +133,35 @@ export default function ChartTab({ board }) {
   const atStart = selectedIndex <= 0
   const atEnd = selectedIndex < 0 || selectedIndex >= series.length - 1
 
+  // Границы окна просмотра: можно ли ещё сдвигать влево/вправо.
+  // Окно не должно выходить за границы data.window (min/max ±5 дней).
+  const atWindowStart = !win || !data?.window || win.start.toISOString().slice(0, 10) <= data.window.start
+  const atWindowEnd = !win || !data?.window || win.start.toISOString().slice(0, 10) >= data.window.end
+
+  // Сдвиг всего графика на неделю (вперёд/назад) с клампом по границам
+  // данных: «сегодня» может лежать за пределами окна (все задачи в прошлом),
+  // поэтому шаг прижимается к min/max, а не блокируется.
+  const moveWindow = (direction) => {
+    if (!win || !data?.window) return
+    const min = new Date(data.window.start)
+    const max = new Date(data.window.end)
+    const next = new Date(win.start.getTime() + direction * WEEK)
+    if (direction < 0 && next < min) next.setTime(min.getTime())
+    if (direction > 0 && next > max) next.setTime(max.getTime())
+    next.setHours(12, 0, 0, 0)
+    setWin({ ...win, start: next })
+    setSelected(null)
+  }
+
+  // Быстрый возврат к сегодняшнему дню: окно центрируется относительно «сегодня».
+  const resetToday = () => {
+    if (!win) return
+    const now = new Date()
+    now.setHours(12, 0, 0, 0)
+    setWin({ ...win, start: now })
+    setSelected(null)
+  }
+
   if (!data) return <p className="text-sm text-slate-500">Загрузка графика…</p>
 
   return (
@@ -153,6 +194,50 @@ export default function ChartTab({ board }) {
           <div className="mt-1 text-xs text-red-600">
             Минимальный прогнозный баланс: {signed(minBalance)} {currency}
           </div>
+        </div>
+      )}
+
+      {/* Панель навигации по шкале времени */}
+      {days.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-card p-2.5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => moveWindow(-1)}
+            disabled={atWindowStart}
+            aria-label="На неделю назад"
+            className="h-9 w-9 shrink-0 rounded-full border border-slate-200 bg-white text-lg leading-none text-slate-700 shadow-sm active:bg-slate-100 disabled:opacity-40"
+          >
+            ‹
+          </button>
+          <span className="min-w-[10rem] shrink-0 text-center text-sm font-semibold text-slate-700 tabular-nums">
+            {win
+              ? `${shortDate(win.start.toISOString().slice(0, 10))} — ${shortDate(
+                  (() => {
+                    const e = new Date(win.start)
+                    e.setDate(e.getDate() + win.spanDays)
+                    return e
+                  })(),
+                )}`
+              : 'Период'}
+          </span>
+          <button
+            type="button"
+            onClick={() => moveWindow(1)}
+            disabled={atWindowEnd}
+            aria-label="На неделю вперёд"
+            className="h-9 w-9 shrink-0 rounded-full border border-slate-200 bg-white text-lg leading-none text-slate-700 shadow-sm active:bg-slate-100 disabled:opacity-40"
+          >
+            ›
+          </button>
+          <button
+            type="button"
+            onClick={resetToday}
+            disabled={atWindowStart && atWindowEnd}
+            aria-label="Вернуться к сегодняшнему дню"
+            className="ml-2 rounded-lg border border-green-600 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40"
+          >
+            Сегодня
+          </button>
         </div>
       )}
 
