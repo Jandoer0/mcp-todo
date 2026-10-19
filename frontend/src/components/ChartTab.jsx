@@ -90,8 +90,36 @@ export default function ChartTab({ board }) {
   const breaks = useMemo(() => series.filter((p) => p.balance < 0), [series])
   const minBalance = useMemo(() => series.reduce((m, p) => Math.min(m, p.balance), 0), [series])
 
+  // Шаг по дням от выбранного: -1 назад, +1 вперёд (кламп по краям ряда).
+  const moveSelected = (delta) => {
+    if (!selected || series.length === 0) return
+    const i = series.findIndex((p) => p.key === selected)
+    if (i < 0) return
+    const next = Math.min(series.length - 1, Math.max(0, i + delta))
+    setSelected(series[next].key)
+  }
+
+  // Десктоп: стрелки ←/→ перемещают выбранный день.
+  useEffect(() => {
+    if (!selected) return
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        moveSelected(-1)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        moveSelected(1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   const currency = data?.report_currency?.code || ''
   const selectedPoint = selected ? series.find((p) => p.key === selected) : null
+  const selectedIndex = selected ? series.findIndex((p) => p.key === selected) : -1
+  const atStart = selectedIndex <= 0
+  const atEnd = selectedIndex < 0 || selectedIndex >= series.length - 1
 
   if (!data) return <p className="text-sm text-slate-500">Загрузка графика…</p>
 
@@ -148,6 +176,9 @@ export default function ChartTab({ board }) {
               Закрыть
             </button>
           </div>
+          <div className="hidden sm:block text-[10px] text-slate-400 mt-0.5">
+            Переключайте дни клавишами ← и →
+          </div>
           <div className={`mt-1 text-2xl font-extrabold tabular-nums ${selectedPoint.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
             Баланс: {signed(selectedPoint.balance)} {currency}
           </div>
@@ -171,6 +202,34 @@ export default function ChartTab({ board }) {
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Мобильная навигация по дням: плавающие кнопки внизу экрана */}
+      {selectedPoint && (
+        <div className="fixed inset-x-0 bottom-4 z-[60] flex items-center justify-center gap-2 px-4 sm:hidden">
+          <button
+            type="button"
+            onClick={() => moveSelected(-1)}
+            disabled={atStart}
+            aria-label="Предыдущий день"
+            className="h-12 w-12 shrink-0 rounded-full border border-slate-200 bg-white text-2xl leading-none text-slate-700 shadow-lg active:bg-slate-100 disabled:opacity-40"
+          >
+            ←
+          </button>
+          <div className="min-w-[7rem] rounded-full border border-blue-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-600 shadow-lg tabular-nums">
+            {shortDate(selectedPoint.key)}
+            <span className="block font-normal text-slate-400">день {selectedIndex + 1} из {series.length}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => moveSelected(1)}
+            disabled={atEnd}
+            aria-label="Следующий день"
+            className="h-12 w-12 shrink-0 rounded-full border border-slate-200 bg-white text-2xl leading-none text-slate-700 shadow-lg active:bg-slate-100 disabled:opacity-40"
+          >
+            →
+          </button>
         </div>
       )}
 
