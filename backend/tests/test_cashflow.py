@@ -10,8 +10,6 @@ os.environ["STATIC_DIR"] = _TMP + "/static"
 from fastapi.testclient import TestClient
 from app.main import starlette_app
 
-c = TestClient(starlette_app)
-
 
 def _register(name):
     r = client.post("/api/auth/register", json={"username": name, "password": "secret123"})

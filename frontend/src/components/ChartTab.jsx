@@ -147,9 +147,12 @@ export default function ChartTab({ board }) {
   }
 
   // Десктоп: стрелки ←/→ перемещают выбранный день.
+  // Не перехватываем ввод в полях (input/textarea/contenteditable) и модалках.
   useEffect(() => {
     if (!selected) return
     const onKey = (e) => {
+      const t = e.target
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
         moveSelected(-1)
@@ -172,6 +175,15 @@ export default function ChartTab({ board }) {
   // Окно не должно выходить за границы data.window (min/max ±5 дней).
   const atWindowStart = !win || !data?.window || win.start.toISOString().slice(0, 10) <= data.window.start
   const atWindowEnd = !win || !data?.window || win.start.toISOString().slice(0, 10) >= data.window.end
+
+  // Кнопка «Сегодня» неактивна, когда окно уже на сегодня (или данных нет).
+  const atToday =
+    !win ||
+    (() => {
+      const now = new Date()
+      now.setHours(12, 0, 0, 0)
+      return dayKey(win.start) === dayKey(now)
+    })()
 
   // Сдвиг всего графика на неделю (вперёд/назад) с клампом по границам
   // данных: «сегодня» может лежать за пределами окна (все задачи в прошлом),
@@ -236,7 +248,7 @@ export default function ChartTab({ board }) {
           <button
             type="button"
             onClick={resetToday}
-            disabled={atWindowStart && atWindowEnd}
+            disabled={atToday}
             aria-label="Вернуться к сегодняшнему дню"
             className="ml-2 rounded-lg border border-green-600 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40"
           >
