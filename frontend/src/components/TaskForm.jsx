@@ -420,21 +420,12 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               }
               className="w-full p-2 border rounded disabled:bg-slate-100 disabled:text-slate-400"
             >
-              {listOptions.map((l) => {
-                // Обычной задаче выбор «Регулярных» недоступен.
-                const blocked = !isCyclic && l.kind === 'regular'
-                return (
-                  <option key={l.name} value={l.name} disabled={blocked}>
-                    {l.name}{blocked ? ' — только для циклических' : ''}
-                  </option>
-                )
-              })}
+              {listOptions.map((l) => (
+                <option key={l.name} value={l.name} disabled={l.kind === 'regular'}>
+                  {l.name}{l.kind === 'regular' ? ' — только для циклических' : ''}
+                </option>
+              ))}
             </select>
-            {isCyclic && (
-              <p className="mt-1 text-[11px] text-teal-600">
-                Циклическая задача учитывается в бюджете как регулярный платёж (базовый слой).
-              </p>
-            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Сумма (финансовый вес)</label>
