@@ -440,6 +440,63 @@ def stop_cycle(db: Session, user: User, task_id: int) -> Task:
     return task
 
 
+def update_cycle_log(
+    db: Session,
+    user: User,
+    log_id: int,
+    task_id: int | None,
+    actual_date: datetime | None,
+    actual_amount: float | None,
+) -> TaskCycleLog:
+    """Correct one iteration of the cycle history (plan vs fact bookkeeping).
+
+    Only completed iterations can be corrected; the entry is located by id and,
+    when task_id is given, additionally required to belong to that task's
+    cycle group (so the editor can only touch the history it can see).
+    Amount sign is authoritative: passing actual_amount rewrites the recorded
+    fact (a positive value = income, negative = expense)."""
+    q = db.query(TaskCycleLog).filter(
+        TaskCycleLog.id == log_id, TaskCycleLog.user_id == user.id
+    )
+    group_id = None
+    if task_id is not None:
+        task = (
+            db.query(Task)
+            .filter(Task.id == task_id, Task.user_id == user.id)
+            .first()
+        )
+        if not task or not task.cycle_group_id:
+            raise LookupError("Task not found")
+        group_id = task.cycle_group_id
+        q = q.filter(TaskCycleLog.cycle_group_id == group_id)
+    log = q.first()
+    if not log:
+        raise LookupError("Cycle log entry not found")
+    if log.action != "completed":
+        raise TaskError("Корректировать можно только выполненные итерации")
+    if actual_date is not None:
+        log.actual_date = actual_date
+    if actual_amount is not None:
+        log.actual_amount = float(actual_amount)
+    db.commit()
+    db.refresh(log)
+    return log
+
+
+def cycle_log_history(
+    db: Session, user: User, log_id: int
+) -> TaskCycleLog:
+    """Fetch a single cycle-log entry owned by the user (for edit forms)."""
+    log = (
+        db.query(TaskCycleLog)
+        .filter(TaskCycleLog.id == log_id, TaskCycleLog.user_id == user.id)
+        .first()
+    )
+    if not log:
+        raise LookupError("Cycle log entry not found")
+    return log
+
+
 def is_cycle_visible(task: Task, now: datetime) -> bool:
     """Smart visibility: a dormant cyclic task is hidden until its reminder
     window opens; blocked tasks stay visible to show the dependency chain."""

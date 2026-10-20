@@ -182,6 +182,11 @@ class CycleComplete(BaseModel):
     actual_date: datetime | None = None  # по умолчанию — текущий момент
     actual_amount: float | None = Field(default=None, ge=-1e12, le=1e12)  # по умолчанию — план
 
+class CycleLogUpdate(BaseModel):
+    """Корректировка записи истории цикла (только выполненные итерации)."""
+    actual_date: datetime | None = None
+    actual_amount: float | None = Field(default=None, ge=-1e12, le=1e12)
+
 class TagResponse(BaseModel):
     id: int
     name: str

@@ -316,3 +316,67 @@ def test_regular_migration_for_legacy_board():
     assert r.json()["list"] == "Регулярные"
     names = [l["name"] for l in client.get("/api/lists", params={"board_id": bid}, headers=h).json()]
     assert "Регулярные" in names and "Не начато" in names
+
+
+def test_cycle_log_correction():
+    """Корректировка истории: PATCH правит факт-дату/сумму, график видит правку."""
+    h = _register("corr_user")
+    bid = _first_board(h)
+    r = client.post("/api/tasks", headers=h,
+                    json=_cyclic_payload(title="Связь", amount=-700))
+    assert r.status_code == 200, r.text
+    t = r.json()
+    nxt = client.post(f"/api/tasks/{t['id']}/cycle/complete", headers=h,
+                      json={"actual_date": "2026-01-09T10:00:00",
+                            "actual_amount": -700}).json()
+    hist = client.get(f"/api/tasks/{nxt['id']}/cycle/history", headers=h).json()
+    log = hist[0]
+    assert log["actual_amount"] == -700
+
+    # Полная правка: новая дата и сумма
+    patched = client.patch(
+        f"/api/tasks/{nxt['id']}/cycle/history/{log['id']}", headers=h,
+        json={"actual_date": "2026-01-12T09:00:00", "actual_amount": -850}
+    ).json()
+    assert patched["actual_amount"] == -850
+    assert patched["actual_date"].startswith("2026-01-12")
+
+    # Частичная правка: только сумма, дата не трогается
+    patched = client.patch(
+        f"/api/tasks/{nxt['id']}/cycle/history/{log['id']}", headers=h,
+        json={"actual_amount": -900}
+    ).json()
+    assert patched["actual_amount"] == -900
+    assert patched["actual_date"].startswith("2026-01-12")
+
+    # График подхватил исправленный факт
+    cf = client.get(f"/api/boards/{bid}/cashflow", headers=h).json()
+    facts = [e for e in cf["events"] if e.get("actual")]
+    assert facts and facts[0]["start"] == "2026-01-12"
+    assert facts[0]["converted"] == -900
+
+    # Несуществующий лог — 404
+    r = client.patch(f"/api/tasks/{nxt['id']}/cycle/history/99999", headers=h,
+                     json={"actual_amount": 1})
+    assert r.status_code == 404
+
+
+def test_cycle_log_correction_isolated():
+    """Чужой пользователь не может править чужую историю (изоляция)."""
+    h = _register("corr_iso_a")
+    bid = _first_board(h)
+    r = client.post("/api/tasks", headers=h,
+                    json=_cyclic_payload(title="Моя история", amount=100))
+    assert r.status_code == 200, r.text
+    t = r.json()
+    nxt = client.post(f"/api/tasks/{t['id']}/cycle/complete", headers=h,
+                      json={"actual_amount": 100}).json()
+    log = client.get(f"/api/tasks/{nxt['id']}/cycle/history", headers=h).json()[0]
+
+    h2 = _register("corr_iso_b")
+    r = client.patch(f"/api/tasks/{nxt['id']}/cycle/history/{log['id']}",
+                     headers=h2, json={"actual_amount": 5})
+    assert r.status_code == 404
+    # Лог не изменился
+    log2 = client.get(f"/api/tasks/{nxt['id']}/cycle/history", headers=h).json()[0]
+    assert log2["actual_amount"] == 100

@@ -344,6 +344,55 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     setHistoryOpen(true)
   }
 
+  // ---- Корректировка истории итераций («План vs Факт» задним числом) ----
+  const [editLog, setEditLog] = useState(null) // запись истории в редакторе
+  const [editDate, setEditDate] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editType, setEditType] = useState('expense')
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openLogEdit = (h) => {
+    const d = h.actual_date ? new Date(h.actual_date) : new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    setEditDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
+    const v = Math.abs(Number(h.actual_amount) || 0)
+    setEditAmount(v ? String(v) : '')
+    setEditType((Number(h.actual_amount) || 0) >= 0 ? 'income' : 'expense')
+    setEditError('')
+    setEditLog(h)
+  }
+
+  const submitLogEdit = async () => {
+    const v = parseFloat(String(editAmount).replace(',', '.'))
+    if (isNaN(v) || v <= 0) {
+      setEditError('Введите сумму больше нуля')
+      return
+    }
+    if (!editDate) {
+      setEditError('Укажите дату выполнения')
+      return
+    }
+    setEditSaving(true)
+    try {
+      await tasksApi.cycleLogUpdate(task.id, editLog.id, {
+        actual_date: `${editDate}T12:00:00`,
+        actual_amount: editType === 'income' ? v : -v,
+      })
+      setEditLog(null)
+      // Обновить открытую историю, чтобы правка была видна сразу.
+      try {
+        const res = await tasksApi.cycleHistory(task.id)
+        setHistory(res.data)
+      } catch {}
+      onRefresh && onRefresh()
+    } catch (e) {
+      setEditError(e?.response?.data?.detail || 'Не удалось сохранить правку')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   // Swipe hint shown behind the card while dragging. It appears IMMEDIATELY
   // once the horizontal drag starts (not after the threshold) and behaves like
   // a STATIC area under the card: the target-list label stays anchored to the
@@ -567,9 +616,100 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                 <span className="text-xs text-slate-400 shrink-0">
                   {new Date(h.logged_at).toLocaleString('ru-RU')}
                 </span>
+                {h.action === 'completed' && (
+                  <button
+                    type="button"
+                    onClick={() => openLogEdit(h)}
+                    title="Корректировать факт этой итерации"
+                    className="px-2 py-0.5 rounded border border-slate-300 text-slate-500 text-[10px] hover:bg-slate-100"
+                  >
+                    Корректировать
+                  </button>
+                )}
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Корректировка «План vs Факт» для отдельной итерации */}
+        {editLog && (
+          <div className="mt-4 pt-3 border-t border-slate-100">
+            <p className="text-sm font-semibold text-slate-700 mb-2">
+              Корректировка: {editLog.task_title}
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                  Фактическая дата
+                </label>
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                  Фактическая сумма
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    placeholder="Сумма платежа"
+                  />
+                  <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditType('income')}
+                      className={`px-3 text-sm font-medium ${
+                        editType === 'income' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      + доход
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditType('expense')}
+                      className={`px-3 text-sm font-medium ${
+                        editType === 'expense' ? 'bg-red-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      − расход
+                    </button>
+                  </div>
+                </div>
+                {editLog.planned_amount && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    По плану: {editLog.planned_amount > 0 ? '+' : '−'}{' '}{Math.abs(editLog.planned_amount).toLocaleString('ru-RU')}
+                  </p>
+                )}
+              </div>
+              {editError && <p className="text-sm text-red-500">{editError}</p>}
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditLog(null)}
+                  className="px-3 py-2 rounded border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  disabled={editSaving}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={submitLogEdit}
+                  disabled={editSaving}
+                  className="px-3 py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                >
+                  {editSaving ? 'Сохранение...' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </Modal>
 

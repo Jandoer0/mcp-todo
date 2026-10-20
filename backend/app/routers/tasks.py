@@ -264,6 +264,32 @@ def task_changes(
     return task_service.task_change_history(db, current_user, task_id)
 
 
+@router.patch("/{task_id}/cycle/history/{log_id}", response_model=schemas.CycleLogResponse)
+def cycle_log_update(
+    task_id: int,
+    log_id: int,
+    data: schemas.CycleLogUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Корректировка записи истории цикла: фактическая дата и/или сумма.
+    Только выполненные итерации; запись должна принадлежать цепочке задачи."""
+    try:
+        log = task_service.update_cycle_log(
+            db,
+            current_user,
+            log_id,
+            task_id=task_id,
+            actual_date=data.actual_date,
+            actual_amount=data.actual_amount,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+    except TaskError as e:
+        raise HTTPException(status_code=400, detail=e.message) from None
+    return log
+
+
 @router.get("/{task_id}/cycle/history", response_model=list[schemas.CycleLogResponse])
 def cycle_history(
     task_id: int,
