@@ -198,7 +198,11 @@ async def _send(url: str, secret: str | None, payload: dict) -> None:
             resp = await client.post(url, content=body, headers=headers)
             resp.raise_for_status()
     except Exception as exc:  # never break the request because of a webhook
-        print(f"[webhook] delivery to {url} failed: {exc}")
+        import logging
+
+        logging.getLogger("uvicorn.error").warning(
+            "[webhook] delivery to %s failed: %s", url, exc
+        )
 
 
 def check_due_tasks() -> None:

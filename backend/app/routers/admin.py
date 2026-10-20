@@ -12,7 +12,7 @@ from ..auth import (
 from ..db import get_db
 from ..models import User, Webhook
 from ..services import server_stats as server_stats_service
-from ..site_settings import DEFAULTS, get_bool, get_int, get_setting, set_setting
+from ..site_settings import DEFAULTS, get_bool, set_setting
 
 router = APIRouter(
     prefix="/admin",

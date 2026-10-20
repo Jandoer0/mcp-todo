@@ -8,12 +8,11 @@ from ..auth import get_current_user
 from ..board import (
     PALETTE,
     REGULAR_LIST_NAME,
-    ensure_default_lists,
     list_names,
     status_for_kind,
 )
 from ..db import get_db
-from ..models import Board, Task, TaskList, User
+from ..models import Task, TaskList, User
 from .boards import get_own_board
 
 router = APIRouter(prefix="/lists", tags=["lists"])
