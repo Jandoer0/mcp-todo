@@ -140,9 +140,11 @@ function Trash() {
 export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
-  // Lists are ordered by position; movement goes to the adjacent (neighbor) list
-  // so a card never "jumps" over a column.
-  const ordered = [...lists].sort((a, b) => a.position - b.position)
+
+  // Swipe right/left moves the card to a NEIGHBOURING list — cyclic tasks
+  // are pinned to the system «Регулярные» list and must not be draggable.
+  const isRegular = task.is_cyclic || task.list === 'Регулярные'
+  const ordered = isRegular ? [] : [...lists].sort((a, b) => a.position - b.position)
   const idx = ordered.findIndex((l) => l.name === task.list)
   const nextList = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null
   const prevList = idx > 0 ? ordered[idx - 1] : null
@@ -173,6 +175,16 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   })
 
   const moveTo = (targetName) => {
+    // Жёсткая связь «циклическая ⇔ Регулярные»: циклическую нельзя вытащить
+    // из системного списка, обычную нельзя перетащить в «Регулярные».
+    if (task.is_cyclic) {
+      alert('Циклическая задача всегда находится в списке «Регулярные»')
+      return
+    }
+    if (lists.find((l) => l.name === targetName)?.kind === 'regular') {
+      alert('В «Регулярные» попадают только циклические задачи')
+      return
+    }
     if (lists.find((l) => l.name === targetName)?.kind === 'done' && task.is_blocked) {
       alert('Сначала выполните блокирующие задачи')
       return
@@ -198,6 +210,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   const dragLimit = MAX_DRAG
 
   const swipeTarget = (dx, limit = MAX_DRAG) => {
+    // Циклические задачи не перетаскиваются (жёсткая связь со списком).
+    if (isRegular) return null
     // Swipe right = move FORWARD (to the next list); on the last list — delete.
     // Swipe left = move BACKWARD (to the previous list); on the first — delete.
     if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: nextList, del: isLast }
@@ -207,6 +221,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
 
   const onPointerDown = (e) => {
     if (e.button && e.button !== 0) return
+    // Жёсткая связь «циклическая ⇔ Регулярные»: карточку нельзя ни свайпнуть
+    // в другой список, ни свайпнуть в удаление — жест просто не стартует.
+    if (isRegular) return
     // Presses on interactive children (cycle buttons, blockers) must not start
     // a drag: setPointerCapture would retarget pointerup/click to the card and
     // the button's own onClick would never fire.
@@ -272,6 +289,48 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
       onRefresh && onRefresh()
     } catch (e) {
       alert(e?.response?.data?.detail || 'Не удалось остановить цикл')
+    }
+  }
+
+  // «План vs Факт»: диалог финансового подтверждения завершения итерации.
+  const [completeOpen, setCompleteOpen] = useState(false)
+  const [completeDate, setCompleteDate] = useState('')
+  const [completeAmount, setCompleteAmount] = useState('')
+  // Направление факта: доход (+) / расход (−), по умолчанию — как в плане
+  const [completeType, setCompleteType] = useState('expense')
+  const [completeError, setCompleteError] = useState('')
+
+  const openComplete = () => {
+    const now = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    // Дата выполнения: по умолчанию — текущая дата.
+    setCompleteDate(`${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`)
+    // Фактическая сумма: по умолчанию — плановая (модуль).
+    setCompleteAmount(task.amount ? String(Math.abs(task.amount)) : '')
+    setCompleteType((Number(task.amount) || 0) >= 0 ? 'income' : 'expense')
+    setCompleteError('')
+    setCompleteOpen(true)
+  }
+
+  const submitComplete = async () => {
+    const v = parseFloat(String(completeAmount).replace(',', '.'))
+    if (isNaN(v) || v <= 0) {
+      setCompleteError('Введите сумму больше нуля')
+      return
+    }
+    if (!completeDate) {
+      setCompleteError('Укажите дату выполнения')
+      return
+    }
+    try {
+      await tasksApi.cycleComplete(task.id, {
+        actual_date: `${completeDate}T12:00:00`,
+        actual_amount: completeType === 'income' ? v : -v,
+      })
+      setCompleteOpen(false)
+      onRefresh && onRefresh()
+    } catch (e) {
+      setCompleteError(e?.response?.data?.detail || 'Не удалось завершить итерацию')
     }
   }
 
@@ -432,7 +491,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           >
             <button
               type="button"
-              onClick={() => moveTo(doneListName)}
+              onClick={openComplete}
               disabled={task.is_blocked}
               title={task.is_blocked ? 'Сначала выполните блокирующие задачи' : 'Отметить выполненной и создать следующую итерацию'}
               className="px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700 disabled:opacity-40"
@@ -484,6 +543,26 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                   <span className="text-slate-400 ml-2">
                     {h.action === 'completed' ? 'выполнена' : 'цикл остановлен'}
                   </span>
+                  {h.action === 'completed' && h.actual_amount != null && (
+                    <span className="ml-2 text-xs tabular-nums font-semibold">
+                      факт:{' '}
+                      <span className={h.actual_amount < 0 ? 'text-red-500' : 'text-green-600'}>
+                        {h.actual_amount > 0 ? '+' : ''}
+                        {Math.abs(h.actual_amount).toLocaleString('ru-RU')}
+                      </span>
+                      {h.planned_amount != null && Number(h.planned_amount) !== Number(h.actual_amount) && (
+                        <span className="text-slate-400 font-normal">
+                          {' '}(план: {h.planned_amount > 0 ? '+' : ''}
+                          {Math.abs(h.planned_amount).toLocaleString('ru-RU')})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {h.action === 'completed' && h.actual_date && (
+                    <span className="ml-2 text-xs text-slate-400">
+                      {new Date(h.actual_date).toLocaleDateString('ru-RU')}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs text-slate-400 shrink-0">
                   {new Date(h.logged_at).toLocaleString('ru-RU')}
@@ -492,6 +571,75 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             ))}
           </ul>
         )}
+      </Modal>
+
+      {/* «План vs Факт»: подтверждение завершения циклической итерации */}
+      <Modal open={completeOpen} onClose={() => setCompleteOpen(false)} title={`Выполнить: ${task.title}`}>
+        <div className="space-y-3">
+          <p className="text-sm text-slate-500">
+            Подтвердите фактический платёж — он попадёт в историю итераций и на график (ретроспектива).
+          </p>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата выполнения</label>
+            <input
+              type="date"
+              value={completeDate}
+              onChange={(e) => setCompleteDate(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Фактическая сумма</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={completeAmount}
+                onChange={(e) => setCompleteAmount(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Сумма платежа"
+              />
+              <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCompleteType('income')}
+                  className={`px-3 text-sm font-medium ${completeType === 'income' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  + доход
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCompleteType('expense')}
+                  className={`px-3 text-sm font-medium ${completeType === 'expense' ? 'bg-red-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  − расход
+                </button>
+              </div>
+            </div>
+            {task.amount ? (
+              <p className="mt-1 text-xs text-slate-400">
+                По плану: {task.amount > 0 ? '+' : '−'}{Math.abs(task.amount).toLocaleString('ru-RU')}
+              </p>
+            ) : null}
+          </div>
+          {completeError && <p className="text-sm text-red-500">{completeError}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setCompleteOpen(false)}
+              className="px-3 py-2 rounded border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={submitComplete}
+              className="px-3 py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
+            >
+              Подтвердить
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

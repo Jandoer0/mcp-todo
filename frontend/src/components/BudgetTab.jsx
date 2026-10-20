@@ -182,6 +182,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
             { label: 'Расходы', value: expense, dot: 'bg-red-500', text: 'text-red-600' },
             { label: 'План', value: plan, dot: 'bg-slate-300', text: 'text-slate-800' },
             { label: 'Факт', value: fact, dot: 'bg-slate-400', text: 'text-slate-800' },
+            { label: 'Базовый слой', value: budget?.regular ?? 0, dot: 'bg-teal-500', text: 'text-teal-700' },
           ].map((row) => (
             <div key={row.label} className="flex items-baseline gap-2 text-sm">
               <span className={`h-2 w-2 shrink-0 rounded-full ${row.dot}`} />
@@ -235,6 +236,17 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
               <span className="h-2 w-2 rounded-full bg-red-500" />
             </span>
           </div>
+          {/* Базовый слой: регулярные платежи vs разовые операционные */}
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-teal-500" />
+              Базовый слой (регулярные)
+            </span>
+            <span className="tabular-nums font-semibold text-teal-700">
+              {signed(budget?.regular ?? 0)}
+              <span className="text-slate-400 font-normal"> · разовые: {signed(budget?.operational ?? 0)}</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -244,12 +256,21 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
         </p>
       ) : (
         <div className="rounded border border-slate-200 divide-y divide-slate-100 max-h-[min(33rem,50dvh)] overflow-y-auto">
-          {/* финансовый вид: суммы в валюте расчёта доски */}
+          {/* финансовый вид: суммы в валюте расчёта доски; регулярные платежи
+              (список «Регулярные») помечены как «базовый слой» */}
           {sortEntries(entries).map((e) => {
             const dim = doneNames.has(e.list)
             return (
               <div key={e.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
                 <span className={`truncate ${dim ? 'text-slate-400' : 'text-slate-700'}`} title={e.title}>
+                  {e.is_regular && (
+                    <span
+                      className="inline-block align-middle mr-1.5 rounded px-1 text-[9px] font-bold uppercase bg-teal-100 text-teal-700"
+                      title="Регулярный платёж — базовый слой бюджета"
+                    >
+                      базовый
+                    </span>
+                  )}
                   {e.title}
                 </span>
                 <span className={`shrink-0 font-mono tabular-nums text-right ${dim ? 'text-slate-300' : 'text-slate-600'}`}>

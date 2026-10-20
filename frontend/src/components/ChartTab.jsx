@@ -83,7 +83,7 @@ export default function ChartTab({ board }) {
   // бы из баланса и ложно рождало кассовые разрывы.
   const fullDays = useMemo(() => {
     if (!data || !days.length) return []
-    const events = (data.events || []).filter((e) => showDone || !e.done)
+    const events = (data.events || []).filter((e) => showDone || !e.done || e.actual)
     let start = new Date(days[0].date)
     let end = new Date(days[days.length - 1].date)
     for (const e of events) {
@@ -101,7 +101,9 @@ export default function ChartTab({ board }) {
 
   const fullSeries = useMemo(() => {
     if (!data || !fullDays.length) return []
-    const events = (data.events || []).filter((e) => showDone || !e.done)
+    // Фактические итерации регулярных платежей участвуют всегда (done=True):
+    // ретроспектива «сколько реально тратил» не выключается вместе с планом.
+    const events = (data.events || []).filter((e) => showDone || !e.done || e.actual)
     const change = new Map() // key → { delta, parts: [{title, amount, type, done}] }
     for (const e of events) {
       const per = e.per_day
@@ -318,8 +320,14 @@ export default function ChartTab({ board }) {
               selectedPoint.parts.map((p, i) => (
                 <div key={`${p.title}-${i}`} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
                   <span className="flex items-center gap-1.5 truncate">
-                    <span className={`shrink-0 rounded px-1 text-[10px] font-bold uppercase ${p.type === 'stream' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
-                      {p.type === 'stream' ? 'поток' : 'спик'}
+                    <span className={`shrink-0 rounded px-1 text-[10px] font-bold uppercase ${
+                      p.actual
+                        ? 'bg-teal-100 text-teal-700'
+                        : p.type === 'stream'
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-amber-100 text-amber-600'
+                    }`}>
+                      {p.actual ? 'факт' : p.type === 'stream' ? 'поток' : 'спик'}
                     </span>
                     <span className={`truncate ${p.done ? 'text-slate-400 line-through' : 'text-slate-700'}`} title={p.title}>{p.title}</span>
                   </span>
@@ -363,6 +371,8 @@ export default function ChartTab({ board }) {
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> спик — разовый платёж</span>
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-400" /> поток — сумма на каждый день интервала</span>
+        <span className="flex items-center gap-1" title="Завершённые итерации регулярных платежей — фактические суммы">
+          <span className="h-2 w-2 rounded-full bg-teal-500" /> факт — реальные платежи из истории</span>
         <label className="ml-auto flex items-center gap-1.5 cursor-pointer">
           <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} className="accent-green-600" />
           Учитывать завершённые
@@ -432,10 +442,17 @@ function BalanceChart({ series, selected, onSelect }) {
 
       <path d={line} fill="none" stroke="rgb(30 64 120)" strokeWidth="1.8" />
 
-      {/* маркеры спиков (дни с разовым движением) */}
+      {/* маркеры спиков (дни с разовым движением); фактические платежи —
+          бирюзовые, плановые — янтарные */}
       {series.map((p, i) =>
         p.parts.some((pt) => pt.type === 'spike') ? (
-          <circle key={p.key} cx={x(i)} cy={y(p.balance)} r="2.4" fill="rgb(251 191 36)" />
+          <circle
+            key={p.key}
+            cx={x(i)}
+            cy={y(p.balance)}
+            r="2.4"
+            fill={p.parts.some((pt) => pt.actual) ? 'rgb(20 184 166)' : 'rgb(251 191 36)'}
+          />
         ) : null,
       )}
 

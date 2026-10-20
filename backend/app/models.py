@@ -143,10 +143,15 @@ class TaskCycleLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=True, index=True)
     cycle_group_id = Column(String, index=True)
     task_title = Column(String)
     action = Column(String)  # completed | stopped
-    deadline = Column(DateTime, nullable=True)  # deadline of that iteration
+    deadline = Column(DateTime, nullable=True)  # planned deadline of the iteration
+    planned_amount = Column(Float, nullable=True)  # amount planned for the iteration
+    actual_amount = Column(Float, nullable=True)  # real amount entered on completion
+    actual_date = Column(DateTime, nullable=True)  # real completion date
+    currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     logged_at = Column(DateTime, default=utcnow)
 
 

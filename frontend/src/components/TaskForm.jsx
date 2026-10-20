@@ -98,6 +98,14 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     [lists]
   )
 
+  // Текущая задача — циклическая (в форме или уже в БД). Держит селектор
+  // «Статус» заблокированным, пока активна галочка цикличности.
+  const isCyclic = form.is_cyclic || !!task?.is_cyclic
+  const isRegularListMissing =
+    !isCyclic &&
+    !!form.list &&
+    listOptions.find((l) => l.name === form.list)?.kind === 'regular'
+
   // Валюты пользователя (для селектора у суммы) — один раз при монтировании
   useEffect(() => {
     currenciesApi
@@ -186,6 +194,23 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
 
   const update = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
+
+  // Триггер цикличности (ТЗ «Реформа циклических задач»): при включении
+  // галочки список мгновенно переключается на «Регулярные» и блокируется;
+  // при выключении — разблокируется, а «Регулярные» становятся недоступны.
+  const toggleCyclic = (checked) => {
+    setForm((f) => {
+      const next = { ...f, is_cyclic: checked }
+      if (checked) {
+        const regular = listOptions.find((l) => l.kind === 'regular') || listOptions.find((l) => l.name === 'Регулярные')
+        if (regular) next.list = regular.name
+      } else if (listOptions.find((l) => l.name === f.list)?.kind === 'regular') {
+        const first = listOptions.find((l) => l.kind !== 'regular')
+        if (first) next.list = first.name
+      }
+      return next
+    })
+  }
 
   // Переключение чекбокса GFM-задачи (- [ ] / - [x]) в предпросмотре:
   // правит markdown-источник в форме и сразу сохраняет у существующей задачи.
@@ -321,7 +346,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               <input
                 type="checkbox"
                 checked={form.is_cyclic}
-                onChange={(e) => setForm((f) => ({ ...f, is_cyclic: e.target.checked }))}
+                onChange={(e) => toggleCyclic(e.target.checked)}
                 className="w-4 h-4"
               />
               <span className="text-sm font-semibold">Циклическая задача</span>
@@ -387,14 +412,29 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               name="list"
               value={form.list}
               onChange={update('list')}
-              className="w-full p-2 border rounded"
+              disabled={isCyclic || isRegularListMissing}
+              title={
+                isCyclic
+                  ? 'Циклическая задача всегда находится в списке «Регулярные»'
+                  : undefined
+              }
+              className="w-full p-2 border rounded disabled:bg-slate-100 disabled:text-slate-400"
             >
-              {listOptions.map((l) => (
-                <option key={l.name} value={l.name}>
-                  {l.name}
-                </option>
-              ))}
+              {listOptions.map((l) => {
+                // Обычной задаче выбор «Регулярных» недоступен.
+                const blocked = !isCyclic && l.kind === 'regular'
+                return (
+                  <option key={l.name} value={l.name} disabled={blocked}>
+                    {l.name}{blocked ? ' — только для циклических' : ''}
+                  </option>
+                )
+              })}
             </select>
+            {isCyclic && (
+              <p className="mt-1 text-[11px] text-teal-600">
+                Циклическая задача учитывается в бюджете как регулярный платёж (базовый слой).
+              </p>
+            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Сумма (финансовый вес)</label>

@@ -7,6 +7,7 @@ from .. import schemas
 from ..auth import get_current_user
 from ..board import (
     PALETTE,
+    REGULAR_LIST_NAME,
     ensure_default_lists,
     list_names,
     status_for_kind,
@@ -63,6 +64,11 @@ def create_list(
         ) + 1
     if data.kind not in (None, "todo", "progress", "done"):
         raise HTTPException(status_code=400, detail="Недопустимый статус списка")
+    if name == REGULAR_LIST_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="«Регулярные» — системный список, создаётся автоматически",
+        )
     lst = TaskList(
         name=name,
         color=data.color,
@@ -106,6 +112,11 @@ def update_list(
             db, current_user.id, board_id=board_id
         ):
             raise HTTPException(status_code=400, detail="Имя списка занято")
+        if lst.name == REGULAR_LIST_NAME and new != REGULAR_LIST_NAME:
+            raise HTTPException(
+                status_code=400,
+                detail="Системный список «Регулярные» переименовать нельзя",
+            )
         old = lst.name
         lst.name = new
         # Keep the owner's tasks pointing at the renamed list.
@@ -124,6 +135,11 @@ def update_list(
     if data.kind is not None:
         if data.kind not in ("todo", "progress", "done"):
             raise HTTPException(status_code=400, detail="Недопустимый статус списка")
+        if lst.name == REGULAR_LIST_NAME and data.kind != "regular":
+            raise HTTPException(
+                status_code=400,
+                detail="Системному списку «Регулярные» нельзя менять статус",
+            )
         lst.kind = data.kind
         # Keep task status consistent with the new list semantics.
         db.query(Task).filter(
@@ -150,6 +166,11 @@ def delete_list(
     )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
+    if lst.name == REGULAR_LIST_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="Системный список «Регулярные» удалить нельзя",
+        )
     # Reassign only the owner's tasks to the default "not started" list.
     db.query(Task).filter(
         Task.list == lst.name, Task.user_id == current_user.id

@@ -80,11 +80,18 @@ PALETTE = [
     "#64748b",  # slate
 ]
 
+# Системный список для всех циклических (регулярных) платежей. Связь
+# «циклическая ⇔ Регулярные» жёсткая: только циклические задачи могут в нём
+# находиться и любая циклическая обязана в нём находиться.
+REGULAR_LIST_NAME = "Регулярные"
+REGULAR_LIST_COLOR = "#14b8a6"
+
 DEFAULT_LISTS = [
     {"name": "Не начато", "color": "#64748b", "position": 1, "kind": "todo"},
     {"name": "В работе", "color": "#3b82f6", "position": 2, "kind": "progress"},
     {"name": "Готово", "color": "#22c55e", "position": 3, "kind": "done"},
     {"name": "Архив", "color": "#8b5cf6", "position": 4, "kind": "done"},
+    {"name": REGULAR_LIST_NAME, "color": REGULAR_LIST_COLOR, "position": 5, "kind": "regular"},
 ]
 
 DONE_LIST = "Готово"
@@ -107,7 +114,9 @@ def status_for_list(name: str) -> str:
 
 def status_for_kind(kind) -> str:
     """Task status derived from the list's editable kind.
-    Any list can be marked 'done' (завершено) by the user."""
+    Any list can be marked 'done' (завершено) by the user. The system
+    regular list ('regular') behaves like a todo bucket: cyclic iterations
+    are planned there and completed by moving through a done list."""
     if kind == "done":
         return "done"
     if kind == "progress":

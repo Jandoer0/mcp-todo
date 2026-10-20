@@ -13,7 +13,6 @@ from ..services.task_service import (
     _attach_state,
     _resolve_list,
     advance_deadline,
-    cycle_log,
     ensure_tags,
 )
 from .tags import cleanup_orphan_tags
@@ -61,6 +60,8 @@ def bulk_update_tasks(
                 tag_names = update_fields.pop("tags", None)
                 for key, value in update_fields.items():
                     setattr(db_task, key, value)
+                # Жёсткая связь «циклическая ⇔ Регулярные».
+                task_service.enforce_regular_list(db, db_task)
                 
                 if tag_names is not None:
                     db_task.tags = ensure_tags(db, tag_names, current_user.id, db_task.board_id)
@@ -81,6 +82,9 @@ def bulk_update_tasks(
                 for protected in ("user_id",):
                     data.pop(protected, None)  # protected: always the caller
                 db_task = Task(user_id=current_user.id, **data)
+                task_service._normalize_cyclic(db_task, data)
+                # Жёсткая связь «циклическая ⇔ Регулярные».
+                task_service.enforce_regular_list(db, db_task)
                 if tag_names is not None:
                     db_task.tags = ensure_tags(db, tag_names, current_user.id, board.id)
                 
@@ -208,18 +212,39 @@ def cycle_stop(
     current_user: User = Depends(get_current_user),
 ):
     """Break the cycle: the task becomes a regular one and is logged."""
-    db_task = (
-        db.query(Task)
-        .filter(Task.id == task_id, Task.user_id == current_user.id)
-        .first()
-    )
-    if not db_task or not db_task.is_cyclic:
-        raise HTTPException(status_code=404, detail="Cyclic task not found")
-    db_task.is_cyclic = False
-    cycle_log(db, db_task.user_id, db_task.cycle_group_id, db_task, "stopped")
-    db.commit()
-    db.refresh(db_task)
+    try:
+        db_task = task_service.stop_cycle(db, current_user, task_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Cyclic task not found") from None
+    except TaskError as e:
+        raise HTTPException(status_code=400, detail=e.message) from None
     return _attach_state(db, db_task)
+
+
+@router.post("/{task_id}/cycle/complete", response_model=schemas.TaskResponse)
+def cycle_complete(
+    task_id: int,
+    data: schemas.CycleComplete,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """План vs Факт: финансовое подтверждение завершения итерации.
+    Фактическая дата (по умолчанию — сейчас) и фактическая сумма (по
+    умолчанию — плановая) записываются в историю итераций, создаётся
+    следующая итерация в списке «Регулярные»."""
+    try:
+        next_task = task_service.complete_cycle(
+            db,
+            current_user,
+            task_id,
+            actual_date=data.actual_date,
+            actual_amount=data.actual_amount,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Cyclic task not found") from None
+    except TaskError as e:
+        raise HTTPException(status_code=400, detail=e.message) from None
+    return _attach_state(db, next_task)
 
 
 @router.get("/{task_id}/changes", response_model=list[schemas.TaskChangeLogResponse])

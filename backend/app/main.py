@@ -51,6 +51,21 @@ def run_migrations() -> None:
         if name not in existing_tables:
             Base.metadata.tables[name].create(bind=engine)
 
+    # Учёт регулярных платежей (ТЗ «Реформа циклических задач»): история
+    # итераций получает фактические дату/сумму и привязку к доске.
+    with engine.connect() as conn:
+        log_cols = {c["name"] for c in inspector.get_columns("task_cycle_logs")}
+        for col, ddl in (
+            ("board_id", "INTEGER"),
+            ("planned_amount", "FLOAT"),
+            ("actual_amount", "FLOAT"),
+            ("actual_date", "DATETIME"),
+            ("currency_id", "INTEGER"),
+        ):
+            if col not in log_cols:
+                conn.execute(text(f"ALTER TABLE task_cycle_logs ADD COLUMN {col} {ddl}"))
+        conn.commit()
+
     with engine.connect() as conn:
         cols = {c["name"] for c in inspector.get_columns("tasks")}
         if "start_date" not in cols:
@@ -405,21 +420,19 @@ def migrate_legacy_tags(db) -> None:
 
 
 def seed_lists(db) -> None:
-    """Ensure every user has their own protected default board lists, and
-    backfill tasks whose list does not reference one of the owner's lists."""
-    from .board import ensure_default_lists, status_for_list
+    """Ensure every user has their own protected default board lists (now
+    including the system «Регулярные» list), and backfill tasks whose list
+    does not reference one of the owner's lists."""
+    from .board import ensure_default_lists, status_for_list, status_for_kind
     from .models import Board, Task, TaskList, User
 
-    for user in db.query(User).all():
-        # Seed into the user's default board (multi-board schema).
-        board = (
-            db.query(Board).filter(Board.user_id == user.id)
-            .order_by(Board.id).first()
-        )
-        ensure_default_lists(db, user.id, board.id if board else None)
+    # Только существующие доски: у задач может не быть board_id до бэкфилла.
+    for board in db.query(Board).all():
+        ensure_default_lists(db, board.user_id, board.id)
 
     # Backfill tasks whose list does not reference one of the owner's lists,
-    # and keep status consistent with the (new) list.
+    # and keep status consistent with the (new) list. Жёсткая связь
+    # «циклическая ⇔ Регулярные» восстанавливается в обе стороны.
     for task in db.query(Task).all():
         owned = (
             db.query(TaskList)
@@ -432,6 +445,35 @@ def seed_lists(db) -> None:
         )
         if not owned:
             task.list = "Не начато"
+        if task.is_cyclic:
+            regular = (
+                db.query(TaskList)
+                .filter(
+                    TaskList.user_id == task.user_id,
+                    TaskList.board_id == task.board_id,
+                    TaskList.name == "Регулярные",
+                )
+                .first()
+            )
+            if regular:
+                task.list = regular.name
+                task.status = "todo"
+                continue
+        elif task.list == "Регулярные":
+            fallback = (
+                db.query(TaskList)
+                .filter(
+                    TaskList.user_id == task.user_id,
+                    TaskList.board_id == task.board_id,
+                    TaskList.name != "Регулярные",
+                )
+                .order_by(TaskList.position, TaskList.id)
+                .first()
+            )
+            if fallback:
+                task.list = fallback.name
+                task.status = status_for_kind(fallback.kind)
+                continue
         task.status = status_for_list(task.list)
     db.commit()
 

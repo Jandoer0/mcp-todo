@@ -55,6 +55,7 @@ export const tasksApi = {
   remove: (id) => api.delete(`${API_URL}/tasks/${id}`),
   cycleSkip: (id) => api.post(`${API_URL}/tasks/${id}/cycle/skip`),
   cycleStop: (id) => api.post(`${API_URL}/tasks/${id}/cycle/stop`),
+  cycleComplete: (id, data) => api.post(`${API_URL}/tasks/${id}/cycle/complete`, data),
   cycleHistory: (id) => api.get(`${API_URL}/tasks/${id}/cycle/history`),
   changes: (id) => api.get(`${API_URL}/tasks/${id}/changes`),
   move: (id, boardId) => api.post(`${API_URL}/tasks/${id}/move`, { board_id: boardId }),

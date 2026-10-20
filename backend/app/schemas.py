@@ -173,6 +173,14 @@ class TaskUpdate(BaseModel):
     reminder_days: int | None = None
     amount: float | None = None
     currency_id: int | None = None
+    # Completion of a cyclic iteration: real date and real amount go to history.
+    actual_date: datetime | None = None
+    actual_amount: float | None = Field(default=None, ge=-1e12, le=1e12)
+
+class CycleComplete(BaseModel):
+    """Финансовое подтверждение завершения циклической итерации."""
+    actual_date: datetime | None = None  # по умолчанию — текущий момент
+    actual_amount: float | None = Field(default=None, ge=-1e12, le=1e12)  # по умолчанию — план
 
 class TagResponse(BaseModel):
     id: int
@@ -333,6 +341,10 @@ class CycleLogResponse(BaseModel):
     task_title: str
     action: str
     deadline: datetime | None = None
+    planned_amount: float | None = None
+    actual_amount: float | None = None
+    actual_date: datetime | None = None
+    currency_id: int | None = None
     logged_at: datetime
 
     model_config = {"from_attributes": True}

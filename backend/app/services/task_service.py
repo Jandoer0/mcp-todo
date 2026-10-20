@@ -13,7 +13,13 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from ..clock import utcnow
-from ..board import PALETTE, list_colors, status_for_kind
+from ..board import (
+    PALETTE,
+    REGULAR_LIST_NAME,
+    ensure_default_lists,
+    list_colors,
+    status_for_kind,
+)
 from ..models import (
     TaskChangeLog,
     Board,
@@ -264,21 +270,82 @@ def advance_deadline(dt: datetime, period: str, interval: int) -> datetime:
     return dt + _timedelta(days=interval)
 
 
-def cycle_log(db: Session, user_id: int, group_id: str, task: Task, action: str) -> None:
+def _list_row(db: Session, user_id: int, board_id: int | None, name: str):
+    q = db.query(TaskList).filter(TaskList.user_id == user_id, TaskList.name == name)
+    if board_id is not None:
+        q = q.filter(TaskList.board_id == board_id)
+    return q.first()
+
+
+def regular_list_name(db: Session, user_id: int, board_id: int | None) -> str:
+    """Return the system regular list name for the board, creating the default
+    lists if a legacy board predates the 'Регулярные' list."""
+    row = _list_row(db, user_id, board_id, REGULAR_LIST_NAME)
+    if not row:
+        ensure_default_lists(db, user_id, board_id)
+        row = _list_row(db, user_id, board_id, REGULAR_LIST_NAME)
+    return row.name if row else REGULAR_LIST_NAME
+
+
+def _list_kind(db: Session, user_id: int, board_id: int | None, name: str) -> str:
+    row = _list_row(db, user_id, board_id, name)
+    return (row.kind or "todo") if row else "todo"
+
+
+def _fallback_list_name(db: Session, user_id: int, board_id: int | None) -> str:
+    """First non-regular list of the board (used when a cycle is stopped or a
+    cyclic task is un-flagged)."""
+    q = db.query(TaskList).filter(
+        TaskList.user_id == user_id,
+        TaskList.name != REGULAR_LIST_NAME,
+    )
+    if board_id is not None:
+        q = q.filter(TaskList.board_id == board_id)
+    row = q.order_by(TaskList.position, TaskList.id).first()
+    return row.name if row else "Не начато"
+
+
+def cycle_log(
+    db: Session,
+    user_id: int,
+    group_id: str,
+    task: Task,
+    action: str,
+    actual_date: datetime | None = None,
+    actual_amount: float | None = None,
+) -> None:
+    """Append an iteration to the cycle history. For completed iterations the
+    real date/amount are stored alongside the planned ones."""
+    completed = action == "completed"
     db.add(
         TaskCycleLog(
             user_id=user_id,
+            board_id=task.board_id,
             cycle_group_id=group_id,
             task_title=task.title,
             action=action,
             deadline=task.deadline,
+            planned_amount=task.amount or 0.0,
+            actual_amount=(
+                (task.amount or 0.0) if actual_amount is None else actual_amount
+            )
+            if completed
+            else None,
+            actual_date=(actual_date or utcnow()) if completed else None,
+            currency_id=task.currency_id,
         )
     )
 
 
-def regenerate_cycle(db: Session, task: Task) -> Task:
-    """Complete a cyclic iteration: log it, spawn the next one, drop the current.
-    Returns the newly created next iteration."""
+def regenerate_cycle(
+    db: Session,
+    task: Task,
+    actual_date: datetime | None = None,
+    actual_amount: float | None = None,
+) -> Task:
+    """Complete a cyclic iteration: log it (with the real date/amount when
+    given), spawn the next one in «Регулярные», drop the current. Returns the
+    newly created next iteration."""
     next_deadline = (
         advance_deadline(task.deadline, task.cycle_period, task.cycle_interval)
         if task.deadline
@@ -293,7 +360,7 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
         deadline=next_deadline,
         start_date=task.start_date,
         status="todo",
-        list=_resolve_list(db, "Не начато", task.user_id)[0],
+        list=regular_list_name(db, task.user_id, task.board_id),
         is_cyclic=True,
         cycle_period=task.cycle_period,
         cycle_interval=task.cycle_interval,
@@ -303,7 +370,15 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
         currency_id=task.currency_id,
     )
     next_task.tags = list(task.tags)
-    cycle_log(db, task.user_id, task.cycle_group_id, task, "completed")
+    cycle_log(
+        db,
+        task.user_id,
+        task.cycle_group_id,
+        task,
+        "completed",
+        actual_date=actual_date,
+        actual_amount=actual_amount,
+    )
     db.add(next_task)
     db.flush()
     db.execute(
@@ -316,6 +391,53 @@ def regenerate_cycle(db: Session, task: Task) -> Task:
     db.commit()
     db.refresh(next_task)
     return next_task
+
+
+def complete_cycle(
+    db: Session,
+    user: User,
+    task_id: int,
+    actual_date: datetime | None = None,
+    actual_amount: float | None = None,
+) -> Task:
+    """Explicit financial confirmation of a cyclic iteration completion."""
+    task = (
+        db.query(Task)
+        .filter(Task.id == task_id, Task.user_id == user.id)
+        .first()
+    )
+    if not task:
+        raise LookupError("Task not found")
+    if not task.is_cyclic:
+        raise TaskError("Задача не является циклической")
+    if compute_is_blocked(db, get_blocker_ids(db, task.id)):
+        raise TaskError("Невозможно выполнить задачу: есть незавершённые блокирующие задачи")
+    notification_service.dispatch_event(db, user.id, task, "task_completed")
+    return regenerate_cycle(
+        db, task, actual_date=actual_date, actual_amount=actual_amount
+    )
+
+
+def stop_cycle(db: Session, user: User, task_id: int) -> Task:
+    """Break the cycle: the task becomes a regular one and moves out of the
+    system 'Регулярные' list."""
+    task = (
+        db.query(Task)
+        .filter(Task.id == task_id, Task.user_id == user.id)
+        .first()
+    )
+    if not task:
+        raise LookupError("Task not found")
+    if not task.is_cyclic:
+        raise TaskError("Задача не является циклической")
+    task.is_cyclic = False
+    fallback = _fallback_list_name(db, user.id, task.board_id)
+    task.list = fallback
+    task.status = status_for_kind(_list_kind(db, user.id, task.board_id, fallback))
+    cycle_log(db, user.id, task.cycle_group_id, task, "stopped")
+    db.commit()
+    db.refresh(task)
+    return task
 
 
 def is_cycle_visible(task: Task, now: datetime) -> bool:
@@ -355,7 +477,35 @@ def _resolve_list(
     return (row.name, status_for_kind(row.kind))
 
 
-def _normalize_cyclic(task: Task, data: dict) -> None:
+def _enforce_regular_list(db: Session, task: Task, allow_done_transition: bool = False) -> None:
+    """Жёсткая связь «циклическая ⇔ Регулярные» (ТЗ «Реформа циклических
+    задач»): любая циклическая задача обязана лежать в системном списке
+    «Регулярные», и только циклические задачи могут в нём находиться.
+    Вызывается после применения данных: восстанавливает инвариант в обе
+    стороны независимо от того, что прислал клиент.
+
+    allow_done_transition: при завершении итерации (перевод в список со
+    свойством done) транзитное состояние разрешено — регенерация ниже создаст
+    следующую итерацию сразу в «Регулярных», а текущая будет удалена."""
+    if allow_done_transition and task.is_cyclic and task.status == "done":
+        return
+    regular = regular_list_name(db, task.user_id, task.board_id)
+    if task.is_cyclic:
+        if task.list != regular:
+            task.list = regular
+            task.status = "todo"
+    elif task.list == regular:
+        fallback = _fallback_list_name(db, task.user_id, task.board_id)
+        task.list = fallback
+        task.status = status_for_kind(
+            _list_kind(db, task.user_id, task.board_id, fallback)
+        )
+
+
+def _normalize_cyclic(
+    task: Task, data: dict, db: Session | None = None,
+    allow_done_transition: bool = False,
+) -> None:
     if data.get("is_cyclic"):
         if data.get("cycle_period") not in CYCLE_PERIODS:
             task.cycle_period = "monthly"
@@ -368,6 +518,15 @@ def _normalize_cyclic(task: Task, data: dict) -> None:
             task.cycle_group_id = _uuid.uuid4().hex
         task.cycle_interval = max(1, task.cycle_interval or 1)
         task.reminder_days = max(0, task.reminder_days or 0)
+    if db is not None:
+        # Инвариант применяется даже когда форма не трогала цикличность:
+        # клиент может прислать только смену списка (перетаскивание карточки).
+        _enforce_regular_list(db, task, allow_done_transition=allow_done_transition)
+
+
+def enforce_regular_list(db: Session, task: Task) -> None:
+    """Публичная обёртка инварианта (используется bulk-загрузкой задач)."""
+    _enforce_regular_list(db, task)
 
 
 def list_tasks(
@@ -413,7 +572,7 @@ def create_task(db: Session, user: User, data: dict) -> Task:
         raise TaskError("Невозможно выполнить задачу: есть незавершённые блокирующие задачи")
 
     task = Task(user_id=user.id, **data)
-    _normalize_cyclic(task, data)
+    _normalize_cyclic(task, data, db=db)
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -494,6 +653,10 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     old_status = task.status
 
     data = {k: v for k, v in data.items() if k not in _PROTECTED_FIELDS}
+    # Поля «План vs Факт» не являются колонками задачи: они уходят в историю
+    # итераций при завершении цикла (ниже), в БД задачи их не пишем.
+    actual_date = data.pop("actual_date", None)
+    actual_amount = data.pop("actual_amount", None)
     has_blocked_by = "blocked_by" in data
     blocked_by = data.pop("blocked_by", None)
     has_tags = "tags" in data
@@ -508,7 +671,7 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
 
     for key, value in data.items():
         setattr(task, key, value)
-    _normalize_cyclic(task, data)
+    _normalize_cyclic(task, data, db=db, allow_done_transition=True)
 
     if has_tags:
         task.tags = ensure_tags(db, tag_names or [], user.id, task.board_id)
@@ -547,9 +710,12 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
                     db, user.id, task, "priority_changed"
                 )
 
-    # Cyclic task completed: log the iteration and spawn the next one.
+    # Cyclic task completed: log the iteration (with the real date/amount
+    # passed alongside) and spawn the next one in «Регулярные».
     if task.is_cyclic and task.status == "done":
-        return regenerate_cycle(db, task)
+        return regenerate_cycle(
+            db, task, actual_date=actual_date, actual_amount=actual_amount
+        )
     return task
 
 
@@ -630,6 +796,10 @@ def move_task(db: Session, user: User, task_id: int, target_board_id: int) -> Ta
         task.list, task.status = _resolve_list(db, None, user.id, target.id)
 
     task.board_id = target.id
+    # Жёсткая связь «циклическая ⇔ Регулярные»: после переноса на другую доску
+    # циклическая задача попадает в «Регулярные» той доски, обычная — в первый
+    # обычный список (не может остаться/стать «Регулярными»).
+    _enforce_regular_list(db, task)
     # Dependencies are same-board only: drop them on move.
     db.execute(
         sa_delete(task_dependencies).where(
@@ -654,19 +824,23 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
     Мультивалютность: каждая запись несёт сумму в своей валюте (code + rate),
     а все итоги и converted даются в валюте расчёта доски (report_currency_id,
     по умолчанию базовая USD). Расчёты — Decimal; missing_rate=True, когда у
-    какой-то валюты не указан курс (UI показывает предупреждение)."""
+    какой-то валюты не указан курс (UI показывает предупреждение).
+
+    Базовый слой (ТЗ «Реформа циклических задач»): задачи из системного
+    списка «Регулярные» выделяются в итогах regular/operational — регулярные
+    доходы/расходы отделяются от разовых операционных событий."""
     from decimal import Decimal, ROUND_HALF_UP
 
     from .currency_service import convert_amount, default_currency, rates_map
 
     board = _resolve_board(db, user, board_id)
-    done_names = {
-        l.name
-        for l in db.query(TaskList)
+    board_lists = (
+        db.query(TaskList)
         .filter(TaskList.user_id == user.id, TaskList.board_id == board.id)
         .all()
-        if (l.kind or "todo") == "done"
-    }
+    )
+    done_names = {l.name for l in board_lists if (l.kind or "todo") == "done"}
+    regular_name = regular_list_name(db, user.id, board.id)
     tasks = (
         db.query(Task)
         .filter(
@@ -708,6 +882,7 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
                 "currency_id": t.currency_id,
                 "currency_code": cur_code if (cur_code := _currency_code(db, t.currency_id)) else None,
                 "converted": float(converted) if converted is not None else None,
+                "is_regular": t.list == regular_name,
             }
         )
 
@@ -721,6 +896,9 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
     fact = _sum_converted(e for e in entries if e["list"] in done_names)
     income = _sum_converted(e for e in entries if e["amount"] > 0)
     expense = _sum_converted(e for e in entries if e["amount"] < 0)
+    # Базовый слой = регулярные платежи (список «Регулярные»);
+    # операционный слой = разовые задачи вне списка.
+    regular = _sum_converted(e for e in entries if e["is_regular"])
     cur = db.query(Currency).filter(Currency.id == target_id).first() if target_id else None
     return {
         "board_id": board.id,
@@ -735,6 +913,8 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
         "total": float(total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
         "income": float(income.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
         "expense": float(expense.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "regular": float(regular.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "operational": float((total - regular).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
         "entries": entries,
     }
 
@@ -783,7 +963,12 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
     Все суммы конвертируются в валюту расчёта доски (Decimal, как в
     board_budget); missing_rate=True — есть валюты без курса. Каждое событие
     несёт итог в валюте расчёта (converted) и дневную долю (per_day).
-    День детализации собирает фронтенд из per_day/converted."""
+    День детализации собирает фронтенд из per_day/converted.
+
+    План vs Факт (ТЗ «Реформа циклических задач»): завершённые итерации
+    циклических задач берутся из истории TaskCycleLog (фактическая сумма в
+    фактическую дату, флаг done=True), а не из плановой задачи. Регулярные
+    задачи помечены is_regular — фронтенд отделяет ретроспективу от прогноза."""
     from datetime import timedelta
 
     from decimal import Decimal, ROUND_HALF_UP
@@ -791,13 +976,13 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
     from .currency_service import convert_amount, default_currency, rates_map
 
     board = _resolve_board(db, user, board_id)
-    done_names = {
-        l.name
-        for l in db.query(TaskList)
+    board_lists = (
+        db.query(TaskList)
         .filter(TaskList.user_id == user.id, TaskList.board_id == board.id)
         .all()
-        if (l.kind or "todo") == "done"
-    }
+    )
+    done_names = {l.name for l in board_lists if (l.kind or "todo") == "done"}
+    regular_name = regular_list_name(db, user.id, board.id)
     tasks = (
         db.query(Task)
         .filter(
@@ -848,6 +1033,7 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
                     "per_day": float(per_day),
                     "currency_code": _currency_code(db, t.currency_id),
                     "done": t.list in done_names,
+                    "is_regular": t.list == regular_name,
                 }
             )
         else:
@@ -867,8 +1053,56 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
                     "per_day": float(converted),
                     "currency_code": _currency_code(db, t.currency_id),
                     "done": t.list in done_names,
+                    "is_regular": t.list == regular_name,
                 }
             )
+    # Ретроспектива циклических задач: фактические суммы из истории итераций
+    # (TaskCycleLog) — реальная сумма в реальную дату выполнения. Плановые
+    # итерации в прошлом заменяются этими фактами на фронтенде (по флагу done).
+    completed_events = []
+    for log in (
+        db.query(TaskCycleLog)
+        .filter(
+            TaskCycleLog.user_id == user.id,
+            TaskCycleLog.board_id == board.id,
+            TaskCycleLog.action == "completed",
+            TaskCycleLog.actual_date.isnot(None),
+        )
+        .all()
+    ):
+        if log.currency_id:
+            src_rate = rates.get(log.currency_id)
+            if not src_rate:
+                missing_rate = True
+                continue
+        else:
+            src_rate = rates.get(default.id) if default else 1.0
+            if default and not src_rate:
+                missing_rate = True
+                continue
+        converted = convert_amount(log.actual_amount or 0, src_rate or 0, target_rate)
+        if converted is None:
+            missing_rate = True
+            continue
+        day = log.actual_date.date()
+        completed_events.append(
+            {
+                "id": -log.id,  # синтетический id (логи не являются задачами)
+                "title": log.task_title,
+                "type": "spike",
+                "start": day.isoformat(),
+                "end": day.isoformat(),
+                "days": 1,
+                "converted": float(converted),
+                "per_day": float(converted),
+                "currency_code": _currency_code(db, log.currency_id),
+                "done": True,
+                "is_regular": True,
+                "actual": True,
+                "planned_amount": float(log.planned_amount or 0),
+            }
+        )
+    events.extend(completed_events)
     cur = db.query(Currency).filter(Currency.id == target_id).first() if target_id else None
     return {
         "board_id": board.id,

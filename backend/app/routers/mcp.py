@@ -14,7 +14,7 @@ from ..auth import decode_access_token, get_user_by_mcp_token
 from ..db import SessionLocal
 from ..models import Currency, Task, User
 from ..services import task_service
-from ..services.task_service import advance_deadline, cycle_log, regenerate_cycle
+from ..services.task_service import advance_deadline, regenerate_cycle
 
 mcp = FastMCP("OmniTask")
 
@@ -460,9 +460,7 @@ def manage_cycle(auth_token: str, board_id: int, task_id: int, action: str) -> s
             db.commit()
             return f"Deadline shifted to next cycle: {task.deadline}"
         if action == "stop":
-            task.is_cyclic = False
-            cycle_log(db, task.user_id, task.cycle_group_id, task, "stopped")
-            db.commit()
+            task_service.stop_cycle(db, user, task_id)
             return "Cycle stopped. No new iterations will be created."
         if action == "complete":
             next_task = regenerate_cycle(db, task)
