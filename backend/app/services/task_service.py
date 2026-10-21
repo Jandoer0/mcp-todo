@@ -320,6 +320,10 @@ def cycle_log(
     db.add(
         TaskCycleLog(
             user_id=user_id,
+            # Привязка к доске: берём актуальную доску задачи; на случай,
+            # когда в момент записи доска неизвестна (старые БД), лог всё
+            # равно сохраняется — бэкфилл в main.run_migrations подставит
+            # дефолтную доску владельца при следующем старте.
             board_id=task.board_id,
             cycle_group_id=group_id,
             task_title=task.title,

@@ -60,7 +60,16 @@ export default function ChartTab({ board }) {
           const end = new Date(`${e.end}T12:00:00`)
           if (end > last) last = end
         }
-        setWin({ start: today, spanDays: Math.round((last - today) / (24 * 60 * 60 * 1000)) })
+        // Начало окна: сегодня, но не позже раннего ФАКТА (реального платежа
+        // из истории) — иначе недавние фактические движения (например, платёж
+        // позавчера) не видны на графике без ручного сдвига окна назад.
+        let start = new Date(today)
+        for (const e of events) {
+          if (!e.actual) continue
+          const s = new Date(`${e.start}T12:00:00`)
+          if (s < start) start = s
+        }
+        setWin({ start, spanDays: Math.round((last - start) / (24 * 60 * 60 * 1000)) })
       })
       .catch(() => setData(null))
   }, [board?.id])
@@ -110,7 +119,7 @@ export default function ChartTab({ board }) {
       const push = (key) => {
         const cell = change.get(key) || { delta: 0, parts: [] }
         cell.delta += per
-        cell.parts.push({ title: e.title, amount: per, type: e.type, done: e.done })
+        cell.parts.push({ title: e.title, amount: per, type: e.type, done: e.done, actual: e.actual })
         change.set(key, cell)
       }
       if (e.type === 'stream') {
@@ -263,6 +272,7 @@ export default function ChartTab({ board }) {
       {series.length > 1 && (
         <div className="rounded-xl border border-slate-200 bg-card p-3 shadow-sm overflow-x-auto">
           <BalanceChart series={series} selected={selected} onSelect={setSelected} />
+          <MonthLabels series={series} />
           <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 tabular-nums">
             <span>{shortDate(series[0].key)}</span>
             <span>{shortDate(series[series.length - 1].key)}</span>
@@ -382,8 +392,53 @@ export default function ChartTab({ board }) {
   )
 }
 
+// Подписи месяцев под графиком: один тег на месяц видимого ряда, ширина
+// блока пропорциональна числу дней месяца в ряду; зеркалит геометрию
+// BalanceChart (pad + 7 px на день при W = series.length * 7).
+function MonthLabels({ series }) {
+  if (!series.length) return null
+  const W = Math.max(560, series.length * 7)
+  const pad = { left: 4, right: 4 }
+  const x = (i) => pad.left + (i / (series.length - 1)) * (W - pad.left - pad.right)
+
+  // Собираем сегменты [от индекса, до индекса] по смене месяца.
+  const segments = []
+  let cur = null
+  series.forEach((p, i) => {
+    const d = new Date(`${p.key}T00:00:00`)
+    const label = d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+    if (!cur || cur.label !== label) {
+      cur = { label, from: i, to: i }
+      segments.push(cur)
+    } else {
+      cur.to = i
+    }
+  })
+
+  return (
+    <div className="relative h-4 mt-0.5" aria-hidden="true">
+      {segments.map((s) => {
+        // Границы сегмента в px контейнера (ширина = viewBox) — сам блок
+        // растягивается на всю ширину, как и SVG (w-full), поэтому проценты
+        // совпадают с координатами viewBox.
+        const x0 = x(Math.max(0, s.from - 0.5))
+        const x1 = x(Math.min(series.length - 1, s.to + 0.5))
+        return (
+          <div
+            key={s.label + s.from}
+            className="absolute top-0 h-4 overflow-hidden text-[10px] font-medium capitalize text-slate-400"
+            style={{ left: `${(x0 / W) * 100}%`, width: `${((x1 - x0) / W) * 100}%` }}
+          >
+            {s.label}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // SVG-график: линия баланса, нулевая линия, маркеры спиков, вертикальные
-// линии разрывов, выбор дня по клику.
+// линии разрывов, вертикальные разделители месяцев, выбор дня по клику.
 function BalanceChart({ series, selected, onSelect }) {
   const W = Math.max(560, series.length * 7)
   const H = 160
@@ -398,6 +453,12 @@ function BalanceChart({ series, selected, onSelect }) {
   const zeroY = y(0)
   const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
   const area = `${line} L${x(series.length - 1).toFixed(1)},${zeroY} L${x(0).toFixed(1)},${zeroY} Z`
+
+  // Первый день каждого нового месяца — позиция вертикального разделителя
+  // (дни ряда всегда идут подряд, поэтому достаточно проверить число).
+  const monthBorders = series
+    .map((p, i) => ({ i, day: new Date(`${p.key}T00:00:00`).getDate() }))
+    .filter(({ i, day }) => i > 0 && day === 1)
 
   return (
     <svg
@@ -440,20 +501,37 @@ function BalanceChart({ series, selected, onSelect }) {
         ) : null,
       )}
 
+      {/* вертикальные разделители месяцев: линия на 1-м числе каждого месяца —
+          рисуется ПОСЛЕ линий разрывов, чтобы не теряться среди них */}
+      {monthBorders.map(({ i }) => (
+        <line
+          key={`m${series[i].key}`}
+          x1={x(i)}
+          x2={x(i)}
+          y1={pad.top}
+          y2={H - pad.bottom}
+          stroke="rgb(148 163 184)"
+          strokeWidth="1.5"
+        />
+      ))}
+
       <path d={line} fill="none" stroke="rgb(30 64 120)" strokeWidth="1.8" />
 
       {/* маркеры спиков (дни с разовым движением); фактические платежи —
-          бирюзовые, плановые — янтарные */}
-      {series.map((p, i) =>
-        p.parts.some((pt) => pt.type === 'spike') ? (
-          <circle
-            key={p.key}
-            cx={x(i)}
-            cy={y(p.balance)}
-            r="2.4"
-            fill={p.parts.some((pt) => pt.actual) ? 'rgb(20 184 166)' : 'rgb(251 191 36)'}
-          />
-        ) : null,
+          бирюзовые, плановые — янтарные; несколько движений в один день
+          рисуются «столбиком», крупный платёж не затирается мелким */}
+      {series.flatMap((p, i) =>
+        p.parts
+          .filter((pt) => pt.type === 'spike')
+          .map((pt, j) => (
+            <circle
+              key={`${p.key}-${j}`}
+              cx={x(i)}
+              cy={y(p.balance) - j * 3}
+              r={pt.actual ? 3 : 2.4}
+              fill={pt.actual ? 'rgb(20 184 166)' : 'rgb(251 191 36)'}
+            />
+          )),
       )}
 
       {/* выбранный день */}

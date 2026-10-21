@@ -55,7 +55,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Редактировать доску' : 'Новая доска'}>
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Свойства доски' : 'Новая доска'}>
       {isEdit && (
         <div className="flex gap-1 mb-4 border-b border-slate-200">
           <button

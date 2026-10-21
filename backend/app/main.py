@@ -5,6 +5,7 @@ and serves the built frontend as static files. The Starlette app exposed as
 ``starlette_app`` is what the container runs.
 """
 import asyncio
+import logging
 import os
 
 from fastapi import FastAPI
@@ -27,6 +28,8 @@ from .db import Base, SessionLocal, engine
 from .routers import admin, auth, boards, currencies, lists, mcp, summary, tags, tasks
 
 Base.metadata.create_all(bind=engine)
+
+logger = logging.getLogger(__name__)
 
 
 def run_migrations() -> None:
@@ -186,6 +189,7 @@ def run_migrations() -> None:
         )
 
     _backfill_boards()
+    _backfill_cycle_log_boards()
 
     # Tags + task_lists rebuilds: the multi-board schema scopes name uniqueness
     # to (user_id, board_id) instead of (user_id, name); SQLite needs a rebuild.
@@ -342,6 +346,60 @@ def run_migrations() -> None:
         seed_currencies(db)
     finally:
         db.close()
+
+
+def _backfill_cycle_log_boards() -> None:
+    """Re-bind orphaned cycle-history entries to their cycle's current board.
+
+    Legacy entries (written before cycle logs carried board_id, e.g. the
+    OZON instalment payment of 19.10.2026) have board_id = NULL and were
+    invisible on the board's cash-flow chart. The board is restored from
+    any live task of the same cycle_group_id (the iteration the user sees
+    today); when the cycle is already dead, the owner's default board is
+    used — same fallback as _backfill_boards for tasks.
+    """
+    from sqlalchemy import text
+
+    from .models import Board, TaskCycleLog
+
+    with SessionLocal() as db:
+        # 1) группы, у которых есть живая задача — берём её доску
+        for log_id, group_id, uid in db.execute(
+            text(
+                "SELECT l.id, l.cycle_group_id, l.user_id "
+                "FROM task_cycle_logs l "
+                "WHERE l.board_id IS NULL AND l.cycle_group_id IS NOT NULL"
+            )
+        ).all():
+            board_id = db.execute(
+                text(
+                    "SELECT board_id FROM tasks "
+                    "WHERE user_id = :uid AND cycle_group_id = :gid "
+                    "AND board_id IS NOT NULL ORDER BY id LIMIT 1"
+                ),
+                {"uid": uid, "gid": group_id},
+            ).scalar()
+            if board_id is None:
+                # 2) цикл уже прекращён — доска владельца по умолчанию
+                board_id = db.execute(
+                    text(
+                        "SELECT id FROM boards WHERE user_id = :uid "
+                        "ORDER BY id LIMIT 1"
+                    ),
+                    {"uid": uid},
+                ).scalar()
+            if board_id is not None:
+                db.execute(
+                    text(
+                        "UPDATE task_cycle_logs SET board_id = :bid WHERE id = :lid"
+                    ),
+                    {"bid": board_id, "lid": log_id},
+                )
+        db.commit()
+        # страховка: логи без привязки не должны остаться
+        left = db.query(TaskCycleLog).filter(TaskCycleLog.board_id.is_(None)).count()
+        if left:
+            logger.warning("cycle-log board backfill: %d entries left unbound", left)
 
 
 def _backfill_boards() -> None:
