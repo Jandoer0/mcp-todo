@@ -366,6 +366,120 @@ class BulkUpdateResponse(BaseModel):
     created: int
     errors: list[dict[str, Any]] = []
 
+
+# --- Перенос доски: экспорт/импорт всех задач, включая циклические -------------
+
+EXPORT_FORMAT = "mcp-todo-board"
+
+
+class TransferList(BaseModel):
+    """Список доски в переносимом файле (сопоставление при импорте — по имени)."""
+
+    name: str = Field(min_length=1, max_length=MAX_LIST_NAME)
+    color: str | None = None
+    position: int = Field(default=1, ge=0, le=1_000_000)
+    kind: str | None = None
+    is_default: bool = False
+
+    _color_check = field_validator("color")(_check_color)
+
+    @field_validator("kind")
+    @classmethod
+    def _kind_check(cls, v):
+        if v not in (None, "todo", "progress", "done", "regular"):
+            raise ValueError("kind должен быть todo, progress, done или regular")
+        return v
+
+
+class TransferTag(BaseModel):
+    name: str = Field(min_length=1, max_length=MAX_TAG_NAME)
+    color: str | None = None
+
+    _color_check = field_validator("color")(_check_color)
+
+
+class TransferTask(BaseModel):
+    """Задача в переносимом файле. Идентификаторы БД не переносятся:
+    список — по имени, теги — по именам, валюта — по коду.
+    Блокеры задаются индексами в массиве tasks (dependencies)."""
+
+    title: str = Field(min_length=1, max_length=MAX_TITLE)
+    description: str | None = None
+    list: str | None = None
+    start_date: datetime | None = None
+    deadline: datetime | None = None
+    priority: int = Field(default=1, ge=1, le=3)
+    amount: float = Field(default=0.0, ge=-1e12, le=1e12, allow_inf_nan=False)
+    currency_code: str | None = None
+    tags: builtins.list[str] = []
+    is_cyclic: bool = False
+    cycle_period: str | None = None
+    cycle_interval: int = Field(default=1, ge=1, le=365)
+    cycle_group_id: str | None = None
+    reminder_days: int = Field(default=0, ge=0, le=365)
+    created_at: datetime | None = None
+
+    @field_validator("cycle_period")
+    @classmethod
+    def _cycle_period_check(cls, v):
+        if v is not None and v not in ("daily", "weekly", "monthly", "yearly"):
+            raise ValueError("cycle_period: daily | weekly | monthly | yearly")
+        return v
+
+
+class TransferDependency(BaseModel):
+    """Блокер: задачи[blocker] блокирует задачи[blocked] (индексы в tasks)."""
+
+    blocker: int = Field(ge=0)
+    blocked: int = Field(ge=0)
+
+
+class TransferCycleLog(BaseModel):
+    """Запись истории итераций (факты «План vs Факт» переносятся вместе
+    с циклическими задачами, чтобы график сохранил ретроспективу)."""
+
+    cycle_group_id: str
+    task_title: str
+    action: str  # completed | stopped
+    deadline: datetime | None = None
+    planned_amount: float | None = Field(default=None, ge=-1e12, le=1e12)
+    actual_amount: float | None = Field(default=None, ge=-1e12, le=1e12)
+    actual_date: datetime | None = None
+    currency_code: str | None = None
+    logged_at: datetime | None = None
+
+    @field_validator("action")
+    @classmethod
+    def _action_check(cls, v):
+        if v not in ("completed", "stopped"):
+            raise ValueError("action: completed | stopped")
+        return v
+
+
+class TransferBoardData(BaseModel):
+    """Тело переносимого файла (экспорт одной доски)."""
+
+    format: str | None = None
+    version: int = 1
+    board: dict[str, Any] = {}
+    lists: builtins.list[TransferList] = []
+    tags: builtins.list[TransferTag] = []
+    tasks: builtins.list[TransferTask] = Field(default=[], max_length=2000)
+    dependencies: builtins.list[TransferDependency] = Field(default=[], max_length=5000)
+    cycle_history: builtins.list[TransferCycleLog] = Field(default=[], max_length=5000)
+
+
+class BoardImportRequest(BaseModel):
+    data: TransferBoardData
+    mode: str = "merge"  # merge — добавить к существующим | replace — заменить
+
+    @field_validator("mode")
+    @classmethod
+    def _mode_check(cls, v):
+        if v not in ("merge", "replace"):
+            raise ValueError("mode: merge | replace")
+        return v
+
 class WebhookBase(BaseModel):
     name: str | None = Field(default=None, max_length=100)
     url: str = Field(max_length=2048)

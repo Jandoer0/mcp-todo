@@ -43,6 +43,8 @@ export const boardsApi = {
   },
   budget: (boardId) => api.get(`${API_URL}/boards/${boardId}/budget`),
   cashflow: (boardId) => api.get(`${API_URL}/boards/${boardId}/cashflow`),
+  export: (boardId) => api.get(`${API_URL}/boards/${boardId}/export`),
+  importBoard: (boardId, body) => api.post(`${API_URL}/boards/${boardId}/import`, body),
 }
 
 export const tasksApi = {
