@@ -523,7 +523,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             hover shows the blocker list (see BlockersProgress). */}
         {(((task.tags || []).length > 0) || blockers.length > 0) && (
           <div className="mt-1 flex items-center gap-1.5 overflow-hidden">
-            <div className="flex gap-1 min-w-0 max-w-[50%] justify-end overflow-hidden whitespace-nowrap">
+            <div className="flex gap-1 min-w-0 max-w-[50%] justify-start overflow-hidden whitespace-nowrap">
               {(task.tags || []).map((t, i) => {
                 const name = typeof t === 'string' ? t : (t.name || t)
                 const tagData = tags.find((tag) => tag.name === name)
@@ -531,7 +531,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                 return (
                   <span
                     key={`t${i}`}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0"
+                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
                     style={{ backgroundColor: color }}
                     title={name}
                   >
