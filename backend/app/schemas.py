@@ -30,6 +30,12 @@ def _check_kind(v: str | None) -> str | None:
     return v
 
 
+def _check_list_update_kind(v: str | None) -> str | None:
+    if v is not None and v not in ("todo", "progress", "done", "regular"):
+        raise ValueError("kind должен быть todo, progress, done или regular")
+    return v
+
+
 class CurrencyResponse(BaseModel):
     id: int
     code: str
@@ -219,10 +225,12 @@ class TaskListUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=MAX_LIST_NAME)
     color: str | None = None
     position: int | None = Field(default=None, ge=0, le=1_000_000)
+    # Системный список «Регулярные» принимает только постоянный kind='regular'
+    # (сервер дополнительно проверяет его по владельцу/доске).
     kind: str | None = None
 
     _color_check = field_validator("color")(_check_color)
-    _kind_check = field_validator("kind")(_check_kind)
+    _kind_check = field_validator("kind")(_check_list_update_kind)
 
 class TagCreate(BaseModel):
     name: str = Field(min_length=1, max_length=MAX_TAG_NAME)

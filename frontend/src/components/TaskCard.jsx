@@ -4,6 +4,25 @@ import { tasksApi } from '../api/client'
 import Modal from './Modal'
 import { formatAmount } from './TaskForm'
 
+// Символ валюты для суммы на карточке (ТЗv2 §3): валюта задачи, а при
+// отсутствии валюты — первая валюта пользователя (валюта по умолчанию).
+function currencySymbol(task, currencies = []) {
+  const own = currencies.find((c) => c.id === task?.currency_id)
+  const fallback = currencies[0]
+  return (own || fallback)?.symbol || (own || fallback)?.code || ''
+}
+
+// Крупные суммы сокращаем для компактной карточки: 4 200 → 4,2 тыс.,
+// 12 500 000 → 12,5 млн. Полное значение остаётся в title и в форме задачи.
+function compactAmount(value) {
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000) return `${(abs / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн`
+  // 999 999 не должен превращаться в «1000 тыс.» — переходим на млн сразу.
+  if (abs >= 999_950) return `${(abs / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн`
+  if (abs >= 1_000) return `${(abs / 1_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} тыс.`
+  return abs.toLocaleString('ru-RU')
+}
+
 // "12 окт." when the year matches the current one, "12 окт. 2027" otherwise.
 function formatDate(value) {
   if (!value) return ''
@@ -137,7 +156,7 @@ function Trash() {
   )
 }
 
-export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onEditCyclic, onDelete, onRefresh }) {
+export default function TaskCard({ task, allTasks = [], lists = [], tags = [], currencies = [], onSetList, onEdit, onEditCyclic, onDelete, onRefresh }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
 
@@ -503,11 +522,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             )}
             {(Number(task.amount) || 0) !== 0 && (
               <span
-                className="text-[11px] font-bold text-amber-400 whitespace-nowrap"
-                title={`Сумма: ${formatAmount(task.amount)}`}
+                className={`text-[11px] font-bold whitespace-nowrap ${
+                  Number(task.amount) > 0 ? 'text-amber-400' : 'text-red-500'
+                }`}
+                title={`Сумма: ${formatAmount(task.amount)} ${currencySymbol(task, currencies)}`}
               >
                 {Number(task.amount) > 0 ? '+' : '−'}
-                {Math.abs(Number(task.amount)).toLocaleString('ru-RU')}
+                {compactAmount(Number(task.amount))} {currencySymbol(task, currencies)}
               </span>
             )}
           </span>

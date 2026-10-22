@@ -420,14 +420,6 @@ export default function App() {
 
       <div className="flex justify-between items-center mb-4 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <button
-            type="button"
-            onClick={() => openCyclic()}
-            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded shadow-sm text-sm whitespace-nowrap"
-            title="Создать циклическую задачу"
-          >
-            ↻ <span className="hidden sm:inline">Новая циклическая</span><span className="sm:hidden">Цикл</span>
-          </button>
           {/* Mobile: filters as a dropdown between the two buttons */}
           <div className="md:hidden relative">
             <button
@@ -490,8 +482,8 @@ export default function App() {
           setPresetList(listName)
           setModalOpen(true)
         }}
+        currencies={currencies}
         onManageLists={() => setListsOpen(true)}
-        onAddCyclic={() => openCyclic()}
         onEditCyclic={openCyclic}
       />
 

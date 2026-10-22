@@ -26,7 +26,9 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   const [newColor, setNewColor] = useState(PALETTE[0])
   const [editingColor, setEditingColor] = useState(null)
 
-  // Все списки редактируемы (UPDATE ТЗ): системных имён больше нет.
+  // Системный список «Регулярные» не удаляется, не переименовывается и
+  // сохраняет постоянный статус (ТЗv2: циклические задачи ⇔ Регулярные).
+  const isRegular = (list) => list.kind === 'regular' || list.name === 'Регулярные'
 
   if (!open) return null
 
@@ -129,8 +131,10 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
                 />
                 <input
                   defaultValue={list.name}
+                  readOnly={isRegular(list)}
                   onBlur={(e) => rename(list, e.target.value)}
-                  className="flex-1 p-1 border rounded bg-transparent"
+                  className={`flex-1 p-1 border rounded bg-transparent ${isRegular(list) ? 'text-slate-500' : ''}`}
+                  title={isRegular(list) ? 'Системный список — переименование недоступно' : undefined}
                 />
                 <button
                   onClick={() => reorder(list, 'up')}
@@ -149,19 +153,22 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
                   ↓
                 </button>
                 <select
-                  value={list.kind || 'todo'}
+                  value={isRegular(list) ? 'regular' : list.kind || 'todo'}
+                  disabled={isRegular(list)}
                   onChange={(e) => setKind(list, e.target.value)}
-                  className="text-xs border rounded px-1 py-1 bg-white"
-                  title="Статус списка: задачи в списке со статусом «Завершено» считаются выполненными"
+                  className="text-xs border rounded px-1 py-1 bg-white disabled:text-slate-500 disabled:bg-slate-50"
+                  title={isRegular(list) ? 'Системный список «Регулярные»' : 'Статус списка: задачи в списке со статусом «Завершено» считаются выполненными'}
                 >
+                  {isRegular(list) && <option value="regular">Регулярные</option>}
                   <option value="todo">К выполнению</option>
                   <option value="progress">В работе</option>
                   <option value="done">Завершено</option>
                 </select>
                 <button
                   onClick={() => remove(list)}
-                  className="text-red-500 text-xs"
-                  title="Удалить"
+                  disabled={isRegular(list)}
+                  className="text-red-500 text-xs disabled:opacity-30"
+                  title={isRegular(list) ? 'Системный список удалить нельзя' : 'Удалить'}
                 >
                   Удалить
                 </button>

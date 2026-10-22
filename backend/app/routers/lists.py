@@ -103,15 +103,16 @@ def update_list(
     )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
+    is_regular_system = lst.kind == "regular" or lst.name == REGULAR_LIST_NAME
 
-    # All lists are editable: no protected/system names (UPDATE ТЗ).
+    # Обычные списки полностью редактируемы; системный «Регулярные» — нет.
     if data.name is not None and data.name.strip():
         new = data.name.strip()
         if new != lst.name and new in list_names(
             db, current_user.id, board_id=board_id
         ):
             raise HTTPException(status_code=400, detail="Имя списка занято")
-        if lst.name == REGULAR_LIST_NAME and new != REGULAR_LIST_NAME:
+        if is_regular_system and new != lst.name:
             raise HTTPException(
                 status_code=400,
                 detail="Системный список «Регулярные» переименовать нельзя",
@@ -134,7 +135,7 @@ def update_list(
     if data.kind is not None:
         if data.kind not in ("todo", "progress", "done"):
             raise HTTPException(status_code=400, detail="Недопустимый статус списка")
-        if lst.name == REGULAR_LIST_NAME and data.kind != "regular":
+        if is_regular_system:
             raise HTTPException(
                 status_code=400,
                 detail="Системному списку «Регулярные» нельзя менять статус",
@@ -165,14 +166,16 @@ def delete_list(
     )
     if not lst:
         raise HTTPException(status_code=404, detail="Список не найден")
-    if lst.name == REGULAR_LIST_NAME:
+    if lst.kind == "regular" or lst.name == REGULAR_LIST_NAME:
         raise HTTPException(
             status_code=400,
             detail="Системный список «Регулярные» удалить нельзя",
         )
-    # Reassign only the owner's tasks to the default "not started" list.
+    # Reassign only the owner's tasks of this board to the default list.
     db.query(Task).filter(
-        Task.list == lst.name, Task.user_id == current_user.id
+        Task.list == lst.name,
+        Task.user_id == current_user.id,
+        Task.board_id == lst.board_id,
     ).update(
         {Task.list: "Не начато"}, synchronize_session=False
     )

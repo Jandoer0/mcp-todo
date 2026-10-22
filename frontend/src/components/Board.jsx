@@ -35,7 +35,7 @@ export default function Board({
   onRefresh,
   onAddTask, // (listName) => открыть форму с пресетом колонки
   onManageLists, // открыть ListsManager
-  onAddCyclic,
+  currencies = [], // валюта по умолчанию — первая в пользовательском порядке
   onEditCyclic,
 }) {
   // List semantics are user-editable (kind: todo | progress | done).
@@ -328,7 +328,7 @@ export default function Board({
                 <div className="ml-auto flex items-center gap-1 shrink-0">
                   <button
                     type="button"
-                    onClick={() => (regular ? onAddCyclic?.() : onAddTask?.(group.name))}
+                    onClick={() => (regular ? onEditCyclic?.() : onAddTask?.(group.name))}
                     className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
                     title={regular ? 'Новая циклическая задача' : `Добавить задачу в «${group.name}»`}
                   >
@@ -385,6 +385,7 @@ export default function Board({
                               onEditCyclic={onEditCyclic}
                               onDelete={onDelete}
                               onRefresh={onRefresh}
+                              currencies={currencies}
                             />
                           </div>
                         </Fragment>
@@ -400,7 +401,7 @@ export default function Board({
                         прижата к последней задаче, а не к низу колонки. */}
                     <button
                       type="button"
-                      onClick={() => (regular ? onAddCyclic?.() : onAddTask?.(group.name))}
+                      onClick={() => (regular ? onEditCyclic?.() : onAddTask?.(group.name))}
                       className="w-full py-2 rounded bg-white/5 text-white/60 hover:bg-white/10 hover:text-white text-xs transition-colors border border-dashed border-white/20"
                     >
                       + Добавить задачу
@@ -428,8 +429,10 @@ export default function Board({
               tags={tags}
               onSetList={() => {}}
               onEdit={() => {}}
+              onEditCyclic={() => {}}
               onDelete={() => {}}
               onRefresh={() => {}}
+              currencies={currencies}
             />
           </div>,
           document.body
