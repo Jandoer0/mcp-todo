@@ -2,26 +2,7 @@ import { useRef, useState, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
-import { formatAmount } from './TaskForm'
-
-// Символ валюты для суммы на карточке (ТЗv2 §3): валюта задачи, а при
-// отсутствии валюты — первая валюта пользователя (валюта по умолчанию).
-function currencySymbol(task, currencies = []) {
-  const own = currencies.find((c) => c.id === task?.currency_id)
-  const fallback = currencies[0]
-  return (own || fallback)?.symbol || (own || fallback)?.code || ''
-}
-
-// Крупные суммы сокращаем для компактной карточки: 4 200 → 4,2 тыс.,
-// 12 500 000 → 12,5 млн. Полное значение остаётся в title и в форме задачи.
-function compactAmount(value) {
-  const abs = Math.abs(value)
-  if (abs >= 1_000_000) return `${(abs / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн`
-  // 999 999 не должен превращаться в «1000 тыс.» — переходим на млн сразу.
-  if (abs >= 999_950) return `${(abs / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн`
-  if (abs >= 1_000) return `${(abs / 1_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} тыс.`
-  return abs.toLocaleString('ru-RU')
-}
+import { compactAmount, currencySymbol, formatAmount } from '../utils/format'
 
 // "12 окт." when the year matches the current one, "12 окт. 2027" otherwise.
 function formatDate(value) {
@@ -208,7 +189,14 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       alert('Сначала выполните блокирующие задачи')
       return
     }
-    onSetList(task, targetName)
+    // §5.4: при завершении циклической через done-список передаём
+    // локальную дату клиента вместо utcnow() сервера (иначе для не-UTC
+    // таймзон фактическая дата попадает в чужой день).
+    const extra =
+      task.is_cyclic && lists.find((l) => l.name === targetName)?.kind === 'done'
+        ? { actual_date: new Date().toISOString() }
+        : {}
+    onSetList(task, targetName, extra)
   }
 
   const handleDelete = () => {

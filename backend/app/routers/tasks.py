@@ -1,6 +1,6 @@
 """Task CRUD endpoints, scoped to the authenticated user."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -107,6 +107,10 @@ def list_tasks(
     status: str | None = None,
     list: str | None = None,
     board_id: int | None = None,
+    # §5.5: предохранитель от тяжёлых досок; по умолчанию — до 1000 задач,
+    # offset позволяет листать дальше (UI грузит первую страницу).
+    limit: int = Query(1000, ge=1, le=5000),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -115,7 +119,8 @@ def list_tasks(
     except LookupError:
         raise HTTPException(status_code=404, detail="Board not found") from None
     tasks = task_service.list_tasks(
-        db, current_user, status=status, list_name=list, board_id=board_id
+        db, current_user, status=status, list_name=list, board_id=board_id,
+        limit=limit, offset=offset,
     )
     return tasks
 

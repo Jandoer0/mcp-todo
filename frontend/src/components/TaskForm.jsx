@@ -5,17 +5,11 @@ import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
 import Markdown from './Markdown'
+import { formatAmount } from '../utils/format'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
 const PRIORITY_LABELS = { 1: 'Низкий', 2: 'Средний', 3: 'Высокий' }
-
-// «-10000» → «-10 000» (только для отображения в маркере)
-export function formatAmount(v) {
-  const n = Number(v) || 0
-  const sign = n < 0 ? '-' : '+'
-  return `${sign}${Math.abs(n).toLocaleString('ru-RU')}`
-}
 const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.']
 
 // «2025-10-12» → «12 окт. 2025»

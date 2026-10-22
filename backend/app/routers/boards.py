@@ -20,6 +20,7 @@ from ..models import (
     Currency,
     Tag,
     Task,
+    TaskChangeLog,
     TaskCycleLog,
     TaskList,
     User,
@@ -163,6 +164,30 @@ def delete_board(
     if db.query(Board).filter(Board.user_id == current_user.id).count() <= 1:
         raise HTTPException(status_code=400, detail="Нельзя удалить последнюю доску")
     # Cascade: a board owns its tasks, tags, lists and webhooks entirely.
+    # §5.3: junction-таблицы и логи (task_tags/task_dependencies/
+    # task_change_logs/task_cycle_logs) чистим явно — bulk-удаление задач
+    # не трогает эти строки, и сироты накапливаются в квоте БД.
+    task_ids = [
+        r[0]
+        for r in db.query(Task.id).filter(Task.board_id == board.id).all()
+    ]
+    if task_ids:
+        from sqlalchemy import delete as sa_delete
+
+        db.execute(
+            sa_delete(task_dependencies).where(
+                (task_dependencies.c.blocker_id.in_(task_ids))
+                | (task_dependencies.c.blocked_id.in_(task_ids))
+            )
+        )
+        db.execute(sa_delete(task_tags).where(task_tags.c.task_id.in_(task_ids)))
+        db.query(TaskChangeLog).filter(
+            TaskChangeLog.task_id.in_(task_ids)
+        ).delete(synchronize_session=False)
+    # Логи циклов привязаны к доске (board_id), а не к конкретной задаче.
+    db.query(TaskCycleLog).filter(
+        TaskCycleLog.board_id == board.id
+    ).delete(synchronize_session=False)
     db.query(Webhook).filter(Webhook.board_id == board.id).delete()
     db.query(Task).filter(Task.board_id == board.id).delete(synchronize_session=False)
     db.query(Tag).filter(Tag.board_id == board.id).delete(synchronize_session=False)

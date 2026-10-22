@@ -75,8 +75,10 @@ export function useTasks(ready, boardId) {
   )
 
   const setList = useCallback(
-    async (id, listName) => {
-      await update(id, { list: listName })
+    async (id, listName, extra = {}) => {
+      // extra: например actual_date при завершении циклической через done-список
+      // (§5.4 — локальная дата клиента вместо utcnow сервера).
+      await update(id, { ...extra, list: listName })
     },
     [update],
   )

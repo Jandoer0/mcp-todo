@@ -287,27 +287,35 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </div>
       )}
 
-      {/* Кассовые разрывы */}
+      {/* Кассовые разрывы — компактно, максимум 2 строки:
+          1) заголовок + мин. баланс в одну строку; 2) чипы без переноса с обрезкой */}
       {breaks.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-          <div className="text-sm font-semibold text-red-700">
-            ⚠ Кассовые разрывы ({breaks.length})
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-sm font-semibold text-red-700 truncate">
+              ⚠ Кассовые разрывы ({breaks.length})
+            </div>
+            <div className="shrink-0 text-xs text-red-600 tabular-nums">
+              мин. {signed(minBalance)} {currency}
+            </div>
           </div>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {breaks.slice(0, 12).map((b) => (
+          <div className="mt-1 flex gap-1.5 overflow-hidden">
+            {breaks.slice(0, 6).map((b) => (
               <button
                 key={b.key}
                 type="button"
                 onClick={() => setSelected(b.key)}
-                className="rounded-full bg-white border border-red-300 px-2.5 py-0.5 text-xs font-semibold text-red-600 tabular-nums hover:bg-red-100"
+                title={`${longDate(b.key)} · ${signed(b.balance)} ${currency}`}
+                className="shrink-0 rounded-full bg-white border border-red-300 px-2 py-0.5 text-[11px] font-semibold text-red-600 tabular-nums hover:bg-red-100"
               >
                 {shortDate(b.key)} · {signed(b.balance)}
               </button>
             ))}
-            {breaks.length > 12 && <span className="text-xs text-red-500 self-center">и ещё {breaks.length - 12}…</span>}
-          </div>
-          <div className="mt-1 text-xs text-red-600">
-            Минимальный прогнозный баланс: {signed(minBalance)} {currency}
+            {breaks.length > 6 && (
+              <span className="text-[11px] text-red-500 self-center shrink-0">
+                +{breaks.length - 6}
+              </span>
+            )}
           </div>
         </div>
       )}

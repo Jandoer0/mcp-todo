@@ -302,9 +302,9 @@ export default function App() {
     }
   }
 
-  const handleSetList = async (task, listName) => {
+  const handleSetList = async (task, listName, extra = {}) => {
     try {
-      await setList(task.id, listName)
+      await setList(task.id, listName, extra)
     } catch (err) {
       if (err?.response?.status === 400) {
         alert(err?.response?.data?.detail || 'Действие невозможно')

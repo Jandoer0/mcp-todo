@@ -610,6 +610,8 @@ def list_tasks(
     status: str | None = None,
     list_name: str | None = None,
     board_id: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> list[Task]:
     query = db.query(Task).filter(Task.user_id == user.id)
     if board_id is not None:
@@ -620,7 +622,14 @@ def list_tasks(
         query = query.filter(Task.list == list_name)
     # Канбан (ТЗv2 §1.4): порядок внутри колонки задаёт position; задачи без
     # позиций (созданные до миграции, но после бэкфилла — маловероятно) — в конец по id.
-    tasks = query.order_by(Task.position, Task.id).all()
+    query = query.order_by(Task.position, Task.id)
+    # §5.5: предохранитель от «тяжёлых» досок — ручная пагинация через
+    # limit/offset; без limit сохраняется прежнее поведение (все задачи).
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    tasks = query.all()
     _attach_state_many(db, tasks)
     now = utcnow()
     for t in tasks:
@@ -908,6 +917,18 @@ def delete_task(db: Session, user: User, task_id: int) -> None:
             | (task_dependencies.c.blocked_id.in_(chain_ids))
         )
     )
+    # §5.3: junction task_tags и логи правок чистим явно — bulk-удаление/
+    # связи SQLAlchemy не трогают эти строки, и сироты накапливаются в квоте БД.
+    db.execute(sa_delete(task_tags).where(task_tags.c.task_id.in_(chain_ids)))
+    db.query(TaskChangeLog).filter(
+        TaskChangeLog.task_id.in_(chain_ids)
+    ).delete(synchronize_session=False)
+    if group_id:
+        # Логи циклов привязаны к цепочке (cycle_group_id), а не к задаче.
+        db.query(TaskCycleLog).filter(
+            TaskCycleLog.cycle_group_id == group_id,
+            TaskCycleLog.user_id == user.id,
+        ).delete(synchronize_session=False)
     if group_id:
         db.query(Task).filter(
             Task.user_id == user.id, Task.cycle_group_id == group_id
