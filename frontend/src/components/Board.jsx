@@ -12,7 +12,13 @@ const Gap = ({ height }) => (
 )
 
 // Горизонтальный канбан по образцу Planka (ТЗv2 §1):
-//  - колонки — горизонтальный ряд, контейнер скроллится по X (десктоп ≥ md);
+//  - колонки — горизонтальный ряд ФИКСИРОВАННОЙ ширины (w-56 = 224px на
+//    десктопе): 5 столбцов влезают в половину экрана 2560×1440 (1280px)
+//    без горизонтального скролла; при большем числе списков контейнер
+//    скроллится по X;
+//  - свёрнутая колонка на десктопе сжимается до узкой вертикальной полоски
+//    (w-11) с названием — освобождая место соседним столбцам; «Архив»
+//    свёрнут всегда, «Регулярные» — пока в них нет активных задач;
 //  - карточки в колонке — вертикальный стек со своим скроллом;
 //  - перетаскивание карточек мышью (кастомный DnD на pointer-событиях):
 //    захваченная карточка «вырывается» из потока — остальные смыкаются;
@@ -94,11 +100,16 @@ export default function Board({
   }
 
   // ---- Collapsed columns (dnd does not apply to collapsed ones) ----
-  // Collapsed by default for «Архив», expanded otherwise.
+  // Дефолты (ТЗv2 §1.11): «Архив» всегда свёрнут по умолчанию; «Регулярные» —
+  // если в них нет активных (видимых) задач. Явный клик пользователя имеет
+  // приоритет над дефолтом. На десктопе свёрнутая колонка сжимается
+  // по горизонтали до узкой полоски, освобождая место соседним столбцам.
   const [collapsed, setCollapsed] = useState({})
-  const isCollapsed = (name) => collapsed[name] ?? name === 'Архив'
-  const toggleGroup = (name) =>
-    setCollapsed((c) => ({ ...c, [name]: !(c[name] ?? name === 'Архив') }))
+  const isRegularCol = (g) => g.kind === 'regular' || g.name === 'Регулярные'
+  const defaultCollapsed = (g) => g.name === 'Архив' || (isRegularCol(g) && g.items.length === 0)
+  const isCollapsed = (g) => collapsed[g.name] ?? defaultCollapsed(g)
+  const toggleGroup = (g) =>
+    setCollapsed((c) => ({ ...c, [g.name]: !(c[g.name] ?? defaultCollapsed(g)) }))
 
   // ---- Перетаскивание карточек мышью (механика Planka) ----
   // Кастомный DnD на pointer-событиях. HTML5 Drag&Drop не используется:
@@ -281,9 +292,10 @@ export default function Board({
       >
         {groups.map((group) => {
           const cyclicDrag = dragView && !!tasks.find((t) => t.id === dragView.id)?.is_cyclic
-          const regular = group.kind === 'regular' || group.name === 'Регулярные'
+          const regular = isRegularCol(group)
           const forbidden = regular && dragView && !cyclicDrag
           const isOver = dragView?.over === group.name && dragView && !forbidden
+          const collapsedState = isCollapsed(group)
           // Видимые карточки: перетаскиваемая «вырвана» из потока (высота 0),
           // остальные смыкаются, освобождая место (механика Planka).
           const others = group.items.filter((t) => !dragView || t.id !== dragView.id)
@@ -293,11 +305,55 @@ export default function Board({
           const showGap = !!dragView && isOver && dragView.index != null
           const gapAtEnd = showGap && dragView.index >= others.length
           const gapHeight = dragView?.h || 48
+          // Шапка колонки (§1.2): маркер, название, счётчик, «+», меню.
+          // Общая для развёрнутой колонки и мобильной свёрнутой подачи.
+          const headerBar = (
+            <div className="flex items-center gap-2 px-1 py-2 md:px-2">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group)}
+                className="flex items-center gap-2 min-w-0 text-left group"
+                title={collapsedState ? 'Развернуть колонку' : 'Свернуть колонку'}
+              >
+                <span className="text-white/60 text-xs transition-transform">
+                  {collapsedState ? '▶' : '▼'}
+                </span>
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: group.color }}
+                />
+                <h4 className="font-semibold text-sm text-white group-hover:text-white/80 truncate">
+                  {group.name}
+                </h4>
+                <span className="text-xs text-white/60 shrink-0">({group.items.length})</span>
+              </button>
+              <div className="ml-auto flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => (regular ? onEditCyclic?.() : onAddTask?.(group.name))}
+                  className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
+                  title={regular ? 'Новая циклическая задача' : `Добавить задачу в «${group.name}»`}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onManageLists && onManageLists()}
+                  className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
+                  title="Настроить списки (имя, цвет, удаление)"
+                >
+                  ⋯
+                </button>
+              </div>
+            </div>
+          )
           return (
             <section
               key={group.id}
               data-col={group.name}
-              className={`flex flex-col md:w-0 md:min-w-0 md:flex-1 md:shrink-0 rounded-lg ${
+              // Фиксированная ширина колонки (§1.11): 5 столбцов w-56 влезают
+              // в половину экрана 2560×1440 (1280px) без горизонтального скролла.
+              className={`flex flex-col md:w-56 md:shrink-0 md:flex-none rounded-lg ${
                 isOver
                   ? 'bg-blue-400/10'
                   : forbidden
@@ -305,49 +361,39 @@ export default function Board({
                     : ''
               }`}
             >
-              {/* Шапка колонки (§1.2): маркер, название, счётчик, «+», меню */}
-              <div className="flex items-center gap-2 px-1 py-2 md:px-2">
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.name)}
-                  className="flex items-center gap-2 min-w-0 text-left group"
-                  title={isCollapsed(group.name) ? 'Развернуть колонку' : 'Свернуть колонку'}
-                >
-                  <span className="text-white/60 text-xs transition-transform">
-                    {isCollapsed(group.name) ? '▶' : '▼'}
-                  </span>
-                  <span
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: group.color }}
-                  />
-                  <h4 className="font-semibold text-sm text-white group-hover:text-white/80 truncate">
-                    {group.name}
-                  </h4>
-                  <span className="text-xs text-white/60 shrink-0">({group.items.length})</span>
-                </button>
-                <div className="ml-auto flex items-center gap-1 shrink-0">
+              {collapsedState ? (
+                <>
+                  {/* Десктоп: свёрнутая колонка — узкая вертикальная полоска,
+                      освобождая место для соседних столбцов (§1.11). */}
                   <button
                     type="button"
-                    onClick={() => (regular ? onEditCyclic?.() : onAddTask?.(group.name))}
-                    className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
-                    title={regular ? 'Новая циклическая задача' : `Добавить задачу в «${group.name}»`}
+                    onClick={() => toggleGroup(group)}
+                    className="hidden md:flex w-11 shrink-0 flex-col items-center gap-2 py-2 rounded-lg bg-white/5 hover:bg-white/15 transition-colors"
+                    title={`Развернуть «${group.name}»`}
                   >
-                    +
+                    <span className="text-white/70 text-xs">▶</span>
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: group.color }}
+                    />
+                    <span
+                      className="text-white/85 text-xs font-semibold whitespace-nowrap"
+                      style={{ writingMode: 'vertical-rl' }}
+                    >
+                      {group.name}
+                    </span>
+                    <span className="text-[10px] text-white/50">({group.items.length})</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onManageLists && onManageLists()}
-                    className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
-                    title="Настроить списки (имя, цвет, удаление)"
-                  >
-                    ⋯
-                  </button>
-                </div>
-              </div>
+                  {/* Мобильная вертикальная подача: привычная шапка, стек скрыт */}
+                  <div className="md:hidden">{headerBar}</div>
+                </>
+              ) : (
+                <>
+                  {headerBar}
 
               {/* Стек карточек: на десктопе — колонка полной высоты со своим
                   скроллом; свёрнутая колонка не рендерит карточки. */}
-              {!isCollapsed(group.name) && (
+              {!collapsedState && (
                 <div className="flex flex-col md:flex-1 md:min-h-0">
                   <div className="flex-1 overflow-y-auto md:pr-1 space-y-2 pb-2">
                     {group.items.map((task) => {
@@ -408,6 +454,8 @@ export default function Board({
                     </button>
                   </div>
                 </div>
+              )}
+                </>
               )}
             </section>
           )
