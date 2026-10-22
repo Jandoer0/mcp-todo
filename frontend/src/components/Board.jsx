@@ -106,8 +106,13 @@ export default function Board({
   const [dragTask, setDragTask] = useState(null) // { id, fromList }
   const [overList, setOverList] = useState(null) // имя колонки-приёмника
   const [dropIndex, setDropIndex] = useState(null) // индекс вставки в стеке
+  // Отладка DnD — можно удалить после проверки.
+  useEffect(() => {
+    console.log('[DnD debug] canDrag=', canDrag, 'pointer:', window?.matchMedia('(pointer: fine)').matches)
+  }, [canDrag])
 
   const handleDragStart = (e, task) => {
+    console.log('[DnD start] task=', task.id, 'pointerType=', e.pointerType)
     // Высота карточки нужна для плейсхолдера-«дырки» в колонке-приёмнике.
     const rect = e.currentTarget.getBoundingClientRect()
     setDragTask({ id: task.id, fromList: task.list, h: Math.round(rect.height) })
@@ -134,6 +139,7 @@ export default function Board({
   }
 
   const handleDrop = (e, group) => {
+    console.log('[DnD drop] list=', group.name, 'dropIndex=', dropIndex)
     e.preventDefault()
     if (!dragTask) return
     // Запрет на UI (§2.7): обычная задача не бросается в «Регулярные»;
@@ -169,6 +175,7 @@ export default function Board({
 
   const handleDragOver = (e, group) => {
     if (!dragTask) return
+    console.log('[DnD over] list=', group.name, 'dropIndex=', dropIndex)
     e.preventDefault()
     // «Регулярные» принимают только циклические (ТЗv2 §1.5/§2.7): подсветка
     // ошибки, drop запрещён. Сервер всё равно проверит инвариант.

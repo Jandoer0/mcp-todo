@@ -226,6 +226,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   const onPointerDown = (e) => {
+    console.log('[Swipe down] canSwipe=', canSwipe, 'pointerType=', e.pointerType)
     // На десктопе жест не стартует: мышь управляет нативным Drag&Drop.
     if (!canSwipe || e.pointerType === 'mouse') return
     if (e.button && e.button !== 0) return
