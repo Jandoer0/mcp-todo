@@ -353,7 +353,11 @@ export default function Board({
               data-col={group.name}
               // Фиксированная ширина колонки (§1.11): 5 столбцов w-56 влезают
               // в половину экрана 2560×1440 (1280px) без горизонтального скролла.
-              className={`flex flex-col md:w-56 md:shrink-0 md:flex-none rounded-lg ${
+              // Свёрнутая колонка сжимает саму секцию до w-11 — место
+              // соседним столбцам действительно освобождается.
+              className={`flex flex-col md:shrink-0 md:flex-none md:transition-[width] md:duration-200 rounded-lg ${
+                collapsedState ? 'md:w-11' : 'md:w-56'
+              } ${
                 isOver
                   ? 'bg-blue-400/10'
                   : forbidden
@@ -368,7 +372,7 @@ export default function Board({
                   <button
                     type="button"
                     onClick={() => toggleGroup(group)}
-                    className="hidden md:flex w-11 shrink-0 flex-col items-center gap-2 py-2 rounded-lg bg-white/5 hover:bg-white/15 transition-colors"
+                    className="hidden md:flex w-full shrink-0 flex-col items-center gap-2 py-2 rounded-lg bg-white/5 hover:bg-white/15 transition-colors"
                     title={`Развернуть «${group.name}»`}
                   >
                     <span className="text-white/70 text-xs">▶</span>
