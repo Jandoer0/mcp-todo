@@ -183,7 +183,7 @@ export default function Board({
           return (
             <section
               key={group.id}
-              className={`flex flex-col md:w-72 md:shrink-0 rounded-lg ${
+              className={`flex flex-col md:w-0 md:min-w-0 md:flex-1 md:shrink-0 rounded-lg ${
                 isOver
                   ? 'ring-2 ring-blue-400 bg-blue-400/10'
                   : forbidden
