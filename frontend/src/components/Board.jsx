@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import TaskCard from './TaskCard'
 
 // Плейсхолдер-«дырка» размером с перетаскиваемую карточку: открывается на
@@ -13,10 +14,11 @@ const Gap = ({ height }) => (
 // Горизонтальный канбан по образцу Planka (ТЗv2 §1):
 //  - колонки — горизонтальный ряд, контейнер скроллится по X (десктоп ≥ md);
 //  - карточки в колонке — вертикальный стек со своим скроллом;
-//  - DnD карточек между колонками и внутри колонки (HTML5 Drag&Drop, только
-//    десктоп): захваченная карточка «вырывается» из потока — остальные
-//    смыкаются; на месте вставки открывается плейсхолдер-«дырка» (Planka);
-//    позиция сохраняется дробным position на сервере;
+//  - перетаскивание карточек мышью (кастомный DnD на pointer-событиях):
+//    захваченная карточка «вырывается» из потока — остальные смыкаются;
+//    на месте вставки открывается плейсхолдер-«дырка» (Planka); позиция
+//    сохраняется дробным position на сервере. HTML5 Drag&Drop не используется —
+//    он нестабилен при схлопывании исходного элемента;
 //  - шапка колонки: цветовой маркер, название, счётчик, «+» и меню колонки;
 //  - свайп-перенос карточек сохранён на мобильных (внутри TaskCard).
 export default function Board({
@@ -96,35 +98,55 @@ export default function Board({
   const toggleGroup = (name) =>
     setCollapsed((c) => ({ ...c, [name]: !(c[name] ?? name === 'Архив') }))
 
-  // ---- Drag & Drop state ----
-  // Нативный HTML5 DnD включаем только на устройствах с точным указателем
-  // (десктоп): на тач-устройствах draggable перехватил бы жест у свайпа
-  // карточек (ТЗv2 §1.6 — свайп на мобильных сохранён).
-  const [canDrag] = useState(
-    () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches,
-  )
-  const [dragTask, setDragTask] = useState(null) // { id, fromList }
-  const [overList, setOverList] = useState(null) // имя колонки-приёмника
-  const [dropIndex, setDropIndex] = useState(null) // индекс вставки в стеке
-  // Отладка DnD — можно удалить после проверки.
-  useEffect(() => {
-    console.log('[DnD debug] canDrag=', canDrag, 'pointer:', window?.matchMedia('(pointer: fine)').matches)
-  }, [canDrag])
+  // ---- Перетаскивание карточек мышью (механика Planka) ----
+  // Кастомный DnD на pointer-событиях. HTML5 Drag&Drop не используется:
+  // он нестабилен при схлопывании исходного элемента в DOM. Тач-жесты
+  // (pointerType === 'touch') здесь игнорируются — на мобильных перенос
+  // делает свайп внутри TaskCard (ТЗv2 §1.6).
+  const [dragView, setDragView] = useState(null) // { id, fromList, h, over, index }
+  const dragRef = useRef(null) // полное состояние перетаскивания
+  const startRef = useRef(null) // жест начат, но порог движения не пройден
+  const ghostRef = useRef(null) // DOM «призрака» под курсором
+  const suppressClickRef = useRef(false) // гасим клик после перетаскивания
 
-  const handleDragStart = (e, task) => {
-    console.log('[DnD start] task=', task.id, 'pointerType=', e.pointerType)
-    // Высота карточки нужна для плейсхолдера-«дырки» в колонке-приёмнике.
-    const rect = e.currentTarget.getBoundingClientRect()
-    setDragTask({ id: task.id, fromList: task.list, h: Math.round(rect.height) })
-    // Данные обязательны для Firefox; JSON позволяет получить задачу на drop.
-    e.dataTransfer.setData('application/json', JSON.stringify({ id: task.id }))
-    e.dataTransfer.effectAllowed = 'move'
+  // Актуальные данные для обработчиков window (не пересоздаём их каждый move).
+  const dataRef = useRef({})
+  dataRef.current = { tasks, groups }
+
+  const listByName = (name) => dataRef.current.groups.find((g) => g.name === name) || null
+
+  // Индекс вставки среди видимых карточек (перетаскиваемая исключена из
+  // потока): курсор над верхней половиной карточки → вставка перед ней,
+  // ниже всех → в конец.
+  const indexAt = (y, listName, draggedId) => {
+    const g = listByName(listName)
+    if (!g) return 0
+    let idx = 0
+    for (const t of g.items) {
+      if (t.id === draggedId) continue
+      const el = document.getElementById(`card-${t.id}`)
+      if (el) {
+        const r = el.getBoundingClientRect()
+        if (y < r.top + r.height / 2) return idx
+      }
+      idx++
+    }
+    return idx
   }
 
-  const handleDragEnd = () => {
-    setDragTask(null)
-    setOverList(null)
-    setDropIndex(null)
+  // Колонка под курсором (по data-атрибуту секции).
+  const colAt = (x, y) => {
+    const el = document.elementFromPoint(x, y)
+    return el?.closest?.('[data-col]')?.dataset?.col || null
+  }
+
+  // «Регулярные» принимают только циклические (ТЗv2 §1.5/§2.7).
+  const dropForbidden = (listName, draggedId) => {
+    const g = listByName(listName)
+    if (!g) return true
+    const regular = g.kind === 'regular' || g.name === 'Регулярные'
+    const cyclicSource = dataRef.current.tasks.find((t) => t.id === draggedId)?.is_cyclic
+    return regular && !cyclicSource
   }
 
   // Вычислить position для вставки перед индексом i (дробный индекс §1.4):
@@ -138,59 +160,115 @@ export default function Board({
     return (prev + next) / 2
   }
 
-  const handleDrop = (e, group) => {
-    console.log('[DnD drop] list=', group.name, 'dropIndex=', dropIndex)
-    e.preventDefault()
-    if (!dragTask) return
-    // Запрет на UI (§2.7): обычная задача не бросается в «Регулярные»;
-    // drop в запрещённую колонку — просто отмена перетаскивания.
-    const regular = group.kind === 'regular' || group.name === 'Регулярные'
-    const cyclicSource = tasks.find((t) => t.id === dragTask.id)?.is_cyclic
-    if (regular && !cyclicSource) {
-      handleDragEnd()
-      return
+  // Обновить цель перетаскивания (колонка + индекс вставки) под курсором.
+  const updateTarget = (x, y) => {
+    const d = dragRef.current
+    if (!d) return
+    const col = colAt(x, y) || d.over
+    const forbidden = col ? dropForbidden(col, d.id) : true
+    const index = forbidden ? null : indexAt(y, col, d.id)
+    if (col !== d.over || index !== d.index) {
+      d.over = col
+      d.index = index
+      setDragView({ id: d.id, fromList: d.fromList, h: d.h, over: d.over, index: d.index })
     }
-    const items = group.items.filter((t) => t.id !== dragTask.id)
-    const idx = dropIndex == null ? items.length : Math.min(dropIndex, items.length)
-    onReorder && onReorder({ id: dragTask.id }, group.name, positionFor(items, idx))
-    handleDragEnd()
   }
 
-  // Индекс вставки среди ВИДИМЫХ карточек (перетаскиваемая исключена из
-  // потока): курсор над верхней половиной карточки → вставка перед ней,
-  // ниже всех → в конец.
-  const indexFromEvent = (e, items) => {
-    let idx = 0
-    for (const t of items) {
-      if (dragTask && t.id === dragTask.id) continue
-      const el = document.getElementById(`card-${t.id}`)
-      if (el) {
-        const r = el.getBoundingClientRect()
-        if (e.clientY < r.top + r.height / 2) return idx
+  const finishDrag = (commit) => {
+    const d = dragRef.current
+    dragRef.current = null
+    startRef.current = null
+    if (d && commit && d.over && d.index != null && !dropForbidden(d.over, d.id)) {
+      const g = listByName(d.over)
+      if (g) {
+        const items = g.items.filter((t) => t.id !== d.id)
+        const idx = Math.min(d.index, items.length)
+        onReorder && onReorder({ id: d.id }, d.over, positionFor(items, idx))
       }
-      idx++
     }
-    return idx
+    setDragView(null)
+    // Клик сразу после перетаскивания не должен открывать редактор.
+    suppressClickRef.current = true
+    setTimeout(() => { suppressClickRef.current = false }, 0)
   }
 
-  const handleDragOver = (e, group) => {
-    if (!dragTask) return
-    console.log('[DnD over] list=', group.name, 'dropIndex=', dropIndex)
-    e.preventDefault()
-    // «Регулярные» принимают только циклические (ТЗv2 §1.5/§2.7): подсветка
-    // ошибки, drop запрещён. Сервер всё равно проверит инвариант.
-    const isRegularTarget = group.kind === 'regular' || group.name === 'Регулярные'
-    const cyclicSource = tasks.find((t) => t.id === dragTask.id)?.is_cyclic
-    if (isRegularTarget && !cyclicSource && group.kind !== undefined) {
-      e.dataTransfer.dropEffect = 'none'
-      setOverList(group.name)
-      setDropIndex(null)
-      return
+  // Обработчики на window: перетаскивание продолжается, даже если курсор
+  // покидает карточку или колонку (захват мыши «не теряется»).
+  useEffect(() => {
+    if (!dragView) return
+    const onMove = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      d.x = e.clientX
+      d.y = e.clientY
+      if (ghostRef.current) {
+        ghostRef.current.style.transform =
+          `translate(${d.x - d.offX}px, ${d.y - d.offY}px) rotate(2deg)`
+      }
+      updateTarget(e.clientX, e.clientY)
     }
-    e.dataTransfer.dropEffect = 'move'
-    if (overList !== group.name) setOverList(group.name)
-    setDropIndex(indexFromEvent(e, group.items))
+    const onUp = () => finishDrag(true)
+    const onCancel = () => finishDrag(false)
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!dragView])
+
+  const handlePointerDown = (e, task) => {
+    // Тач-жесты оставляем свайпу (TaskCard); кнопки и ссылки внутри карточки
+    // не должны стартовать перетаскивание.
+    if (e.pointerType === 'touch') return
+    if (e.button !== 0) return
+    if (e.target.closest('button, a, input, textarea, select, label')) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    startRef.current = {
+      id: task.id,
+      fromList: task.list,
+      h: Math.round(rect.height),
+      x: e.clientX,
+      y: e.clientY,
+      offX: e.clientX - rect.left,
+      offY: e.clientY - rect.top,
+    }
   }
+
+  const handlePointerMove = (e) => {
+    const s = startRef.current
+    if (!s || dragRef.current) return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    // Порог старта: простое нажатие/клик не считается перетаскиванием.
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+    dragRef.current = {
+      id: s.id,
+      fromList: s.fromList,
+      h: s.h,
+      x: e.clientX,
+      y: e.clientY,
+      offX: s.offX,
+      offY: s.offY,
+      over: s.fromList,
+      index: null,
+    }
+    startRef.current = null
+    setDragView({ id: s.id, fromList: s.fromList, h: s.h, over: s.fromList, index: null })
+    updateTarget(e.clientX, e.clientY)
+  }
+
+  const handlePointerUp = () => {
+    if (dragRef.current) return // завершение — в window-обработчике
+    startRef.current = null
+  }
+
+  const dragged = dragView ? tasks.find((t) => t.id === dragView.id) : null
+  const ghostTask = dragged
 
   return (
     <div className="select-none board-anim gpu-layer" key={boardId}>
@@ -200,22 +278,23 @@ export default function Board({
         className="flex flex-col md:flex-row md:items-stretch md:gap-3 md:overflow-x-auto md:pb-3"
       >
         {groups.map((group) => {
-          const cyclicDrag = dragTask && !!tasks.find((t) => t.id === dragTask.id)?.is_cyclic
+          const cyclicDrag = dragView && !!tasks.find((t) => t.id === dragView.id)?.is_cyclic
           const regular = group.kind === 'regular' || group.name === 'Регулярные'
-          const forbidden = regular && dragTask && !cyclicDrag
-          const isOver = overList === group.name && dragTask && !forbidden
+          const forbidden = regular && dragView && !cyclicDrag
+          const isOver = dragView?.over === group.name && dragView && !forbidden
           // Видимые карточки: перетаскиваемая «вырвана» из потока (высота 0),
           // остальные смыкаются, освобождая место (механика Planka).
-          const others = group.items.filter((t) => !dragTask || t.id !== dragTask.id)
+          const others = group.items.filter((t) => !dragView || t.id !== dragView.id)
           const visIndex = new Map(others.map((t, i) => [t.id, i]))
           // Плейсхолдер-«дырка» открывается только в колонке под курсором:
           // карточки ниже сдвигаются вниз, освобождая место под вставку.
-          const showGap = !!dragTask && isOver && dropIndex != null
-          const gapAtEnd = showGap && dropIndex >= others.length
-          const gapHeight = dragTask?.h || 48
+          const showGap = !!dragView && isOver && dragView.index != null
+          const gapAtEnd = showGap && dragView.index >= others.length
+          const gapHeight = dragView?.h || 48
           return (
             <section
               key={group.id}
+              data-col={group.name}
               className={`flex flex-col md:w-0 md:min-w-0 md:flex-1 md:shrink-0 rounded-lg ${
                 isOver
                   ? 'bg-blue-400/10'
@@ -223,13 +302,6 @@ export default function Board({
                     ? 'opacity-90'
                     : ''
               }`}
-              onDragOver={(e) => handleDragOver(e, group)}
-              onDragLeave={(e) => {
-                // Переход в дочерний элемент (карточку) — не покидание колонки.
-                if (e.currentTarget.contains(e.relatedTarget)) return
-                setOverList((cur) => (cur === group.name ? null : cur))
-              }}
-              onDrop={(e) => handleDrop(e, group)}
             >
               {/* Шапка колонки (§1.2): маркер, название, счётчик, «+», меню */}
               <div className="flex items-center gap-2 px-1 py-2 md:px-2">
@@ -277,8 +349,8 @@ export default function Board({
                 <div className="flex flex-col md:flex-1 md:min-h-0">
                   <div className="flex-1 overflow-y-auto md:pr-1 space-y-2 pb-2">
                     {group.items.map((task) => {
-                      const isDragged = dragTask?.id === task.id
-                      const gapHere = showGap && !isDragged && dropIndex === visIndex.get(task.id)
+                      const isDragged = dragView?.id === task.id
+                      const gapHere = showGap && !isDragged && dragView.index === visIndex.get(task.id)
                       return (
                         <Fragment key={task.id}>
                           {gapHere && <Gap height={gapHeight} />}
@@ -290,24 +362,27 @@ export default function Board({
                             // Захваченная карточка схлопывается (высота 0):
                             // остальные карточки смыкаются, освобождая место.
                             style={isDragged ? { height: 0, marginTop: 0, opacity: 0 } : undefined}
+                            onPointerDown={(e) => handlePointerDown(e, task)}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={handlePointerUp}
+                            onClickCapture={(e) => {
+                              // Клик после перетаскивания не открывает редактор.
+                              if (suppressClickRef.current) {
+                                e.stopPropagation()
+                                e.preventDefault()
+                              }
+                            }}
                           >
-                            <div
-                              draggable={canDrag}
-                              onDragStart={(e) => handleDragStart(e, task)}
-                              onDragEnd={handleDragEnd}
-                              className={canDrag ? 'cursor-grab active:cursor-grabbing' : ''}
-                            >
-                              <TaskCard
-                                task={task}
-                                allTasks={tasks}
-                                lists={lists}
-                                tags={tags}
-                                onSetList={onSetList}
-                                onEdit={onEdit}
-                                onDelete={onDelete}
-                                onRefresh={onRefresh}
-                              />
-                            </div>
+                            <TaskCard
+                              task={task}
+                              allTasks={tasks}
+                              lists={lists}
+                              tags={tags}
+                              onSetList={onSetList}
+                              onEdit={onEdit}
+                              onDelete={onDelete}
+                              onRefresh={onRefresh}
+                            />
                           </div>
                         </Fragment>
                       )
@@ -334,6 +409,28 @@ export default function Board({
           )
         })}
       </div>
+
+      {/* «Призрак» — копия карточки под курсором во время перетаскивания. */}
+      {dragView && ghostTask &&
+        createPortal(
+          <div
+            ref={ghostRef}
+            className="fixed top-0 left-0 z-[100] w-64 pointer-events-none shadow-2xl rounded-md will-change-transform"
+            style={{ transform: 'translate(-9999px, -9999px)' }}
+          >
+            <TaskCard
+              task={ghostTask}
+              allTasks={tasks}
+              lists={lists}
+              tags={tags}
+              onSetList={() => {}}
+              onEdit={() => {}}
+              onDelete={() => {}}
+              onRefresh={() => {}}
+            />
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

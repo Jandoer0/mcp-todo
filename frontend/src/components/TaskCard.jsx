@@ -226,8 +226,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   const onPointerDown = (e) => {
-    console.log('[Swipe down] canSwipe=', canSwipe, 'pointerType=', e.pointerType)
-    // На десктопе жест не стартует: мышь управляет нативным Drag&Drop.
+    // На десктопе жест не стартует: мышь управляет DnD Board.
     if (!canSwipe || e.pointerType === 'mouse') return
     if (e.button && e.button !== 0) return
     // Жёсткая связь «циклическая ⇔ Регулярные»: карточку нельзя ни свайпнуть
