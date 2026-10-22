@@ -321,9 +321,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   const submitComplete = async () => {
-    const v = parseFloat(String(completeAmount).replace(',', '.'))
-    if (isNaN(v) || v <= 0) {
-      setCompleteError('Введите сумму больше нуля')
+    const rawAmount = String(completeAmount).replace(',', '.').trim()
+    const v = rawAmount === '' ? 0 : parseFloat(rawAmount)
+    if (isNaN(v) || v < 0) {
+      setCompleteError('Введите сумму не меньше нуля')
       return
     }
     if (!completeDate) {
@@ -333,7 +334,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     try {
       await tasksApi.cycleComplete(task.id, {
         actual_date: `${completeDate}T12:00:00`,
-        actual_amount: completeType === 'income' ? v : -v,
+        actual_amount: v === 0 ? 0 : (completeType === 'income' ? v : -v),
       })
       setCompleteOpen(false)
       onRefresh && onRefresh()
@@ -372,9 +373,10 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   const submitLogEdit = async () => {
-    const v = parseFloat(String(editAmount).replace(',', '.'))
-    if (isNaN(v) || v <= 0) {
-      setEditError('Введите сумму больше нуля')
+    const rawAmount = String(editAmount).replace(',', '.').trim()
+    const v = rawAmount === '' ? 0 : parseFloat(rawAmount)
+    if (isNaN(v) || v < 0) {
+      setEditError('Введите сумму не меньше нуля')
       return
     }
     if (!editDate) {
@@ -385,7 +387,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
     try {
       await tasksApi.cycleLogUpdate(task.id, editLog.id, {
         actual_date: `${editDate}T12:00:00`,
-        actual_amount: editType === 'income' ? v : -v,
+        actual_amount: v === 0 ? 0 : (editType === 'income' ? v : -v),
       })
       setEditLog(null)
       // Обновить открытую историю, чтобы правка была видна сразу.
@@ -731,7 +733,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
       </Modal>
 
       {/* «План vs Факт»: подтверждение завершения циклической итерации */}
-      <Modal open={completeOpen} onClose={() => setCompleteOpen(false)} title={`Выполнить: ${task.title}`}>
+      <Modal open={completeOpen} onClose={() => setCompleteOpen(false)} dismissible={false} title={`Выполнить: ${task.title}`}>
         <div className="space-y-3">
           <p className="text-sm text-slate-500">
             Подтвердите фактический платёж — он попадёт в историю итераций и на график (ретроспектива).
@@ -754,7 +756,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
                 value={completeAmount}
                 onChange={(e) => setCompleteAmount(e.target.value)}
                 className="w-full p-2 border rounded"
-                placeholder="Сумма платежа"
+                placeholder="Не указана (0)"
               />
               <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
                 <button

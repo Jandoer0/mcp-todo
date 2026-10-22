@@ -11,7 +11,7 @@ const CLOSE_MS = 180 // matches .modal-panel-out duration
  *   behind never scrolls.
  * - Body scroll is locked while the dialog is open.
  */
-export default function Modal({ open, onClose, title, children, wide }) {
+export default function Modal({ open, onClose, title, children, wide, dismissible = true }) {
   const [visible, setVisible] = useState(open)
   const [closing, setClosing] = useState(false)
   // After the open animation finishes we drop the animation class: a lingering
@@ -64,11 +64,13 @@ export default function Modal({ open, onClose, title, children, wide }) {
   // `fixed` positioning breaks and the dialog does not cover the dashboard.
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-start sm:pt-[6vh] justify-center sm:p-4 ${
+      role="dialog"
+      aria-modal="true"
+      className={`fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-start sm:pt-[6vh] justify-center sm:p-4 pointer-events-auto ${
         closing ? 'modal-overlay-out' : 'modal-overlay-in'
       }`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) requestClose()
+        if (dismissible && e.target === e.currentTarget) requestClose()
       }}
     >
       <div
