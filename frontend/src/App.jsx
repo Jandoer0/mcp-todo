@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
 import Board from './components/Board'
 import TaskForm from './components/TaskForm'
+import CyclicTaskForm from './components/CyclicTaskForm'
 import ListsManager from './components/ListsManager'
 import BoardForm from './components/BoardForm'
 import AdminPanel from './components/AdminPanel'
@@ -27,6 +28,8 @@ export default function App() {
   // «Параметры валют»: список валют пользователя + открытие окна управления
   const [currencies, setCurrencies] = useState([])
   const [currenciesOpen, setCurrenciesOpen] = useState(false)
+  const [cyclicFormOpen, setCyclicFormOpen] = useState(false)
+  const [editingCyclicTask, setEditingCyclicTask] = useState(null)
 
   const loadCurrencies = () =>
     currenciesApi
@@ -231,8 +234,41 @@ export default function App() {
   }
 
   const openEdit = (task) => {
+    if (task.is_cyclic) {
+      setEditingCyclicTask(task)
+      setCyclicFormOpen(true)
+      return
+    }
     setEditingTask(task)
     setModalOpen(true)
+  }
+
+  const openCyclic = (task = null) => {
+    setEditingCyclicTask(task)
+    setCyclicFormOpen(true)
+  }
+
+  const handleCyclicSubmit = async (payload) => {
+    try {
+      if (editingCyclicTask) await update(editingCyclicTask.id, payload)
+      else await create(payload)
+      setCyclicFormOpen(false)
+      setEditingCyclicTask(null)
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось сохранить циклическую задачу')
+    }
+  }
+
+  const handleCyclicStop = async (task) => {
+    if (!confirm(`Сделать задачу «${task.title}» обычной?`)) return
+    try {
+      await tasksApi.cycleStop(task.id)
+      setCyclicFormOpen(false)
+      setEditingCyclicTask(null)
+      await load()
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось остановить цикл')
+    }
   }
 
   const handleSubmit = async (payload) => {
@@ -384,6 +420,14 @@ export default function App() {
 
       <div className="flex justify-between items-center mb-4 gap-2">
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => openCyclic()}
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded shadow-sm text-sm whitespace-nowrap"
+            title="Создать циклическую задачу"
+          >
+            ↻ <span className="hidden sm:inline">Новая циклическая</span><span className="sm:hidden">Цикл</span>
+          </button>
           {/* Mobile: filters as a dropdown between the two buttons */}
           <div className="md:hidden relative">
             <button
@@ -447,6 +491,21 @@ export default function App() {
           setModalOpen(true)
         }}
         onManageLists={() => setListsOpen(true)}
+        onAddCyclic={() => openCyclic()}
+        onEditCyclic={openCyclic}
+      />
+
+      <CyclicTaskForm
+        open={cyclicFormOpen}
+        task={editingCyclicTask}
+        lists={lists}
+        tags={tags}
+        onClose={() => {
+          setCyclicFormOpen(false)
+          setEditingCyclicTask(null)
+        }}
+        onSubmit={handleCyclicSubmit}
+        onStop={handleCyclicStop}
       />
 
       <TaskForm

@@ -137,7 +137,7 @@ function Trash() {
   )
 }
 
-export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete, onRefresh }) {
+export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onEditCyclic, onDelete, onRefresh }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
 
@@ -472,7 +472,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
             suppressClickRef.current = false
             return
           }
-          if (!dragging && Math.abs(dragX) < CLICK_SLOP) onEdit(task)
+          if (!dragging && Math.abs(dragX) < CLICK_SLOP) (task.is_cyclic ? (onEditCyclic || onEdit)(task) : onEdit(task))
         }}
         style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
         className={`relative bg-card rounded-md shadow-sm overflow-hidden py-2 px-2 ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
@@ -489,6 +489,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
           />
           <span className="line-clamp-2 break-words min-w-0">{task.title}</span>
           <span className="ml-auto flex items-center gap-1 shrink-0 pl-1">
+            {task.is_cyclic && (
+              <span className="text-[10px] font-semibold text-violet-600 whitespace-nowrap" title="Циклическая задача">
+                ↻ {({ daily: 'день', weekly: 'нед.', monthly: 'мес.', yearly: 'год' })[task.cycle_period] || 'цикл'}
+              </span>
+            )}
             {task.cycle_dormant && (
               <span className="text-[10px] font-normal text-slate-400" title="Появится в основных списках ближе к дедлайну">
                 (запланирована)
