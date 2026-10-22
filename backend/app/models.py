@@ -113,7 +113,23 @@ class Task(Base):
     priority = Column(Integer, default=1)  # 1 low, 2 medium, 3 high
     status = Column(String, default="todo")  # todo | in_progress | done
     # Financial weight (бюджетирование): positive = income, negative = expense.
-    amount = Column("amount", Float, default=0.0)
+    # §5.2: хранение в минорных единицах (копейки) — float-колонка накапливала
+    # ошибки округления. Наружу (API/логика) — основные единицы через property.
+    amount_minor = Column("amount", Integer, default=0)
+
+    @property
+    def amount(self) -> float | None:
+        """Сумма в основных единицах (копейки / 100)."""
+        if self.amount_minor is None:
+            return None
+        return self.amount_minor / 100
+
+    @amount.setter
+    def amount(self, value) -> None:
+        if value is None:
+            self.amount_minor = None
+        else:
+            self.amount_minor = int(round(float(value) * 100))
     # Currency of the amount (мультивалютность); NULL = user's base currency.
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     tag = Column(String, nullable=True)  # legacy single-tag column (unused)
@@ -152,8 +168,35 @@ class TaskCycleLog(Base):
     task_title = Column(String)
     action = Column(String)  # completed | stopped
     deadline = Column(DateTime, nullable=True)  # planned deadline of the iteration
-    planned_amount = Column(Float, nullable=True)  # amount planned for the iteration
-    actual_amount = Column(Float, nullable=True)  # real amount entered on completion
+    # §5.2: как Task.amount — хранение в копейках, наружу основные единицы.
+    planned_amount_minor = Column("planned_amount", Integer, nullable=True)
+    actual_amount_minor = Column("actual_amount", Integer, nullable=True)
+
+    @property
+    def planned_amount(self) -> float | None:
+        if self.planned_amount_minor is None:
+            return None
+        return self.planned_amount_minor / 100
+
+    @planned_amount.setter
+    def planned_amount(self, value) -> None:
+        if value is None:
+            self.planned_amount_minor = None
+        else:
+            self.planned_amount_minor = int(round(float(value) * 100))
+
+    @property
+    def actual_amount(self) -> float | None:
+        if self.actual_amount_minor is None:
+            return None
+        return self.actual_amount_minor / 100
+
+    @actual_amount.setter
+    def actual_amount(self, value) -> None:
+        if value is None:
+            self.actual_amount_minor = None
+        else:
+            self.actual_amount_minor = int(round(float(value) * 100))
     actual_date = Column(DateTime, nullable=True)  # real completion date
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     logged_at = Column(DateTime, default=utcnow)

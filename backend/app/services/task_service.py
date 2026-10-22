@@ -1037,7 +1037,7 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
         .filter(
             Task.user_id == user.id,
             Task.board_id == board.id,
-            func.coalesce(Task.amount, 0) != 0,
+            func.coalesce(Task.amount_minor, 0) != 0,
         )
         .all()
     )
@@ -1179,7 +1179,7 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
         .filter(
             Task.user_id == user.id,
             Task.board_id == board.id,
-            func.coalesce(Task.amount, 0) != 0,
+            func.coalesce(Task.amount_minor, 0) != 0,
         )
         .all()
     )

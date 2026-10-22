@@ -721,7 +721,8 @@ def import_board(
             TaskCycleLog.action,
             TaskCycleLog.deadline,
             TaskCycleLog.actual_date,
-            TaskCycleLog.actual_amount,
+            # §5.2: в БД копейки, а ключ дедупа сравнивается с major из payload.
+            (TaskCycleLog.actual_amount_minor / 100.0).label("actual_amount"),
         )
         .filter(TaskCycleLog.user_id == user.id, TaskCycleLog.board_id == board.id)
         .all()

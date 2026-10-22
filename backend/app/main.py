@@ -32,6 +32,83 @@ Base.metadata.create_all(bind=engine)
 logger = logging.getLogger(__name__)
 
 
+def _rebuild_money_tables() -> None:
+    """§5.2: денежные суммы — INTEGER (копейки) вместо FLOAT.
+
+    SQLite не умеет менять тип колонки — таблица пересоздаётся по принятому
+    в проекту паттерну (tags/task_lists): копия → rename → индексы. Данные
+    конвертируются ×100. Идемпотентность — по фактическому типу колонки:
+    после пересоздания он INTEGER, и повторные запуски пропускают таблицу.
+    """
+    from sqlalchemy import inspect as _inspect
+    from sqlalchemy import text
+
+    plans = {
+        "tasks": {"amount"},
+        "task_cycle_logs": {"planned_amount", "actual_amount"},
+    }
+    money_types = {"FLOAT", "REAL", "DOUBLE", "NUMERIC", "DECIMAL"}
+    inspector = _inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    for table, money_cols in plans.items():
+        if table not in existing_tables:
+            continue
+        columns = inspector.get_columns(table)
+        # inspector может вернуть type как строку, так и объект типа SQLAlchemy.
+        ctype_of = {c["name"]: str(c["type"] or "").upper() for c in columns}
+        convertible = {
+            c["name"]
+            for c in columns
+            if c["name"] in money_cols and ctype_of[c["name"]] in money_types
+        }
+        if not convertible:
+            continue
+        with engine.begin() as conn:
+            index_rows = conn.execute(
+                text(
+                    "SELECT name, sql FROM sqlite_master "
+                    "WHERE type='index' AND tbl_name=:t AND sql IS NOT NULL"
+                ),
+                {"t": table},
+            ).fetchall()
+        with engine.begin() as conn:
+            col_ddl, col_names, select_cols = [], [], []
+            for c in columns:
+                name = c["name"]
+                is_money = name in convertible
+                ctype = "INTEGER" if is_money else str(c["type"] or "")
+                parts = [f'"{name}"', ctype]
+                if c.get("primary_key"):
+                    parts.append("PRIMARY KEY")
+                if c.get("nullable") is False and not c.get("primary_key"):
+                    parts.append("NOT NULL")
+                if c.get("default") is not None:
+                    parts.append(f"DEFAULT {c['default']}")
+                col_ddl.append(" ".join(parts))
+                col_names.append(f'"{name}"')
+                if is_money:
+                    select_cols.append(
+                        f'CAST(ROUND(COALESCE("{name}", 0) * 100) AS INTEGER)'
+                    )
+                else:
+                    select_cols.append(f'"{name}"')
+            conn.execute(text(f'DROP TABLE IF EXISTS "{table}_new"'))
+            conn.execute(text(f'CREATE TABLE "{table}_new" ({", ".join(col_ddl)})'))
+            conn.execute(
+                text(
+                    f'INSERT INTO "{table}_new" ({", ".join(col_names)}) '
+                    f'SELECT {", ".join(select_cols)} FROM "{table}"'
+                )
+            )
+            for name, _sql in index_rows:
+                conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+            conn.execute(text(f'DROP TABLE "{table}"'))
+            conn.execute(text(f'ALTER TABLE "{table}_new" RENAME TO "{table}"'))
+            for _name, sql in index_rows:
+                if sql:
+                    conn.execute(text(sql))
+
+
 def run_migrations() -> None:
     """Make existing SQLite databases match the current schema.
 
@@ -359,6 +436,9 @@ def run_migrations() -> None:
                         "ON task_lists (user_id, name)"
                     )
                 )
+
+    # §5.2: денежные суммы → копейки (таблицы пересоздаются, если ещё FLOAT).
+    _rebuild_money_tables()
 
     db = SessionLocal()
     try:
