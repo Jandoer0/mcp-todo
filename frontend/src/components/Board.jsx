@@ -216,8 +216,9 @@ export default function Board({
       d.x = e.clientX
       d.y = e.clientY
       if (ghostRef.current) {
+        // Без наклона: удерживаемая карточка выглядит ровно как в колонке.
         ghostRef.current.style.transform =
-          `translate(${d.x - d.offX}px, ${d.y - d.offY}px) rotate(2deg)`
+          `translate(${d.x - d.offX}px, ${d.y - d.offY}px)`
       }
       updateTarget(e.clientX, e.clientY)
     }
