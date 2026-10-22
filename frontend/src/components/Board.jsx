@@ -241,8 +241,8 @@ export default function Board({
               {/* Стек карточек: на десктопе — колонка полной высоты со своим
                   скроллом; свёрнутая колонка не рендерит карточки. */}
               {!isCollapsed(group.name) && (
-                <div className="flex flex-col md:flex-1 md:min-h-0 md:overflow-hidden">
-                  <div className="flex-1 overflow-y-auto md:pr-1 space-y-2">
+                <div className="flex flex-col md:flex-1 md:min-h-0">
+                  <div className="flex-1 overflow-y-auto md:pr-1 space-y-2 pb-2">
                     {group.items.map((task, i) => (
                       <div
                         key={task.id}
@@ -285,13 +285,15 @@ export default function Board({
                       </p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onAddTask && onAddTask(group.name)}
-                    className="mt-2 mb-2 w-full py-2 rounded bg-white/5 text-white/60 hover:bg-white/10 hover:text-white text-xs transition-colors border border-dashed border-white/20"
-                  >
-                    + Добавить задачу
-                  </button>
+                  <div className="shrink-0 p-1">
+                    <button
+                      type="button"
+                      onClick={() => onAddTask && onAddTask(group.name)}
+                      className="w-full py-2 rounded bg-white/5 text-white/60 hover:bg-white/10 hover:text-white text-xs transition-colors border border-dashed border-white/20"
+                    >
+                      + Добавить задачу
+                    </button>
+                  </div>
                 </div>
               )}
             </section>
