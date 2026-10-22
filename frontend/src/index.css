@@ -161,3 +161,30 @@ html {
   list-style: none;
   margin-left: -1.25rem;
 }
+
+/* Канбан: стилизованная горизонтальная прокрутка колонок (ТЗv2 §1.12) —
+   тонкая полоса внизу экрана в тон тёмно-синему фону дашборда (#35506b). */
+.kanban-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+.kanban-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: padding-box;
+  border: 2px solid transparent; /* небольшой зазор до края экрана */
+  border-radius: 999px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+  background-clip: padding-box;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.6);
+  background-clip: padding-box;
+}

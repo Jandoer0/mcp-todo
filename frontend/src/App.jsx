@@ -418,7 +418,7 @@ export default function App() {
         {tagCloud}
       </div>
 
-      <div className="flex justify-between items-center mb-4 gap-2">
+      <div className="flex justify-between items-center mb-4 gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {/* Mobile: filters as a dropdown between the two buttons */}
           <div className="md:hidden relative">

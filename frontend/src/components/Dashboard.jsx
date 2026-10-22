@@ -12,7 +12,7 @@ export default function Dashboard({ summary, activeFilter, onFilterChange }) {
 
   // Desktop: one compact row. Mobile: hidden — a dropdown lives in the toolbar.
   return (
-    <div className="hidden md:flex gap-2 mb-6">
+    <div className="hidden md:flex gap-2 mb-6 shrink-0">
       {filters.map((f) => (
         <button
           key={f.id}

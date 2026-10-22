@@ -60,7 +60,7 @@ export default function Layout({
 
   return (
     <div
-      className="min-h-screen text-slate-800"
+      className="min-h-screen md:h-dvh md:flex md:flex-col text-slate-800"
       style={{
         backgroundColor: '#35506b',
         backgroundImage: activeBoard?.color
@@ -155,7 +155,10 @@ export default function Layout({
           Ограничение max-w осталось бы узким горлышком для горизонтального
           ряда колонок; единственное исключение — очень широкие экраны (2xl),
           где строки текста становятся слишком длинными. */}
-      <main className="p-4 w-full max-w-none xl:max-w-none 2xl:max-w-[2400px] 2xl:mx-auto">{children}</main>
+      {/* На десктопе main — колонка на остаток высоты экрана: канбан-колонки
+          растягиваются до низа вьюпорта, горизонтальная прокрутка списка
+          оказывается внизу экрана, а не под самым длинным списком. */}
+      <main className="p-4 w-full max-w-none xl:max-w-none 2xl:max-w-[2400px] 2xl:mx-auto md:flex md:flex-col md:flex-1 md:min-h-0">{children}</main>
     </div>
   )
 }

@@ -284,11 +284,13 @@ export default function Board({
   const ghostTask = dragged
 
   return (
-    <div className="select-none board-anim gpu-layer" key={boardId}>
-      {/* Горизонтальный ряд колонок: на десктопе — один ряд со скроллом по X,
+    <div className="select-none board-anim gpu-layer md:flex md:flex-col md:flex-1 md:min-h-0" key={boardId}>
+      {/* Горизонтальный ряд колонок: на десктопе — один ряд на всю высоту
+          рабочей области со своим вертикальным скроллом колонок и
+          стилизованной горизонтальной прокруткой внизу экрана (§1.12);
           на мобильных — вертикальный стек (свайп-перенос остаётся основным). */}
       <div
-        className="flex flex-col md:flex-row md:items-stretch md:gap-3 md:overflow-x-auto md:pb-3"
+        className="kanban-scroll flex flex-col md:flex-row md:items-stretch md:gap-3 md:flex-1 md:min-h-0 md:overflow-x-auto md:pb-3"
       >
         {groups.map((group) => {
           const cyclicDrag = dragView && !!tasks.find((t) => t.id === dragView.id)?.is_cyclic
@@ -308,7 +310,7 @@ export default function Board({
           // Шапка колонки (§1.2): маркер, название, счётчик, «+», меню.
           // Общая для развёрнутой колонки и мобильной свёрнутой подачи.
           const headerBar = (
-            <div className="flex items-center gap-2 px-1 py-2 md:px-2">
+            <div className="flex items-center gap-2 px-1 py-2 md:px-2 shrink-0">
               <button
                 type="button"
                 onClick={() => toggleGroup(group)}
