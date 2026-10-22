@@ -8,7 +8,8 @@ export function useTasks(ready, boardId) {
   const [tags, setTags] = useState([])
   const [activeFilter, setActiveFilter] = useState('all')
   const [activeTag, setActiveTag] = useState(null)
-  const [sortBy, setSortBy] = useState('deadline')
+  // 'manual' — порядок канбан-доски (position с сервера, ТЗv2 §1.4).
+  const [sortBy, setSortBy] = useState('manual')
 
   const load = useCallback(async () => {
     // All four requests in parallel — first render is 3-4x faster.
@@ -22,6 +23,8 @@ export function useTasks(ready, boardId) {
     if (sRes.status === 'fulfilled') setSummary(sRes.value.data)
     if (tRes.status === 'fulfilled') {
       let data = tRes.value.data
+      // Сервер уже отдаёт (list, position); клиентские сортировки — только
+      // когда пользователь явно выбрал режим «дедлайн» или «приоритет».
       if (sortBy === 'deadline') {
         data = [...data].sort(
           (a, b) =>
@@ -30,6 +33,12 @@ export function useTasks(ready, boardId) {
         )
       } else if (sortBy === 'priority') {
         data = [...data].sort((a, b) => b.priority - a.priority)
+      } else {
+        data = [...data].sort(
+          (a, b) =>
+            (a.list || '').localeCompare(b.list || '') ||
+            (a.position ?? 0) - (b.position ?? 0),
+        )
       }
       setTasks(data)
     }
@@ -72,6 +81,22 @@ export function useTasks(ready, boardId) {
     [update],
   )
 
+  // Канбан DnD (ТЗv2 §1.4): оптимистично двигаем карточку локально, затем
+  // один запрос на сервер. При ошибке — перезагрузка с сервера.
+  const reorder = useCallback(
+    async (id, listName, position) => {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, list: listName, position } : t)),
+      )
+      try {
+        await tasksApi.reorder(id, listName, position)
+      } catch {
+        await load()
+      }
+    },
+    [load],
+  )
+
   return {
     tasks,
     summary,
@@ -88,5 +113,6 @@ export function useTasks(ready, boardId) {
     update,
     remove,
     setList,
+    reorder,
   }
 }

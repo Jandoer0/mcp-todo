@@ -469,29 +469,33 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
         style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
         className={`relative bg-card rounded-md shadow-sm overflow-hidden py-2 px-2 ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
       >
-        {/* Line 1: title, bold, single line */}
+        {/* Line 1: title, bold, до 2 строк (ТЗv2 §1.7); сумма — бейджем со
+            знаком и символом валюты задачи (§3), а не безликим «+$». */}
         <div
-          className="font-bold truncate text-sm text-slate-800 flex items-center gap-1.5"
+          className="font-bold text-sm text-slate-800 flex items-start gap-1.5"
           title={task.title}
         >
           <span
-            className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${priorityDot}`}
+            className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${priorityDot}`}
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
-          <span className="truncate">{task.title}</span>
-          {task.cycle_dormant && (
-            <span className="text-[10px] font-normal text-slate-400 shrink-0" title="Появится в основных списках ближе к дедлайну">
-              (запланирована)
-            </span>
-          )}
-          {(Number(task.amount) || 0) !== 0 && (
-            <span
-              className="ml-auto text-[11px] font-bold text-amber-400 shrink-0 pl-1"
-              title={`Сумма: ${formatAmount(task.amount)}`}
-            >
-              {Number(task.amount) > 0 ? '+' : '-'}$
-            </span>
-          )}
+          <span className="line-clamp-2 break-words min-w-0">{task.title}</span>
+          <span className="ml-auto flex items-center gap-1 shrink-0 pl-1">
+            {task.cycle_dormant && (
+              <span className="text-[10px] font-normal text-slate-400" title="Появится в основных списках ближе к дедлайну">
+                (запланирована)
+              </span>
+            )}
+            {(Number(task.amount) || 0) !== 0 && (
+              <span
+                className="text-[11px] font-bold text-amber-400 whitespace-nowrap"
+                title={`Сумма: ${formatAmount(task.amount)}`}
+              >
+                {Number(task.amount) > 0 ? '+' : '−'}
+                {Math.abs(Number(task.amount)).toLocaleString('ru-RU')}
+              </span>
+            )}
+          </span>
         </div>
 
         {/* Line 3: start date (left) / deadline (right) as tag chips.

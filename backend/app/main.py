@@ -188,6 +188,30 @@ def run_migrations() -> None:
             text("CREATE INDEX IF NOT EXISTS ix_tasks_currency_id ON tasks (currency_id)")
         )
 
+    # Horizontal kanban (ТЗv2 §1.4): per-card position inside its list.
+    # Fractional float — reordering inserts between neighbours without a
+    # column-wide renumber. Backfill keeps the legacy deadline-first order.
+    with engine.connect() as conn:
+        cols = {c["name"] for c in inspector.get_columns("tasks")}
+        if "position" not in cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN position FLOAT NOT NULL DEFAULT 0.0"))
+            conn.commit()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE tasks SET position = "
+                "(SELECT COALESCE(MAX(t2.position), 0) + 1024.0 FROM tasks t2 "
+                " WHERE t2.user_id = tasks.user_id AND t2.board_id IS tasks.board_id "
+                "   AND t2.\"list\" = tasks.\"list\" AND t2.id < tasks.id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_tasks_list_position "
+                "ON tasks (user_id, board_id, \"list\", position)"
+            )
+        )
+
     _backfill_boards()
     _backfill_cycle_log_boards()
 

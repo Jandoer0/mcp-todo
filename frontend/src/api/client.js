@@ -62,6 +62,8 @@ export const tasksApi = {
   cycleLogUpdate: (taskId, logId, data) => api.patch(`${API_URL}/tasks/${taskId}/cycle/history/${logId}`, data),
   changes: (id) => api.get(`${API_URL}/tasks/${id}/changes`),
   move: (id, boardId) => api.post(`${API_URL}/tasks/${id}/move`, { board_id: boardId }),
+  // Канбан DnD (ТЗv2 §1.4): один запрос — колонка + дробная позиция вставки.
+  reorder: (id, list, position) => api.patch(`${API_URL}/tasks/${id}/reorder`, { list, position }),
 }
 
 export const summaryApi = {

@@ -118,6 +118,10 @@ class Task(Base):
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=True)
     tag = Column(String, nullable=True)  # legacy single-tag column (unused)
     list = Column(String, default="Входящие")  # задел под Канбан-доску
+    # Horizontal position of the card inside its list (kanban DnD, ТЗv2 §1.4).
+    # Fractional: new cards are appended at max+GAP so reordering never needs
+    # to renumber the whole column.
+    position = Column(Float, default=0.0, nullable=False)
     created_at = Column(DateTime, default=utcnow)
 
     # Cyclic task support: a repeating task regenerates itself on completion.

@@ -36,6 +36,9 @@ from ..routers.tags import cleanup_orphan_tags
 from . import notification_service
 
 _PROTECTED_FIELDS = {"id", "user_id", "auth_token"}  # never settable via payload
+# Horizontal gap between neighbouring cards in a column (ТЗv2 §1.4): a new
+# card goes to max(position) + GAP, a reorder target is midpoint or max+GAP.
+POSITION_GAP = 1024.0
 
 
 def _resolve_board(db: Session, user: User, board_id) -> Board:
@@ -365,6 +368,17 @@ def regenerate_cycle(
         start_date=task.start_date,
         status="todo",
         list=regular_list_name(db, task.user_id, task.board_id),
+        position=(
+            db.query(func.max(Task.position))
+            .filter(
+                Task.user_id == task.user_id,
+                Task.board_id == task.board_id,
+                Task.list == regular_list_name(db, task.user_id, task.board_id),
+            )
+            .scalar()
+            or 0.0
+        )
+        + POSITION_GAP,
         is_cyclic=True,
         cycle_period=task.cycle_period,
         cycle_interval=task.cycle_interval,
@@ -604,7 +618,9 @@ def list_tasks(
         query = query.filter(Task.status == status)
     if list_name:
         query = query.filter(Task.list == list_name)
-    tasks = query.all()
+    # Канбан (ТЗv2 §1.4): порядок внутри колонки задаёт position; задачи без
+    # позиций (созданные до миграции, но после бэкфилла — маловероятно) — в конец по id.
+    tasks = query.order_by(Task.position, Task.id).all()
     _attach_state_many(db, tasks)
     now = utcnow()
     for t in tasks:
@@ -631,6 +647,21 @@ def create_task(db: Session, user: User, data: dict) -> Task:
 
     if data.get("status") == "done" and compute_is_blocked(db, blocked_by or []):
         raise TaskError("Невозможно выполнить задачу: есть незавершённые блокирующие задачи")
+
+    if data.get("position") is None:
+        # Новая карточка — в конец колонки (дробный индекс, ТЗv2 §1.4).
+        max_pos = (
+            db.query(func.max(Task.position))
+            .filter(
+                Task.user_id == user.id,
+                Task.board_id == board.id,
+                Task.list == list_name,
+            )
+            .scalar()
+        )
+        data["position"] = (max_pos or 0.0) + POSITION_GAP
+    else:
+        data["position"] = float(data["position"])  # client may pass fractional
 
     task = Task(user_id=user.id, **data)
     _normalize_cyclic(task, data, db=db)
@@ -780,6 +811,73 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
     return task
 
 
+def reorder_task(
+    db: Session,
+    user: User,
+    task_id: int,
+    list_name: str,
+    position: float,
+) -> Task:
+    """Перенос карточки при DnD (ТЗv2 §1.4): один запрос — список + позиция.
+
+    Инвариант «циклическая ⇔ Регулярные» действует и здесь: циклическую
+    нельзя увезти из «Регулярных», обычную нельзя вложить в «Регулярные»;
+    попытка молча сводится к переносу внутри разрешённой колонки.
+    Заблокированную нельзя положить в done-колонку.
+    """
+    task = (
+        db.query(Task)
+        .filter(Task.id == task_id, Task.user_id == user.id)
+        .first()
+    )
+    if not task:
+        raise LookupError("Task not found")
+
+    lst = (
+        db.query(TaskList)
+        .filter(
+            TaskList.user_id == user.id,
+            TaskList.board_id == task.board_id,
+            TaskList.name == list_name,
+        )
+        .first()
+    )
+    if not lst:
+        raise LookupError("List not found")
+
+    is_regular = task.is_cyclic or task.list == REGULAR_LIST_NAME
+    target_is_regular = lst.kind == "regular" or lst.name == REGULAR_LIST_NAME
+    if is_regular != target_is_regular:
+        # Целевая колонка недоступна: остаёмся в текущей, меняем только позицию.
+        list_name = task.list
+        lst = (
+            db.query(TaskList)
+            .filter(
+                TaskList.user_id == user.id,
+                TaskList.board_id == task.board_id,
+                TaskList.name == list_name,
+            )
+            .first()
+        )
+
+    if lst.kind == "done":
+        if compute_is_blocked(db, get_blocker_ids(db, task.id)):
+            raise TaskError("Невозможно выполнить задачу: есть незавершённые блокирующие задачи")
+
+    old_status = task.status
+    task.list = list_name
+    task.status = status_for_kind(lst.kind)
+    task.position = float(position)
+
+    _enforce_regular_list(db, task)
+
+    db.commit()
+    db.refresh(task)
+    if task.status == "done" and old_status != "done":
+        notification_service.dispatch_event(db, user.id, task, "task_completed")
+    return _attach_state(db, task)
+
+
 def delete_task(db: Session, user: User, task_id: int) -> None:
     task = (
         db.query(Task)
@@ -857,6 +955,17 @@ def move_task(db: Session, user: User, task_id: int, target_board_id: int) -> Ta
         task.list, task.status = _resolve_list(db, None, user.id, target.id)
 
     task.board_id = target.id
+    # Перенос между досками: карточка ставится в конец новой колонки.
+    max_pos = (
+        db.query(func.max(Task.position))
+        .filter(
+            Task.user_id == user.id,
+            Task.board_id == target.id,
+            Task.list == task.list,
+        )
+        .scalar()
+    )
+    task.position = (max_pos or 0.0) + POSITION_GAP
     # Жёсткая связь «циклическая ⇔ Регулярные»: после переноса на другую доску
     # циклическая задача попадает в «Регулярные» той доски, обычная — в первый
     # обычный список (не может остаться/стать «Регулярными»).

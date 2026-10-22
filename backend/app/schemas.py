@@ -173,6 +173,7 @@ class TaskUpdate(BaseModel):
     reminder_days: int | None = None
     amount: float | None = None
     currency_id: int | None = None
+    position: float | None = None  # DnD: client-computed insert order
     # Completion of a cyclic iteration: real date and real amount go to history.
     actual_date: datetime | None = None
     actual_amount: float | None = Field(default=None, ge=-1e12, le=1e12)
@@ -257,6 +258,7 @@ class TaskResponse(BaseModel):
     cycle_dormant: bool = False  # cyclic task outside its reminder window
     amount: float = 0.0  # financial weight (income + / expense -)
     currency_id: int | None = None  # валюта суммы (NULL = базовая)
+    position: float = 0.0  # горизонтальный порядок карточки в колонке (ТЗv2 §1.4)
 
     model_config = {"from_attributes": True}
 
@@ -360,6 +362,11 @@ class TaskBulkUpdate(BaseModel):
 
 class TaskMove(BaseModel):
     board_id: int
+
+class TaskReorder(BaseModel):
+    """Один запрос на перенос карточки при DnD (ТЗv2 §1.4)."""
+    list: str = Field(min_length=1, max_length=MAX_LIST_NAME)
+    position: float = Field(ge=0, le=1_000_000_000)
 
 class BulkUpdateResponse(BaseModel):
     updated: int

@@ -181,6 +181,27 @@ def move_task(
     return _attach_state(db, task)
 
 
+@router.patch("/{task_id}/reorder", response_model=schemas.TaskResponse)
+def reorder_task(
+    task_id: int,
+    data: schemas.TaskReorder,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Перенос карточки при DnD (ТЗv2 §1.4): один запрос — список + позиция.
+    Инвариант «циклическая ⇔ Регулярные» и запрет done при блокировках
+    проверяются на сервере (см. reorder_task в сервисе)."""
+    try:
+        task = task_service.reorder_task(
+            db, current_user, task_id, data.list, data.position
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
+    except TaskError as e:
+        raise HTTPException(status_code=400, detail=e.message) from None
+    return task
+
+
 @router.post("/{task_id}/cycle/skip", response_model=schemas.TaskResponse)
 def cycle_skip(
     task_id: int,

@@ -73,7 +73,7 @@ function toDatetimeLocal(value) {
   return local.toISOString().slice(0, 16)
 }
 
-export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], defaultBoardId = null, onMove, onQuickUpdate }) {
+export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], defaultBoardId = null, onMove, onQuickUpdate, initialList = null }) {
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
@@ -145,7 +145,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       initKeyRef.current = null
       return
     }
-    const initKey = task ? `task:${task.id}` : `new:${defaultBoardId ?? ''}`
+    const initKey = task ? `task:${task.id}` : `new:${defaultBoardId ?? ''}:${initialList ?? ''}`
     if (initKeyRef.current === initKey) return
     initKeyRef.current = initKey
     const listOptions = listOptionsRef.current
@@ -178,7 +178,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
-      setForm({ ...EMPTY, list: listOptions[0]?.name || '' })
+      setForm({ ...EMPTY, list: initialList || listOptions[0]?.name || '' })
       setSelectedTags([...initialTags])
       setSelectedBlockers([])
       setAmountType('expense')
@@ -188,7 +188,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setTargetBoardId(defaultBoardId ?? null)
       setDescPreview(false)
     }
-  }, [open, task, defaultBoardId])
+  }, [open, task, defaultBoardId, initialList])
 
   if (!open) return null
 

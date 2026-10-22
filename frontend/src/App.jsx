@@ -51,6 +51,7 @@ export default function App() {
     update,
     remove,
     setList,
+    reorder,
     load,
   } = useTasks(ready, activeBoardId)
 
@@ -159,6 +160,8 @@ export default function App() {
   const [settings, setSettings] = useState({ allow_registration: true })
   const [authError, setAuthError] = useState('')
   const [listsOpen, setListsOpen] = useState(false)
+  // Пресет колонки для кнопки «+» в шапке колонки (ТЗv2 §1.2).
+  const [presetList, setPresetList] = useState(null)
   const [filterMenuOpen, setFilterMenuOpen] = useState(false)
   const [filterMenuClosing, setFilterMenuClosing] = useState(false)
   const filterMenuTimer = useRef(null)
@@ -223,6 +226,7 @@ export default function App() {
 
   const openNew = () => {
     setEditingTask(null)
+    setPresetList(null)
     setModalOpen(true)
   }
 
@@ -269,6 +273,15 @@ export default function App() {
       if (err?.response?.status === 400) {
         alert(err?.response?.data?.detail || 'Действие невозможно')
       }
+    }
+  }
+
+  // Канбан DnD (ТЗv2 §1.4): перенос карточки — один запрос (колонка+позиция).
+  const handleReorder = async (task, listName, position) => {
+    try {
+      await reorder(task.id, listName, position)
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось переместить задачу')
     }
   }
 
@@ -438,14 +451,24 @@ export default function App() {
         activeTag={activeTag}
         boardId={activeBoardId}
         onSetList={handleSetList}
+        onReorder={handleReorder}
         onEdit={openEdit}
         onDelete={handleDelete}
         onRefresh={load}
+        onAddTask={(listName) => {
+          setEditingTask(null)
+          setPresetList(listName)
+          setModalOpen(true)
+        }}
+        onManageLists={() => setListsOpen(true)}
       />
 
       <TaskForm
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false)
+          setPresetList(null)
+        }}
         onSubmit={handleSubmit}
         task={editingTask}
         tasks={tasks}
@@ -454,6 +477,7 @@ export default function App() {
         onMove={handleMoveTask}
         lists={lists}
         tags={tags}
+        initialList={presetList}
         onQuickUpdate={async (id, data) => {
           await update(id, data)
         }}
