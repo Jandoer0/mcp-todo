@@ -33,8 +33,10 @@ function longDate(iso) {
 
 const dayKey = (d) => d.toISOString().slice(0, 10)
 
-export default function ChartTab({ board }) {
-  const [data, setData] = useState(null)
+export default function ChartTab({ board, data: externalCashflow = undefined }) {
+  // В BudgetView (ТЗv2 §4) данные приходят снаружи — из общего загрузчика
+  // оболочки; автономная загрузка сохранена как fallback для прямого использования.
+  const [ownData, setOwnData] = useState(null)
   const [selected, setSelected] = useState(null) // ISO-дата дня
   const [showDone, setShowDone] = useState(true)
 
@@ -45,34 +47,39 @@ export default function ChartTab({ board }) {
   const WEEK = 7 * 24 * 60 * 60 * 1000 // шаг смещения окна — 1 неделя
 
   useEffect(() => {
-    if (!board?.id) return
+    if (externalCashflow !== undefined || !board?.id) return
     boardsApi
       .cashflow(board.id)
-      .then((res) => {
-        const d = res.data
-        setData(d)
-        const events = d.events || []
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
-        let last = new Date(today)
-        last.setDate(last.getDate() + 90)
-        for (const e of events) {
-          const end = new Date(`${e.end}T12:00:00`)
-          if (end > last) last = end
-        }
-        // Начало окна: сегодня, но не позже раннего ФАКТА (реального платежа
-        // из истории) — иначе недавние фактические движения (например, платёж
-        // позавчера) не видны на графике без ручного сдвига окна назад.
-        let start = new Date(today)
-        for (const e of events) {
-          if (!e.actual) continue
-          const s = new Date(`${e.start}T12:00:00`)
-          if (s < start) start = s
-        }
-        setWin({ start, spanDays: Math.round((last - start) / (24 * 60 * 60 * 1000)) })
-      })
-      .catch(() => setData(null))
-  }, [board?.id])
+      .then((res) => setOwnData(res.data))
+      .catch(() => setOwnData(null))
+  }, [board?.id, externalCashflow])
+
+  const data = externalCashflow !== undefined ? externalCashflow : ownData
+
+  // Инициализация окна просмотра — при каждой новой порции данных (из
+  // оболочки или из собственной загрузки).
+  useEffect(() => {
+    if (!data) return
+    const events = data.events || []
+    const today = new Date()
+    today.setHours(12, 0, 0, 0)
+    let last = new Date(today)
+    last.setDate(last.getDate() + 90)
+    for (const e of events) {
+      const end = new Date(`${e.end}T12:00:00`)
+      if (end > last) last = end
+    }
+    // Начало окна: сегодня, но не позже раннего ФАКТА (реального платежа
+    // из истории) — иначе недавние фактические движения (например, платёж
+    // позавчера) не видны на графике без ручного сдвига окна назад.
+    let start = new Date(today)
+    for (const e of events) {
+      if (!e.actual) continue
+      const s = new Date(`${e.start}T12:00:00`)
+      if (s < start) start = s
+    }
+    setWin({ start, spanDays: Math.round((last - start) / (24 * 60 * 60 * 1000)) })
+  }, [data])
 
   // Ряд дней: внутри текущего окна просмотра.
   const days = useMemo(() => {

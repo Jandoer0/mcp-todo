@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { boardsApi, currenciesApi } from '../api/client'
+import { boardsApi } from '../api/client'
 
 // Мультивалютный бюджет (UPDATE ТЗ): итоги (ПЛАН/ФАКТ/ИТОГО) считаются в
 // валюте расчёта доски (Decimal на бэкенде), записи показывают сумму в
 // оригинальной валюте + эквивалент в валюте расчёта: «-10 000 RUB (≈ -110 USD)».
+// Вложена в BudgetView (ТЗv2 §4): данные и селектор валюты расчёта живут
+// в оболочке; при внешнем `data` вкладка не грузит ничего сама.
 
 // 10000 → «10 000» (ru-RU uses non-breaking spaces as thousand separators)
 function fmt(n) {
@@ -15,45 +17,28 @@ function signed(n) {
   return `${n < 0 ? '-' : '+'}${fmt(n)}`
 }
 
-export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) {
+export default function BudgetTab({ board, tasks = [], lists = [], data: externalBudget = null }) {
   const [copied, setCopied] = useState(false)
   // Бюджет приходит с бэкенда (Decimal-расчёты, конверсия по курсам).
-  const [budget, setBudget] = useState(null)
-  const [currencies, setCurrencies] = useState([])
-  const [saveError, setSaveError] = useState('')
-
-  const loadBudget = () => {
-    if (!board?.id) return
-    boardsApi
-      .budget(board.id)
-      .then((res) => setBudget(res.data))
-      .catch(() => setBudget(null))
-  }
+  // В BudgetView данные загружаются снаружи (общий загрузчик с графиком);
+  // автономная загрузка сохранена как fallback для прямого использования.
+  const [ownBudget, setOwnBudget] = useState(null)
 
   useEffect(() => {
-    loadBudget()
-    currenciesApi
-      .list()
-      .then((res) => setCurrencies(res.data || []))
-      .catch(() => setCurrencies([]))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board?.id])
+    if (externalBudget || !board?.id) return
+    boardsApi
+      .budget(board.id)
+      .then((res) => setOwnBudget(res.data))
+      .catch(() => setOwnBudget(null))
+  }, [board?.id, externalBudget])
+
+  const budget = externalBudget ?? ownBudget
 
   // Валюта расчёта: id → объект (code/symbol) для подписей
   const reportCurrency = budget?.report_currency || null
   const reportCode = reportCurrency?.code || 'USD'
 
-  // Смена валюты расчёта: сохраняем на доске и мгновенно пересчитываем
-  const changeReportCurrency = async (id) => {
-    setSaveError('')
-    try {
-      await boardsApi.update(board.id, { report_currency_id: id })
-      loadBudget()
-      onChanged?.()
-    } catch (err) {
-      setSaveError(err?.response?.data?.detail || 'Не удалось сохранить валюту расчёта')
-    }
-  }
+  // Смена валюты расчёта и селектор — в оболочке BudgetView (ТЗv2 §4.4)
 
   const entries = budget?.entries || []
   const doneNames = useMemo(
@@ -123,24 +108,6 @@ export default function BudgetTab({ board, tasks = [], lists = [], onChanged }) 
 
   return (
     <div className="space-y-4">
-      {/* Валюта расчёта: метка и селектор в одном компактном блоке */}
-      <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Валюта расчёта
-        </span>
-        <select
-          value={reportCurrency?.id ?? ''}
-          onChange={(e) => changeReportCurrency(e.target.value ? Number(e.target.value) : null)}
-          className="bg-transparent border-0 p-0 text-sm font-semibold text-slate-700 cursor-pointer outline-none focus:ring-0"
-        >
-          {currencies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code}
-            </option>
-          ))}
-        </select>
-      </div>
-      {saveError && <p className="text-sm text-red-500">{saveError}</p>}
       {budget?.missing_rate && (
         <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
           ⚠ У одной или нескольких валют не указан курс — обновите «Параметры валют», иначе итоги будут неполными.

@@ -1,16 +1,17 @@
 import { BOARD_PALETTE, MAX_BOARDS } from '../constants'
 import Modal from './Modal'
-import BudgetTab from './BudgetTab'
-import ChartTab from './ChartTab'
+import ListsManager from './ListsManager'
+import BudgetView from './BudgetView'
 import WebhookTab from './WebhookTab'
 import TransferTab from './TransferTab'
 import { useEffect, useState } from 'react'
 
 // Edit/create dialog for a board (name, multiline description, color).
-// In edit mode extra tabs show the board's financial summary («Бюджет»),
-// its single webhook («Веб-хуки», only when allowed for the user) and the
-// full board transfer («Импорт / Экспорт»).
-export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], webhooksEnabled = true, maxBoards = MAX_BOARDS, onImported, onClose, onSubmit, onDelete }) {
+// In edit mode extra tabs show the board's financial summary («Бюджет» —
+// объединённая вкладка «Итоги/График», ТЗv2 §4), its single webhook
+// («Веб-хуки», only when allowed for the user) and the full board transfer
+// («Импорт / Экспорт»).
+export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], webhooksEnabled = true, maxBoards = MAX_BOARDS, onImported, onChanged, onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(BOARD_PALETTE[1])
@@ -93,17 +94,6 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           >
             Бюджет
           </button>
-          <button
-            type="button"
-            onClick={() => setTab('chart')}
-            className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
-              tab === 'chart'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            График
-          </button>
           {webhooksEnabled && (
             <button
               type="button"
@@ -142,9 +132,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
       ) : tab === 'webhooks' ? (
         <WebhookTab board={board} />
       ) : tab === 'budget' ? (
-        <BudgetTab board={board} tasks={tasks} lists={lists} />
-      ) : tab === 'chart' ? (
-        <ChartTab board={board} />
+        <BudgetView board={board} tasks={tasks} lists={lists} onChanged={onChanged} />
       ) : tab === 'transfer' ? (
         <TransferTab board={board} onImported={onImported} />
       ) : (

@@ -538,6 +538,7 @@ export default function App() {
         lists={lists}
         webhooksEnabled={webhooksEnabled}
         onImported={load}
+        onChanged={load}
         onClose={() => {
           setBoardFormOpen(false)
           setEditingBoard(null)
