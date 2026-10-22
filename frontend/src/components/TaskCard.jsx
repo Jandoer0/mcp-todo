@@ -137,7 +137,7 @@ function Trash() {
   )
 }
 
-export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete }) {
+export default function TaskCard({ task, allTasks = [], lists = [], tags = [], onSetList, onEdit, onDelete, onRefresh }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
 
@@ -202,6 +202,12 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   // ---- Swipe mechanics (replaces the side radio buttons) ----
   // Swipe right → move to the PREVIOUS (upper) list; in the first list — delete.
   // Swipe left  → move to the NEXT (lower) list; in the last list — delete.
+  // СТАРАЯ механика (свайп) — только для мобильных (pointer: coarse):
+  // на десктопе перенос карточек выполняет нативный Drag&Drop (Board.jsx),
+  // и pointer-жест не должен перехватывать горизонтальное движение мыши.
+  const [canSwipe] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches,
+  )
   const dragRef = useRef(null) // { x, y, axis } of the active gesture
   const suppressClickRef = useRef(false) // swallow the click right after a horizontal drag
   const [dragX, setDragX] = useState(0)
@@ -220,6 +226,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], o
   }
 
   const onPointerDown = (e) => {
+    // На десктопе жест не стартует: мышь управляет нативным Drag&Drop.
+    if (!canSwipe || e.pointerType === 'mouse') return
     if (e.button && e.button !== 0) return
     // Жёсткая связь «циклическая ⇔ Регулярные»: карточку нельзя ни свайпнуть
     // в другой список, ни свайпнуть в удаление — жест просто не стартует.

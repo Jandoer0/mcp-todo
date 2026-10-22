@@ -1,12 +1,22 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import TaskCard from './TaskCard'
+
+// Плейсхолдер-«дырка» размером с перетаскиваемую карточку: открывается на
+// позиции вставки, и карточки ниже сдвигаются вниз (механика Planka).
+const Gap = ({ height }) => (
+  <div
+    className="rounded-md border-2 border-dashed border-blue-400/40 bg-blue-400/5"
+    style={{ height }}
+  />
+)
 
 // Горизонтальный канбан по образцу Planka (ТЗv2 §1):
 //  - колонки — горизонтальный ряд, контейнер скроллится по X (десктоп ≥ md);
 //  - карточки в колонке — вертикальный стек со своим скроллом;
-//  - DnD карточек между колонками и внутри колонки (HTML5 Drag&Drop):
-//    полупрозрачность переносимой карточки, подсветка колонки-приёмника,
-//    вставка в конкретную позицию стека (дробный position на сервере);
+//  - DnD карточек между колонками и внутри колонки (HTML5 Drag&Drop, только
+//    десктоп): захваченная карточка «вырывается» из потока — остальные
+//    смыкаются; на месте вставки открывается плейсхолдер-«дырка» (Planka);
+//    позиция сохраняется дробным position на сервере;
 //  - шапка колонки: цветовой маркер, название, счётчик, «+» и меню колонки;
 //  - свайп-перенос карточек сохранён на мобильных (внутри TaskCard).
 export default function Board({
@@ -98,7 +108,9 @@ export default function Board({
   const [dropIndex, setDropIndex] = useState(null) // индекс вставки в стеке
 
   const handleDragStart = (e, task) => {
-    setDragTask({ id: task.id, fromList: task.list })
+    // Высота карточки нужна для плейсхолдера-«дырки» в колонке-приёмнике.
+    const rect = e.currentTarget.getBoundingClientRect()
+    setDragTask({ id: task.id, fromList: task.list, h: Math.round(rect.height) })
     // Данные обязательны для Firefox; JSON позволяет получить задачу на drop.
     e.dataTransfer.setData('application/json', JSON.stringify({ id: task.id }))
     e.dataTransfer.effectAllowed = 'move'
@@ -138,15 +150,21 @@ export default function Board({
     handleDragEnd()
   }
 
-  // Индекс вставки: карточка, над которой курсор, и её половина.
+  // Индекс вставки среди ВИДИМЫХ карточек (перетаскиваемая исключена из
+  // потока): курсор над верхней половиной карточки → вставка перед ней,
+  // ниже всех → в конец.
   const indexFromEvent = (e, items) => {
-    for (let i = 0; i < items.length; i++) {
-      const el = document.getElementById(`card-${items[i].id}`)
-      if (!el) continue
-      const r = el.getBoundingClientRect()
-      if (e.clientY < r.top + r.height / 2) return i
+    let idx = 0
+    for (const t of items) {
+      if (dragTask && t.id === dragTask.id) continue
+      const el = document.getElementById(`card-${t.id}`)
+      if (el) {
+        const r = el.getBoundingClientRect()
+        if (e.clientY < r.top + r.height / 2) return idx
+      }
+      idx++
     }
-    return items.length
+    return idx
   }
 
   const handleDragOver = (e, group) => {
@@ -179,7 +197,15 @@ export default function Board({
           const regular = group.kind === 'regular' || group.name === 'Регулярные'
           const forbidden = regular && dragTask && !cyclicDrag
           const isOver = overList === group.name && dragTask && !forbidden
-          const sameList = dragTask && dragTask.fromList === group.name
+          // Видимые карточки: перетаскиваемая «вырвана» из потока (высота 0),
+          // остальные смыкаются, освобождая место (механика Planka).
+          const others = group.items.filter((t) => !dragTask || t.id !== dragTask.id)
+          const visIndex = new Map(others.map((t, i) => [t.id, i]))
+          // Плейсхолдер-«дырка» открывается только в колонке под курсором:
+          // карточки ниже сдвигаются вниз, освобождая место под вставку.
+          const showGap = !!dragTask && isOver && dropIndex != null
+          const gapAtEnd = showGap && dropIndex >= others.length
+          const gapHeight = dragTask?.h || 48
           return (
             <section
               key={group.id}
@@ -191,7 +217,9 @@ export default function Board({
                     : ''
               }`}
               onDragOver={(e) => handleDragOver(e, group)}
-              onDragLeave={() => {
+              onDragLeave={(e) => {
+                // Переход в дочерний элемент (карточку) — не покидание колонки.
+                if (e.currentTarget.contains(e.relatedTarget)) return
                 setOverList((cur) => (cur === group.name ? null : cur))
               }}
               onDrop={(e) => handleDrop(e, group)}
@@ -239,51 +267,52 @@ export default function Board({
               {/* Стек карточек: на десктопе — колонка полной высоты со своим
                   скроллом; свёрнутая колонка не рендерит карточки. */}
               {!isCollapsed(group.name) && (
-                <div className="flex flex-col md:flex-1 md:min-h-0 h-full">
+                <div className="flex flex-col md:flex-1 md:min-h-0">
                   <div className="flex-1 overflow-y-auto md:pr-1 space-y-2 pb-2">
-                    {group.items.map((task, i) => (
-                      <div
-                        key={task.id}
-                        id={`card-${task.id}`}
-                        className={`task-appear break-inside-avoid transition-all duration-200 ${
-                          dragTask?.id === task.id ? 'opacity-0 pointer-events-none' : ''
-                        }`}
-                        // Индикатор вставки: линия над карточкой (или в конце — пустой слот).
-                        style={
-                          dragTask && dropIndex === i && (isOver || sameList)
-                            ? { boxShadow: '0 -2px 0 0 #60a5fa', borderRadius: 4 }
-                            : undefined
-                        }
-                      >
-                        <div
-                          draggable={canDrag}
-                          onDragStart={(e) => handleDragStart(e, task)}
-                          onDragEnd={handleDragEnd}
-                          className={canDrag ? 'cursor-grab active:cursor-grabbing' : ''}
-                        >
-                          <TaskCard
-                            task={task}
-                            allTasks={tasks}
-                            lists={lists}
-                            tags={tags}
-                            onSetList={onSetList}
-                            onEdit={onEdit}
-                            onDelete={onDelete}
-                            onRefresh={onRefresh}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    {dropIndex != null && dropIndex >= group.items.length && (isOver || sameList) && (
-                      <div className="h-0.5 bg-blue-400 rounded" />
-                    )}
+                    {group.items.map((task) => {
+                      const isDragged = dragTask?.id === task.id
+                      const gapHere = showGap && !isDragged && dropIndex === visIndex.get(task.id)
+                      return (
+                        <Fragment key={task.id}>
+                          {gapHere && <Gap height={gapHeight} />}
+                          <div
+                            id={`card-${task.id}`}
+                            className={`task-appear break-inside-avoid transition-all duration-200 ${
+                              isDragged ? 'overflow-hidden pointer-events-none' : ''
+                            }`}
+                            // Захваченная карточка схлопывается (высота 0):
+                            // остальные карточки смыкаются, освобождая место.
+                            style={isDragged ? { height: 0, marginTop: 0, opacity: 0 } : undefined}
+                          >
+                            <div
+                              draggable={canDrag}
+                              onDragStart={(e) => handleDragStart(e, task)}
+                              onDragEnd={handleDragEnd}
+                              className={canDrag ? 'cursor-grab active:cursor-grabbing' : ''}
+                            >
+                              <TaskCard
+                                task={task}
+                                allTasks={tasks}
+                                lists={lists}
+                                tags={tags}
+                                onSetList={onSetList}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onRefresh={onRefresh}
+                              />
+                            </div>
+                          </div>
+                        </Fragment>
+                      )
+                    })}
+                    {gapAtEnd && <Gap height={gapHeight} />}
                     {group.items.length === 0 && (
                       <p className={`text-xs italic px-1 ${isOver ? 'text-white/70' : 'text-white/40'}`}>
                         {isOver ? 'Отпустите, чтобы переместить' : 'Нет задач'}
                       </p>
                     )}
-                  </div>
-                  <div className="shrink-0 p-1 mt-auto">
+                    {/* Кнопка добавления — последняя «карточка» столбика:
+                        прижата к последней задаче, а не к низу колонки. */}
                     <button
                       type="button"
                       onClick={() => onAddTask && onAddTask(group.name)}
