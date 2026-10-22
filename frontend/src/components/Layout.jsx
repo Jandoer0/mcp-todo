@@ -151,7 +151,11 @@ export default function Layout({
           )}
         </div>
       </header>
-      <main className="p-4 max-w-4xl mx-auto">{children}</main>
+      {/* Канбан (ТЗv2 §1): рабочая область — во всю ширину окна браузера.
+          Ограничение max-w осталось бы узким горлышком для горизонтального
+          ряда колонок; единственное исключение — очень широкие экраны (2xl),
+          где строки текста становятся слишком длинными. */}
+      <main className="p-4 w-full max-w-none xl:max-w-none 2xl:max-w-[2400px] 2xl:mx-auto">{children}</main>
     </div>
   )
 }
