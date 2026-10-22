@@ -185,11 +185,11 @@ export default function Board({
               key={group.id}
               className={`flex flex-col md:w-0 md:min-w-0 md:flex-1 md:shrink-0 rounded-lg ${
                 isOver
-                  ? 'ring-2 ring-blue-400 bg-blue-400/10'
+                  ? 'bg-blue-400/10'
                   : forbidden
-                    ? 'ring-2 ring-red-400/60 opacity-90'
+                    ? 'opacity-90'
                     : sameList
-                      ? 'ring-1 ring-white/20'
+                      ? ''
                       : ''
               }`}
               onDragOver={(e) => handleDragOver(e, group)}
@@ -241,46 +241,57 @@ export default function Board({
               {/* Стек карточек: на десктопе — колонка полной высоты со своим
                   скроллом; свёрнутая колонка не рендерит карточки. */}
               {!isCollapsed(group.name) && (
-                <div className="md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1 space-y-2">
-                  {group.items.map((task, i) => (
-                    <div
-                      key={task.id}
-                      id={`card-${task.id}`}
-                      className="task-appear break-inside-avoid"
-                      // Индикатор вставки: линия над карточкой (или в конце — пустой слот).
-                      style={
-                        dragTask && dropIndex === i && (isOver || sameList)
-                          ? { boxShadow: '0 -2px 0 0 #60a5fa', borderRadius: 4 }
-                          : undefined
-                      }
-                    >
+                <div className="flex flex-col md:flex-1 md:min-h-0 md:overflow-hidden">
+                  <div className="flex-1 overflow-y-auto md:pr-1 space-y-2">
+                    {group.items.map((task, i) => (
                       <div
-                        draggable={canDrag}
-                        onDragStart={(e) => handleDragStart(e, task)}
-                        onDragEnd={handleDragEnd}
-                        className={dragTask?.id === task.id ? 'opacity-40' : canDrag ? 'cursor-grab active:cursor-grabbing' : ''}
+                        key={task.id}
+                        id={`card-${task.id}`}
+                        className={`task-appear break-inside-avoid transition-all duration-200 ${
+                          dragTask?.id === task.id ? 'opacity-0 pointer-events-none' : ''
+                        }`}
+                        // Индикатор вставки: линия над карточкой (или в конце — пустой слот).
+                        style={
+                          dragTask && dropIndex === i && (isOver || sameList)
+                            ? { boxShadow: '0 -2px 0 0 #60a5fa', borderRadius: 4 }
+                            : undefined
+                        }
                       >
-                        <TaskCard
-                          task={task}
-                          allTasks={tasks}
-                          lists={lists}
-                          tags={tags}
-                          onSetList={onSetList}
-                          onEdit={onEdit}
-                          onDelete={onDelete}
-                          onRefresh={onRefresh}
-                        />
+                        <div
+                          draggable={canDrag}
+                          onDragStart={(e) => handleDragStart(e, task)}
+                          onDragEnd={handleDragEnd}
+                          className={canDrag ? 'cursor-grab active:cursor-grabbing' : ''}
+                        >
+                          <TaskCard
+                            task={task}
+                            allTasks={tasks}
+                            lists={lists}
+                            tags={tags}
+                            onSetList={onSetList}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                            onRefresh={onRefresh}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {dropIndex != null && dropIndex >= group.items.length && (isOver || sameList) && (
-                    <div className="h-0.5 bg-blue-400 rounded" />
-                  )}
-                  {group.items.length === 0 && (
-                    <p className={`text-xs italic px-1 ${isOver ? 'text-white/70' : 'text-white/40'}`}>
-                      {isOver ? 'Отпустите, чтобы переместить' : 'Нет задач'}
-                    </p>
-                  )}
+                    ))}
+                    {dropIndex != null && dropIndex >= group.items.length && (isOver || sameList) && (
+                      <div className="h-0.5 bg-blue-400 rounded" />
+                    )}
+                    {group.items.length === 0 && (
+                      <p className={`text-xs italic px-1 ${isOver ? 'text-white/70' : 'text-white/40'}`}>
+                        {isOver ? 'Отпустите, чтобы переместить' : 'Нет задач'}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onAddTask && onAddTask(group.name)}
+                    className="mt-2 mb-2 w-full py-2 rounded bg-white/5 text-white/60 hover:bg-white/10 hover:text-white text-xs transition-colors border border-dashed border-white/20"
+                  >
+                    + Добавить задачу
+                  </button>
                 </div>
               )}
             </section>

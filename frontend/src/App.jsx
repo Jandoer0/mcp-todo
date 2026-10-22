@@ -384,13 +384,6 @@ export default function App() {
 
       <div className="flex justify-between items-center mb-4 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <button
-            onClick={() => setListsOpen(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 whitespace-nowrap"
-          >
-            Списки
-          </button>
-
           {/* Mobile: filters as a dropdown between the two buttons */}
           <div className="md:hidden relative">
             <button
@@ -434,13 +427,6 @@ export default function App() {
         <div className="hidden md:flex flex-wrap gap-2 items-center justify-center flex-1">
           {tagCloud}
         </div>
-
-        <button
-          onClick={openNew}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2 whitespace-nowrap"
-        >
-          <span>+</span> <span className="hidden md:inline">Новая задача</span><span className="md:hidden">Новая</span>
-        </button>
       </div>
 
       <Board

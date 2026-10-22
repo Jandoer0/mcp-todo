@@ -73,6 +73,17 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           </button>
           <button
             type="button"
+            onClick={() => setTab('lists')}
+            className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === 'lists'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Списки
+          </button>
+          <button
+            type="button"
             onClick={() => setTab('budget')}
             className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
               tab === 'budget'
@@ -120,7 +131,15 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
         </div>
       )}
 
-      {tab === 'webhooks' ? (
+      {tab === 'lists' ? (
+        <ListsManager 
+          boardId={board.id} 
+          open={true} 
+          onClose={() => {}} 
+          lists={lists} 
+          onChanged={() => {}} 
+        />
+      ) : tab === 'webhooks' ? (
         <WebhookTab board={board} />
       ) : tab === 'budget' ? (
         <BudgetTab board={board} tasks={tasks} lists={lists} />
