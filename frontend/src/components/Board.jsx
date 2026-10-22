@@ -239,7 +239,7 @@ export default function Board({
               {/* Стек карточек: на десктопе — колонка полной высоты со своим
                   скроллом; свёрнутая колонка не рендерит карточки. */}
               {!isCollapsed(group.name) && (
-                <div className="flex flex-col md:flex-1 md:min-h-0">
+                <div className="flex flex-col md:flex-1 md:min-h-0 h-full">
                   <div className="flex-1 overflow-y-auto md:pr-1 space-y-2 pb-2">
                     {group.items.map((task, i) => (
                       <div
@@ -283,7 +283,7 @@ export default function Board({
                       </p>
                     )}
                   </div>
-                  <div className="shrink-0 p-1">
+                  <div className="shrink-0 p-1 mt-auto">
                     <button
                       type="button"
                       onClick={() => onAddTask && onAddTask(group.name)}
