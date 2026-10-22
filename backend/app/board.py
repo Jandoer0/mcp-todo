@@ -87,11 +87,12 @@ REGULAR_LIST_NAME = "Регулярные"
 REGULAR_LIST_COLOR = "#14b8a6"
 
 DEFAULT_LISTS = [
-    {"name": "Не начато", "color": "#64748b", "position": 1, "kind": "todo"},
-    {"name": "В работе", "color": "#3b82f6", "position": 2, "kind": "progress"},
-    {"name": "Готово", "color": "#22c55e", "position": 3, "kind": "done"},
-    {"name": "Архив", "color": "#8b5cf6", "position": 4, "kind": "done"},
-    {"name": REGULAR_LIST_NAME, "color": REGULAR_LIST_COLOR, "position": 5, "kind": "regular"},
+    # Регулярные — первый столбец (закрепление слева, как в ТЗ); позиции 1..5.
+    {"name": REGULAR_LIST_NAME, "color": REGULAR_LIST_COLOR, "position": 1, "kind": "regular"},
+    {"name": "Не начато", "color": "#64748b", "position": 2, "kind": "todo"},
+    {"name": "В работе", "color": "#3b82f6", "position": 3, "kind": "progress"},
+    {"name": "Готово", "color": "#22c55e", "position": 4, "kind": "done"},
+    {"name": "Архив", "color": "#8b5cf6", "position": 5, "kind": "done"},
 ]
 
 DONE_LIST = "Готово"

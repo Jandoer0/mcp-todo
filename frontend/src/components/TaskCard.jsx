@@ -277,8 +277,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     // Suppress the synthetic click that follows the pointer: on desktop a
     // mouse swipe must not open the editor right afterwards.
     suppressClickRef.current = true
-    if (t.del) handleDelete()
-    else if (t.list) moveTo(t.list.name)
+    // t === null — свайп короче порога: просто отпускаем без действия.
+    if (t?.del) handleDelete()
+    else if (t?.list) moveTo(t.list.name)
   }
 
   const onPointerCancel = () => {

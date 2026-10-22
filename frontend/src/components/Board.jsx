@@ -106,7 +106,15 @@ export default function Board({
   // по горизонтали до узкой полоски, освобождая место соседним столбцам.
   const [collapsed, setCollapsed] = useState({})
   const isRegularCol = (g) => g.kind === 'regular' || g.name === 'Регулярные'
-  const defaultCollapsed = (g) => g.name === 'Архив' || (isRegularCol(g) && g.items.length === 0)
+  // При активном фильтре (статус или тег) по умолчанию свёрнуты колонки, куда
+  // не попало ни одной видимой задачи — развёрнуты только столбцы с
+  // результатами фильтра. Явный клик пользователя по колонке имеет
+  // приоритет над дефолтом.
+  const filterActive = activeFilter !== 'all' || !!activeTag
+  const defaultCollapsed = (g) =>
+    filterActive
+      ? g.items.length === 0
+      : g.name === 'Архив' || (isRegularCol(g) && g.items.length === 0)
   const isCollapsed = (g) => collapsed[g.name] ?? defaultCollapsed(g)
   const toggleGroup = (g) =>
     setCollapsed((c) => ({ ...c, [g.name]: !(c[g.name] ?? defaultCollapsed(g)) }))

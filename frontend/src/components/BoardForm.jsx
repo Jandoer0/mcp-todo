@@ -1,6 +1,5 @@
 import { BOARD_PALETTE, MAX_BOARDS } from '../constants'
 import Modal from './Modal'
-import ListsManager from './ListsManager'
 import BudgetView from './BudgetView'
 import WebhookTab from './WebhookTab'
 import TransferTab from './TransferTab'
@@ -10,7 +9,7 @@ import { useEffect, useState } from 'react'
 // In edit mode extra tabs show the board's financial summary («Бюджет» —
 // объединённая вкладка «Итоги/График», ТЗv2 §4), its single webhook
 // («Веб-хуки», only when allowed for the user) and the full board transfer
-// («Импорт / Экспорт»).
+// («Импорт / Экспорт»). Управление списками — кнопка «Списки» в шапке доски.
 export default function BoardForm({ open, board, boardsCount, tasks = [], lists = [], webhooksEnabled = true, maxBoards = MAX_BOARDS, onImported, onChanged, onClose, onSubmit, onDelete }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -74,17 +73,6 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
           </button>
           <button
             type="button"
-            onClick={() => setTab('lists')}
-            className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
-              tab === 'lists'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Списки
-          </button>
-          <button
-            type="button"
             onClick={() => setTab('budget')}
             className={`px-3 py-1.5 text-sm font-medium -mb-px border-b-2 transition-colors ${
               tab === 'budget'
@@ -121,15 +109,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
         </div>
       )}
 
-      {tab === 'lists' ? (
-        <ListsManager 
-          boardId={board.id} 
-          open={true} 
-          onClose={() => {}} 
-          lists={lists} 
-          onChanged={() => {}} 
-        />
-      ) : tab === 'webhooks' ? (
+      {tab === 'webhooks' ? (
         <WebhookTab board={board} />
       ) : tab === 'budget' ? (
         <BudgetView board={board} tasks={tasks} lists={lists} onChanged={onChanged} />

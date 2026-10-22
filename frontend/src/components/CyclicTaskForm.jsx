@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Modal from './Modal'
 import TagInput from './TagInput'
 import DateTimePicker from './DateTimePicker'
+import Markdown from './Markdown'
 import { currenciesApi, tasksApi } from '../api/client'
 
 function toDatetimeLocal(value) {
@@ -20,6 +21,9 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
   const [selectedTags, setSelectedTags] = useState([])
   const [history, setHistory] = useState([])
   const [showAllHistory, setShowAllHistory] = useState(false)
+  // Предпросмотр Markdown описания — как в обычной TaskForm: в редактировании
+  // открываем сразу в предпросмотре, в создании — сразу в редакторе.
+  const [descPreview, setDescPreview] = useState(false)
 
   useEffect(() => {
     currenciesApi.list().then((r) => setCurrencies(r.data || [])).catch(() => setCurrencies([]))
@@ -30,6 +34,7 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
     if (task) {
       tasksApi.cycleHistory(task.id).then((r) => setHistory(r.data || [])).catch(() => setHistory([]))
       setShowAllHistory(false)
+      setDescPreview(true)
       const value = Number(task.amount) || 0
       setForm({
         title: task.title || '', description: task.description || '', deadline: toDatetimeLocal(task.deadline),
@@ -41,13 +46,38 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
       setSelectedTags((task.tags || []).map((t) => typeof t === 'string' ? t : t.name))
     } else {
       setHistory([])
+      setDescPreview(false)
       setForm({ title: '', description: '', deadline: '', cycle_period: 'monthly', cycle_interval: 1, reminder_days: 0 })
-      setAmountType('expense'); setAmount(''); setCurrencyId(currencies[0]?.id ?? null); setSelectedTags([])
+      setAmountType('expense'); setAmount(''); setCurrencyId(null); setSelectedTags([])
     }
+    // Валюты НЕ в deps: догрузка списка не должна переинициализировать форму
+    // и затирать начатый ввод (валюта по умолчанию — см. эффект ниже).
+  }, [open, task])
+
+  // Валюта по умолчанию — первая в пользовательском порядке; применяется,
+  // пока пользователь не выбрал иначе (currencyId === null).
+  useEffect(() => {
+    if (!open || task || !currencies.length) return
+    setCurrencyId((cur) => cur ?? currencies[0]?.id ?? null)
   }, [open, task, currencies])
 
   if (!open) return null
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }))
+  // Переключение чекбокса в предпросмотре правит markdown-источник локально;
+  // изменения зафиксируются при нажатии «Сохранить задачу».
+  const handleToggleCheckItem = (index, checked) => {
+    const lines = String(form.description || '').split('\n')
+    let seen = -1
+    const newLines = lines.map((line) => {
+      const m = line.match(/^(\s*[-*+]\s+)\[( |x|X)\](\s+.*)$/)
+      if (!m) return line
+      seen += 1
+      if (seen !== index) return line
+      return `${m[1]}[${checked ? 'x' : ' '}]${m[3]}`
+    })
+    if (seen < index) return // нет такого чекбокса в источнике
+    setForm((f) => ({ ...f, description: newLines.join('\n') }))
+  }
   const regularName = lists.find((l) => l.kind === 'regular' || l.name === 'Регулярные')?.name || 'Регулярные'
   const submit = (e) => {
     e.preventDefault()
@@ -87,7 +117,34 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
             <select value={currencyId ?? ''} onChange={(e) => setCurrencyId(e.target.value ? Number(e.target.value) : null)} className="p-2 border rounded">{currencies.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select>
           </div>
         </div>
-        <div className="md:col-span-2"><label className="field-label">Описание</label><textarea value={form.description} onChange={set('description')} className="w-full p-2 border rounded min-h-24" /></div>
+        <div className="md:col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <label className="field-label">Описание</label>
+            <button
+              type="button"
+              onClick={() => setDescPreview((v) => !v)}
+              className="px-2 py-0.5 rounded border text-[10px] font-medium transition-colors bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200"
+            >
+              {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
+            </button>
+          </div>
+          {descPreview ? (
+            <div className="w-full min-h-[6rem] p-2 border rounded bg-slate-50">
+              {form.description?.trim() ? (
+                <Markdown text={form.description} onToggleCheckItem={handleToggleCheckItem} />
+              ) : (
+                <p className="text-xs text-slate-400">Описание пусто</p>
+              )}
+            </div>
+          ) : (
+            <textarea
+              value={form.description}
+              onChange={set('description')}
+              placeholder="Введите описание (поддерживается Markdown: **жирный**, *курсив*, списки, [ссылки](url), `код`)"
+              className="w-full p-2 border rounded min-h-24"
+            />
+          )}
+        </div>
         <div className="md:col-span-2"><label className="field-label">Теги</label><TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} /></div>
         {task && (
           <div className="md:col-span-2 border-t border-slate-200 pt-3">
