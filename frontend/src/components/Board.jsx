@@ -188,9 +188,7 @@ export default function Board({
                   ? 'bg-blue-400/10'
                   : forbidden
                     ? 'opacity-90'
-                    : sameList
-                      ? ''
-                      : ''
+                    : ''
               }`}
               onDragOver={(e) => handleDragOver(e, group)}
               onDragLeave={() => {
