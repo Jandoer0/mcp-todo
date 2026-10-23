@@ -129,6 +129,48 @@ export default function Board({
   const ghostRef = useRef(null) // DOM «призрака» под курсором
   const suppressClickRef = useRef(false) // гасим клик после перетаскивания
 
+  // «Рука» для горизонтального обзора доски на десктопе. Работает только
+  // по свободному пространству, чтобы не конфликтовать с DnD карточек.
+  const kanbanRef = useRef(null)
+  const handRef = useRef(null) // { x, pointerId, active, moved }
+  const [handActive, setHandActive] = useState(false)
+
+  const handleBoardPanDown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return
+    // Карточки и их кнопки принадлежат собственным интерактивным механикам.
+    if (e.target.closest('[id^="card-"], button, a, input, textarea, select, label')) return
+    handRef.current = { x: e.clientX, pointerId: e.pointerId, active: false, moved: false }
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+  }
+
+  const handleBoardPanMove = (e) => {
+    const pan = handRef.current
+    const el = kanbanRef.current
+    if (!pan || pan.pointerId !== e.pointerId || !el) return
+    const dx = e.clientX - pan.x
+    if (!pan.active && Math.abs(dx) < 6) return
+    if (!pan.active) {
+      pan.active = true
+      pan.moved = true
+      setHandActive(true)
+    }
+    e.preventDefault()
+    el.scrollLeft -= dx
+    pan.x = e.clientX
+  }
+
+  const stopBoardPan = (e) => {
+    if (!handRef.current || (e && handRef.current.pointerId !== e.pointerId)) return
+    const moved = handRef.current.moved
+    handRef.current = null
+    setHandActive(false)
+    // Не даём клику после движения руки активировать элемент под курсором.
+    if (moved) {
+      suppressClickRef.current = true
+      requestAnimationFrame(() => { suppressClickRef.current = false })
+    }
+  }
+
   // Актуальные данные для обработчиков window (не пересоздаём их каждый move).
   const dataRef = useRef({})
   dataRef.current = { tasks, groups }
@@ -298,7 +340,12 @@ export default function Board({
           стилизованной горизонтальной прокруткой внизу экрана (§1.12);
           на мобильных — вертикальный стек (свайп-перенос остаётся основным). */}
       <div
-        className="kanban-scroll flex flex-col md:flex-row md:items-stretch md:gap-3 md:flex-1 md:min-h-0 md:overflow-x-auto md:pb-3"
+        ref={kanbanRef}
+        className={`kanban-scroll flex flex-col md:flex-row md:items-stretch md:gap-3 md:flex-1 md:min-h-0 md:overflow-x-auto md:pb-3 ${handActive ? 'cursor-grabbing' : 'md:cursor-grab'}`}
+        onPointerDown={handleBoardPanDown}
+        onPointerMove={handleBoardPanMove}
+        onPointerUp={stopBoardPan}
+        onPointerCancel={stopBoardPan}
       >
         {groups.map((group) => {
           const cyclicDrag = dragView && !!tasks.find((t) => t.id === dragView.id)?.is_cyclic
