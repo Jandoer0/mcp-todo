@@ -12,9 +12,8 @@ const Gap = ({ height }) => (
 )
 
 // Горизонтальный канбан по образцу Planka (ТЗv2 §1):
-//  - колонки — горизонтальный ряд ФИКСИРОВАННОЙ ширины (w-60 = 240px на
-//    десктопе): 5 столбцов влезают в половину экрана 2560×1440 (1280px)
-//    без горизонтального скролла; при большем числе списков контейнер
+//  - колонки — горизонтальный ряд ФИКСИРОВАННОЙ ширины (260px на
+//    десктопе); при большем числе списков контейнер
 //    скроллится по X;
 //  - свёрнутая колонка на десктопе сжимается до узкой вертикальной полоски
 //    (w-11) с названием — освобождая место соседним столбцам; «Архив»
@@ -341,14 +340,6 @@ export default function Board({
               <div className="ml-auto flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => (regular ? onEditCyclic?.() : onAddTask?.(group.name))}
-                  className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
-                  title={regular ? 'Новая циклическая задача' : `Добавить задачу в «${group.name}»`}
-                >
-                  +
-                </button>
-                <button
-                  type="button"
                   onClick={() => onManageLists && onManageLists()}
                   className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
                   title="Настроить списки (имя, цвет, удаление)"
@@ -362,12 +353,11 @@ export default function Board({
             <section
               key={group.id}
               data-col={group.name}
-              // Фиксированная ширина колонки (§1.11): 5 столбцов w-60 (240px)
-              // влезают в половину экрана 2560×1440 (1280px) без горизонтального
-              // скролла. Свёрнутая колонка сжимает саму секцию до w-11 — место
+              // Фиксированная ширина колонки: 260px на десктопе.
+              // Свёрнутая колонка сжимает саму секцию до w-11 — место
               // соседним столбцам действительно освобождается.
               className={`flex flex-col md:shrink-0 md:flex-none md:transition-[width] md:duration-200 rounded-lg ${
-                collapsedState ? 'md:w-11' : 'md:w-60'
+                collapsedState ? 'md:w-11' : 'md:w-[260px]'
               } ${
                 isOver
                   ? 'bg-blue-400/10'

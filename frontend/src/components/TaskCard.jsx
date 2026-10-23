@@ -504,11 +504,6 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                 ↻ {({ daily: 'день', weekly: 'нед.', monthly: 'мес.', yearly: 'год' })[task.cycle_period] || 'цикл'}
               </span>
             )}
-            {task.cycle_dormant && (
-              <span className="text-[10px] font-normal text-slate-400" title="Появится в основных списках ближе к дедлайну">
-                (запланирована)
-              </span>
-            )}
             {(Number(task.amount) || 0) !== 0 && (
               <span
                 className={`text-[11px] font-bold whitespace-nowrap ${
