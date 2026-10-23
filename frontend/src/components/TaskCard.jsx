@@ -1,4 +1,4 @@
-import { useRef, useState, useLayoutEffect } from 'react'
+import { useRef, useState, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
@@ -140,6 +140,11 @@ function Trash() {
 export default function TaskCard({ task, allTasks = [], lists = [], tags = [], currencies = [], onSetList, onEdit, onEditCyclic, onDelete, onRefresh }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
+  // Меню ⋯ на панели цикла (История / Остановить): рендерится порталом,
+  // потому что карточка overflow-hidden — обычный dropdown был бы обрезан.
+  const [menuPos, setMenuPos] = useState(null) // { left, top } координаты вьюпорта
+  const menuRef = useRef(null)
+  const menuBtnRef = useRef(null)
 
   // Swipe right/left moves the card to a NEIGHBOURING list — cyclic tasks
   // are pinned to the system «Регулярные» list and must not be draggable.
@@ -361,6 +366,33 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     setHistoryOpen(true)
   }
 
+  // ---- Меню ⋯ (История / Остановить цикл) ----
+  const CYCLE_MENU_W = 176
+  const toggleCycleMenu = () => {
+    if (menuPos) {
+      setMenuPos(null)
+      return
+    }
+    const r = menuBtnRef.current?.getBoundingClientRect()
+    if (!r) return
+    setMenuPos({
+      left: Math.max(8, Math.min(r.right - CYCLE_MENU_W, window.innerWidth - 8 - CYCLE_MENU_W)),
+      top: Math.min(r.bottom + 4, window.innerHeight - 96),
+    })
+  }
+  const closeCycleMenu = () => setMenuPos(null)
+  // Клик/тап вне меню (и не по самой кнопке ⋯) закрывает его.
+  useEffect(() => {
+    if (!menuPos) return
+    const onDown = (e) => {
+      if (menuRef.current?.contains(e.target)) return
+      if (menuBtnRef.current?.contains(e.target)) return
+      setMenuPos(null)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [menuPos])
+
   // ---- Корректировка истории итераций («План vs Факт» задним числом) ----
   const [editLog, setEditLog] = useState(null) // запись истории в редакторе
   const [editDate, setEditDate] = useState('')
@@ -487,8 +519,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
         style={{ touchAction: 'pan-y', ...(dragging ? { transform: `translateX(${dragX}px)` } : {}) }}
         className={`relative bg-card rounded-md shadow-sm overflow-hidden py-2 px-2 ${dragging ? 'cursor-grabbing select-none' : 'cursor-pointer'}`}
       >
-        {/* Line 1: title, bold, до 2 строк (ТЗv2 §1.7); сумма — бейджем со
-            знаком и символом валюты задачи (§3), а не безликим «+$». */}
+        {/* Строка 1: только название задачи (до 2 строк, ТЗv2 §1.7) — бейджи
+            суммы и периода больше не конкурируют с ним за ширину. */}
         <div
           className="font-bold text-sm text-slate-800 flex items-start gap-1.5"
           title={task.title}
@@ -498,12 +530,25 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
             title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
           />
           <span className="line-clamp-2 break-words min-w-0">{task.title}</span>
-          <span className="ml-auto flex items-center gap-1 shrink-0 pl-1">
-            {task.is_cyclic && (
-              <span className="text-[10px] font-semibold text-violet-600 whitespace-nowrap" title="Циклическая задача">
-                ↻ {({ daily: 'день', weekly: 'нед.', monthly: 'мес.', yearly: 'год' })[task.cycle_period] || 'цикл'}
+        </div>
+
+        {/* Строка 2: «маркер · сумма · дата» — слева дата начала (у циклической
+            вместо неё бейдж периода ↻), по центру сумма со знаком и символом
+            валюты задачи (§3), справа дедлайн-чип (краснеет при просрочке). */}
+        <div className="flex items-center justify-between gap-2 mt-1.5">
+          <div className="min-w-0 shrink-0">
+            {task.is_cyclic ? (
+              <span
+                className="inline-block px-1.5 py-0.5 rounded bg-violet-100 text-violet-600 text-[10px] font-semibold whitespace-nowrap"
+                title="Циклическая задача"
+              >
+                ↻ {({ daily: 'ежедневно', weekly: 'еженедельно', monthly: 'ежемесячно', yearly: 'ежегодно' })[task.cycle_period] || 'цикл'}
               </span>
+            ) : (
+              <DateChip value={task.start_date} />
             )}
+          </div>
+          <div className="flex-1 min-w-0 flex justify-center">
             {(Number(task.amount) || 0) !== 0 && (
               <span
                 className={`text-[11px] font-bold whitespace-nowrap ${
@@ -515,51 +560,48 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                 {compactAmount(Number(task.amount))} {currencySymbol(task, currencies)}
               </span>
             )}
-          </span>
-        </div>
-
-        {/* Line 3: start date (left) / deadline (right) as tag chips.
-            The deadline chip turns red when the task is overdue. */}
-        <div className="flex items-center justify-between gap-2 mt-1.5">
-          <div className="min-w-0 truncate">
-            <DateChip value={task.start_date} />
           </div>
-          <div className="min-w-0 flex justify-end">
+          <div className="min-w-0 flex justify-end shrink-0">
             <DateChip value={task.deadline} />
           </div>
         </div>
 
-        {/* Line 4: tags then the blockers progress bar, one line. Each half
-            is capped at 50% of the card width so both stay visible on
-            overflow. The bar fills as blockers move to a "done" list;
-            hover shows the blocker list (see BlockersProgress). */}
-        {(((task.tags || []).length > 0) || blockers.length > 0) && (
-          <div className="mt-1 flex items-center gap-1.5 overflow-hidden">
-            <div className="flex gap-1 min-w-0 max-w-[50%] justify-start overflow-hidden whitespace-nowrap">
-              {(task.tags || []).map((t, i) => {
-                const name = typeof t === 'string' ? t : (t.name || t)
-                const tagData = tags.find((tag) => tag.name === name)
-                const color = tagData ? tagData.color : '#64748b'
-                return (
-                  <span
-                    key={`t${i}`}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
-                    style={{ backgroundColor: color }}
-                    title={name}
-                  >
-                    {name}
-                  </span>
-                )
-              })}
-            </div>
-            {blockers.length > 0 && <BlockersProgress blockers={blockers} />}
+        {/* Строка 3: теги — на всю ширину карточки (flex-wrap), они больше
+            не делят строку со шкалой блокеров и не скрываются при переполнении. */}
+        {(task.tags || []).length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {(task.tags || []).map((t, i) => {
+              const name = typeof t === 'string' ? t : (t.name || t)
+              const tagData = tags.find((tag) => tag.name === name)
+              const color = tagData ? tagData.color : '#64748b'
+              return (
+                <span
+                  key={`t${i}`}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                  style={{ backgroundColor: color }}
+                  title={name}
+                >
+                  {name}
+                </span>
+              )
+            })}
           </div>
         )}
 
-        {/* Cycle controls for cyclic tasks */}
+        {/* Строка 4: блокеры — своя строка с подписью; шкала занимает всю
+            доступную ширину (наведение показывает список блокеров). */}
+        {blockers.length > 0 && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-[10px] font-semibold text-slate-400 shrink-0">Блокеры</span>
+            <BlockersProgress blockers={blockers} />
+          </div>
+        )}
+
+        {/* Панель цикла: главные действия «Выполнить» и «Пропустить» + меню ⋯
+            с второстепенными (История, Остановить) — компактно, в один ряд. */}
         {task.is_cyclic && (
           <div
-            className="flex flex-wrap justify-center items-center gap-1 mt-2"
+            className="flex items-center gap-1 mt-2"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -569,7 +611,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
               title={task.is_blocked ? 'Сначала выполните блокирующие задачи' : 'Отметить выполненной и создать следующую итерацию'}
               className="px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700 disabled:opacity-40"
             >
-              Выполнено
+              ✓ Выполнить
             </button>
             <button
               type="button"
@@ -577,25 +619,46 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
               title="Сдвинуть срок на следующий цикл без записи в истории"
               className="px-2 py-0.5 rounded border border-green-600 text-green-600 text-[10px] font-semibold hover:bg-green-50"
             >
-              Пропустить
+              → Пропустить
             </button>
             <button
+              ref={menuBtnRef}
               type="button"
-              onClick={handleStop}
-              title="Остановить цикл — новые копии создаваться не будут"
-              className="px-2 py-0.5 rounded bg-slate-500 text-white text-[10px] font-semibold hover:bg-slate-600"
+              onClick={toggleCycleMenu}
+              title="Ещё действия: история итераций, остановка цикла"
+              className="ml-auto w-6 h-6 rounded border border-slate-300 text-slate-500 text-sm leading-none hover:bg-slate-100 flex items-center justify-center"
             >
-              Остановить
-            </button>
-            <button
-              type="button"
-              onClick={openHistory}
-              title="История выполненных итераций"
-              className="px-2 py-0.5 rounded border border-slate-300 text-slate-500 text-[10px] hover:bg-slate-100"
-            >
-              История
+              ⋯
             </button>
           </div>
+        )}
+
+        {/* Меню ⋯ — портал на body: карточка overflow-hidden, обычный
+            dropdown был бы обрезан её границами. */}
+        {menuPos && createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[70] w-44 py-1 rounded-lg bg-white shadow-lg border border-slate-100"
+            style={{ left: menuPos.left, top: menuPos.top }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+              onClick={() => { closeCycleMenu(); openHistory() }}
+            >
+              История итераций
+            </button>
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50"
+              title="Новые копии создаваться больше не будут"
+              onClick={() => { closeCycleMenu(); handleStop() }}
+            >
+              Остановить цикл
+            </button>
+          </div>,
+          document.body
         )}
       </div>
 
