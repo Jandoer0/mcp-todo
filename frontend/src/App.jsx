@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTasks } from './hooks/useTasks'
-import { adminApi, authApi, boardsApi, currenciesApi, tasksApi } from './api/client'
+import { adminApi, authApi, boardsApi, currenciesApi, tagsApi, tasksApi } from './api/client'
 import Login from './components/Login'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
@@ -12,6 +12,7 @@ import ListsManager from './components/ListsManager'
 import BoardForm from './components/BoardForm'
 import AdminPanel from './components/AdminPanel'
 import CurrencyManager from './components/CurrencyManager'
+import { PALETTE } from './constants'
 
 export default function App() {
   const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration, passwordMin } =
@@ -343,12 +344,28 @@ export default function App() {
       ]
     : []
 
+  const randomizeTagColor = async (tag) => {
+    const choices = PALETTE.filter((color) => color.toLowerCase() !== String(tag.color || '').toLowerCase())
+    const color = choices[Math.floor(Math.random() * choices.length)] || PALETTE[0]
+    try {
+      await tagsApi.update(activeBoardId, tag.id, { color })
+      await load()
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось изменить цвет тега')
+    }
+  }
+
   const tagCloud = (
     <>
       {tags.map((tag) => (
         <button
           key={tag.id}
           onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
+          onDoubleClick={(e) => {
+            e.preventDefault()
+            randomizeTagColor(tag)
+          }}
+          title="Клик — фильтр · двойной клик — случайный цвет"
           className={`px-2 py-0.5 rounded text-xs font-semibold text-white transition-all ${
             activeTag === tag.id
               ? 'ring-2 ring-white/70 scale-105'

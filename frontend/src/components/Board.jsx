@@ -202,13 +202,15 @@ export default function Board({
     return el?.closest?.('[data-col]')?.dataset?.col || null
   }
 
-  // «Регулярные» принимают только циклические (ТЗv2 §1.5/§2.7).
+  // Жёсткий инвариант: циклическая задача может перемещаться только
+  // внутри «Регулярные» — даже при DnD по другой колонке цель запрещена.
+  // Обычные задачи, наоборот, не принимаются «Регулярными».
   const dropForbidden = (listName, draggedId) => {
     const g = listByName(listName)
     if (!g) return true
     const regular = g.kind === 'regular' || g.name === 'Регулярные'
-    const cyclicSource = dataRef.current.tasks.find((t) => t.id === draggedId)?.is_cyclic
-    return regular && !cyclicSource
+    const cyclicSource = !!dataRef.current.tasks.find((t) => t.id === draggedId)?.is_cyclic
+    return cyclicSource ? !regular : regular
   }
 
   // Вычислить position для вставки перед индексом i (дробный индекс §1.4):
@@ -350,7 +352,9 @@ export default function Board({
         {groups.map((group) => {
           const cyclicDrag = dragView && !!tasks.find((t) => t.id === dragView.id)?.is_cyclic
           const regular = isRegularCol(group)
-          const forbidden = regular && dragView && !cyclicDrag
+          // Для циклической задачи разрешена только текущая колонка
+          // «Регулярные»; обычная задача туда также не попадает.
+          const forbidden = dragView && (cyclicDrag ? !regular : regular)
           const isOver = dragView?.over === group.name && dragView && !forbidden
           const collapsedState = isCollapsed(group)
           // Видимые карточки: перетаскиваемая «вырвана» из потока (высота 0),
