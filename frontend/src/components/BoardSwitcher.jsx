@@ -149,6 +149,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onRe
           else cardRefs.current.delete(key)
         }}
         data-board-id={board.id}
+        data-anchor={isActive}
         onClick={() => (isActive ? onEdit() : onSwitch(board.id))}
         {...dragProps(board)}
         title={isActive ? `${board.name} — нажмите, чтобы редактировать доску` : `Переключиться на «${board.name}»`}
