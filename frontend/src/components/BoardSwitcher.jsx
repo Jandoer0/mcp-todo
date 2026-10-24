@@ -77,7 +77,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onRe
     setOffset(next)
   }, [activeId, count, copies, anchorIndex])
 
-  useLayoutEffect(measure, [measure, boards, previewIds])
+  useLayoutEffect(measure, [measure, boards, previewIds, activeId])
   useEffect(() => {
     const ro = new ResizeObserver(measure)
     if (wrapRef.current) ro.observe(wrapRef.current)

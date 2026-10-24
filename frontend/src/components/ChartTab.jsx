@@ -431,19 +431,16 @@ function BalanceChart({ series, selected, onSelect }) {
     : ''
 
   const todayKey = dayKey(new Date())
-  const splitIndex = series.findIndex(p => p.key > todayKey)
+  const splitIndex = series.findIndex(p => p.key >= todayKey)
 
-  // Зелёный — строго до текущей даты включительно; синий — от сегодняшнего
-  // узла (общая точка стыка), чтобы переход не «залипал» зелёным.
-  const pastPoints = splitIndex === -1
-    ? series.map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
-    : splitIndex <= 0
-      ? null
-      : series.slice(0, splitIndex).map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+  // Зелёный — до текущей даты (не включая сегодня); синий — от сегодня и далее.
+  const pastPoints = splitIndex <= 0
+    ? null
+    : series.slice(0, splitIndex).map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
 
   const futurePoints = splitIndex === -1
     ? null
-    : series.slice(Math.max(0, splitIndex - 1)).map((p, i) => `${x(Math.max(0, splitIndex - 1) + i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+    : series.slice(splitIndex).map((p, i) => `${x(splitIndex + i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
 
   const monthBorders = series
     .map((p, i) => ({ i, day: new Date(`${p.key}T00:00:00`).getDate() }))

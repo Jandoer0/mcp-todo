@@ -38,8 +38,9 @@ export const Callout = Node.create({
           return commands.setNode(this.name, { tone })
         },
       unsetCallout:
-        () =>
-        ({ commands }) => {
+        () => ({
+          commands,
+        }) => {
           return commands.lift(this.name)
         },
     }
