@@ -3,8 +3,9 @@ import { MAX_BOARDS } from '../constants'
 
 const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0.25)'
 
-// Бесконечная лента: активная доска всегда находится в средней копии
-// циклического ряда, поэтому по обе стороны от неё всегда есть соседи.
+// Лента досок в шапке: активная доска центрируется. Если весь набор
+// помещается — рисуется одна копия без дублей; иначе «бесконечная» лента
+// из трёх копий с якорем в средней, чтобы по краям были соседи.
 export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onReorder }) {
   const wrapRef = useRef(null)
   const stripRef = useRef(null)
@@ -19,12 +20,13 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onRe
   const orderedBoards = orderIds.map((id) => boards.find((b) => b.id === id)).filter(Boolean)
   const count = orderedBoards.length
   const activeIndex = Math.max(0, orderIds.indexOf(activeId))
-  // Три копии дают запас для видимых карточек по краям. Средняя копия
-  // используется как якорь и не позволяет ленте «закончиться».
+  // Копии ленты: 1 — когда весь набор помещается в обёртку (без дублей),
+  // иначе 3 — «бесконечная» лента с якорем в средней копии.
+  const [copies, setCopies] = useState(1)
   const visibleBoards = count
-    ? [...orderedBoards, ...orderedBoards, ...orderedBoards]
+    ? Array.from({ length: copies }, () => orderedBoards).flat()
     : []
-  const anchorIndex = count + activeIndex
+  const anchorIndex = Math.floor(copies / 2) * count + activeIndex
 
   useLayoutEffect(() => {
     if (!dragId) return
@@ -50,10 +52,30 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onRe
 
   const measure = useCallback(() => {
     const wrap = wrapRef.current
-    const card = wrap.querySelector(`[data-board-id="${activeId}"]`) || null
-    if (!wrap || !card) return
-    setOffset(wrap.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2))
-  }, [activeId])
+    const strip = stripRef.current
+    if (!wrap || !strip || !count) return
+    // Якорная (подсвеченная) копия — именно её центрируем: раньше бралась
+    // первая querySelector-копия, и активная доска уезжала вправо.
+    const card = cardRefs.current.get(`card-${anchorIndex}`) || null
+    if (!card) return
+    // Сколько копий нужно: если весь набор досок помещается — одна копия
+    // (дубли по краям не показываем), иначе 3 для бесконечной ленты.
+    const setW = strip.scrollWidth / copies
+    const fits = setW <= wrap.clientWidth
+    const need = fits ? 1 : 3
+    if (need !== copies) { setCopies(need); return }
+    let next
+    if (fits) {
+      // Весь набор помещается — центрируем ленту целиком (без зазоров).
+      next = (wrap.clientWidth - strip.scrollWidth) / 2
+    } else {
+      next = wrap.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2)
+      // При переполнении не даём ленте «уехать» пустотой за край.
+      const min = Math.min(0, wrap.clientWidth - strip.scrollWidth)
+      next = Math.max(min, Math.min(0, next))
+    }
+    setOffset(next)
+  }, [activeId, count, copies, anchorIndex])
 
   useLayoutEffect(measure, [measure, boards, previewIds])
   useEffect(() => {

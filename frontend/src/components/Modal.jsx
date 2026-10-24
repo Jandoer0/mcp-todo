@@ -72,6 +72,17 @@ export default function Modal({ open, onClose, title, children, wide, dismissibl
       onMouseDown={(e) => {
         if (dismissible && e.target === e.currentTarget) requestClose()
       }}
+      // Модалка рендерится portal'ем в document.body, но React-события
+      // всплывают по React-дереву — до предков (карточка задачи, доска).
+      // Без stopPropagation выделение текста в диалоге «История: …»
+      // запускало pointer-жест карточки и захват карточки на дашборде.
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onPointerCancel={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onDragStart={(e) => e.stopPropagation()}
     >
       <div
         className={`bg-white text-slate-800 w-full ${

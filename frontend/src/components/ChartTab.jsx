@@ -29,7 +29,14 @@ function longDate(iso) {
   return d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-const dayKey = (d) => d.toISOString().slice(0, 10)
+// Локальная дата (без UTC-сдвига): toISOString смещал «сегодня» на день
+// в поясе UTC+3 и линия графика целиком окрашивалась одним цветом.
+const dayKey = (d) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 export default function ChartTab({ board, data: externalCashflow = undefined }) {
   const [ownData, setOwnData] = useState(null)
@@ -426,13 +433,17 @@ function BalanceChart({ series, selected, onSelect }) {
   const todayKey = dayKey(new Date())
   const splitIndex = series.findIndex(p => p.key > todayKey)
 
-  const pastPoints = splitIndex === -1 
-    ? series.map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ') 
-    : series.slice(0, splitIndex + 1).map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+  // Зелёный — строго до текущей даты включительно; синий — от сегодняшнего
+  // узла (общая точка стыка), чтобы переход не «залипал» зелёным.
+  const pastPoints = splitIndex === -1
+    ? series.map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+    : splitIndex <= 0
+      ? null
+      : series.slice(0, splitIndex).map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
 
-  const futurePoints = splitIndex === -1 || splitIndex === series.length - 1 
-    ? null 
-    : series.slice(splitIndex).map((p, i) => `${x(splitIndex + i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+  const futurePoints = splitIndex === -1
+    ? null
+    : series.slice(Math.max(0, splitIndex - 1)).map((p, i) => `${x(Math.max(0, splitIndex - 1) + i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
 
   const monthBorders = series
     .map((p, i) => ({ i, day: new Date(`${p.key}T00:00:00`).getDate() }))
