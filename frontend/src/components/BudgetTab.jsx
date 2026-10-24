@@ -45,8 +45,8 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
     () => new Set(lists.filter((l) => (l.kind || 'todo') === 'done').map((l) => l.name)),
     [lists],
   )
-  // Фактические/плановые записи определяем по спискам доски (kind)
-  const doneEntries = entries.filter((e) => doneNames.has(e.list))
+  // Фактические/плановые записи: done-списки + завершённые итерации из истории (п.7)
+  const doneEntries = entries.filter((e) => doneNames.has(e.list) || e.actual)
   const plan = budget?.plan ?? 0
   const fact = budget?.fact ?? 0
   const income = budget?.income ?? 0
@@ -226,10 +226,18 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
           {/* финансовый вид: суммы в валюте расчёта доски; регулярные платежи
               (список «Регулярные») помечены как «базовый слой» */}
           {sortEntries(entries).map((e) => {
-            const dim = doneNames.has(e.list)
+            const dim = doneNames.has(e.list) || e.actual
             return (
               <div key={e.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
                 <span className={`truncate ${dim ? 'text-slate-400' : 'text-slate-700'}`} title={e.title}>
+                  {e.actual && (
+                    <span
+                      className="inline-block align-middle mr-1.5 rounded px-1 text-[9px] font-bold uppercase bg-teal-100 text-teal-700"
+                      title="Факт из истории итераций (приоритет над планом)"
+                    >
+                      факт
+                    </span>
+                  )}
                   {e.is_regular && (
                     <span
                       className="inline-block align-middle mr-1.5 rounded px-1 text-[9px] font-bold uppercase bg-teal-100 text-teal-700"

@@ -407,7 +407,7 @@ export default function Board({
               // Фиксированная ширина колонки: 260px на десктопе.
               // Свёрнутая колонка сжимает саму секцию до w-11 — место
               // соседним столбцам действительно освобождается.
-              className={`flex flex-col md:shrink-0 md:flex-none md:transition-[width] md:duration-200 rounded-lg ${
+              className={`flex flex-col md:shrink-0 md:flex-none md:transition-[width] md:duration-500 rounded-lg ${
                 collapsedState ? 'md:w-11' : 'md:w-[260px]'
               } ${
                 isOver
@@ -460,7 +460,7 @@ export default function Board({
                           {gapHere && <Gap height={gapHeight} />}
                           <div
                             id={`card-${task.id}`}
-                            className={`task-appear break-inside-avoid transition-all duration-200 ${
+                            className={`task-appear break-inside-avoid transition-all duration-500 ${
                               isDragged ? 'overflow-hidden pointer-events-none' : ''
                             }`}
                             // Захваченная карточка схлопывается (высота 0):

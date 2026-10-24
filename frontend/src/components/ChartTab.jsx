@@ -14,12 +14,10 @@ function signed(n) {
 }
 
 function shortDate(iso) {
-  // Принимает ISO-строку ("2026-11-23") или объект Date.
   const d = iso instanceof Date ? iso : new Date(`${iso}T00:00:00`)
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
-// Левая/правая граница видимого окна (Date) — для подписи периода.
 function windowEdge(win, side) {
   const d = new Date(win.start)
   d.setDate(d.getDate() + (side === 'end' ? win.spanDays : 0))
@@ -34,17 +32,11 @@ function longDate(iso) {
 const dayKey = (d) => d.toISOString().slice(0, 10)
 
 export default function ChartTab({ board, data: externalCashflow = undefined }) {
-  // В BudgetView (ТЗv2 §4) данные приходят снаружи — из общего загрузчика
-  // оболочки; автономная загрузка сохранена как fallback для прямого использования.
   const [ownData, setOwnData] = useState(null)
-  const [selected, setSelected] = useState(null) // ISO-дата дня
+  const [selected, setSelected] = useState(null)
   const [showDone, setShowDone] = useState(true)
-
-  // Окно по умолчанию: от «сегодня» до max(последнее событие, +90 дней).
-  // Хранится как { start: Date, spanDays: число дней } — стрелки сдвигают весь
-  // видимый диапазон синхронно (привычный размер ряда сохраняется).
   const [win, setWin] = useState(null)
-  const WEEK = 7 * 24 * 60 * 60 * 1000 // шаг смещения окна — 1 неделя
+  const WEEK = 7 * 24 * 60 * 60 * 1000
 
   useEffect(() => {
     if (externalCashflow !== undefined || !board?.id) return
@@ -56,8 +48,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
 
   const data = externalCashflow !== undefined ? externalCashflow : ownData
 
-  // Инициализация окна просмотра — при каждой новой порции данных (из
-  // оболочки или из собственной загрузки).
   useEffect(() => {
     if (!data) return
     const events = data.events || []
@@ -69,9 +59,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
       const end = new Date(`${e.end}T12:00:00`)
       if (end > last) last = end
     }
-    // Начало окна: сегодня, но не позже раннего ФАКТА (реального платежа
-    // из истории) — иначе недавние фактические движения (например, платёж
-    // позавчера) не видны на графике без ручного сдвига окна назад.
     let start = new Date(today)
     for (const e of events) {
       if (!e.actual) continue
@@ -81,7 +68,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
     setWin({ start, spanDays: Math.round((last - start) / (24 * 60 * 60 * 1000)) })
   }, [data])
 
-  // Ряд дней: внутри текущего окна просмотра.
   const days = useMemo(() => {
     if (!data || !win) return []
     const out = []
@@ -93,10 +79,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
     return out
   }, [data, win])
 
-  // Полный ряд баланса: от первой до последней финансовой даты (объединяя
-  // окно просмотра и все события). Накопленный баланс считается по всей ленте,
-  // а не от начала окна — иначе событие, «уехавшее» за край окна, вычёркивалось
-  // бы из баланса и ложно рождало кассовые разрывы.
   const fullDays = useMemo(() => {
     if (!data || !days.length) return []
     const events = (data.events || []).filter((e) => showDone || !e.done || e.actual)
@@ -117,10 +99,8 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
 
   const fullSeries = useMemo(() => {
     if (!data || !fullDays.length) return []
-    // Фактические итерации регулярных платежей участвуют всегда (done=True):
-    // ретроспектива «сколько реально тратил» не выключается вместе с планом.
     const events = (data.events || []).filter((e) => showDone || !e.done || e.actual)
-    const change = new Map() // key → { delta, parts: [{title, amount, type, done}] }
+    const change = new Map()
     for (const e of events) {
       const per = e.per_day
       const push = (key) => {
@@ -146,7 +126,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
     })
   }, [data, fullDays, showDone])
 
-  // Срез полного ряда под текущее окно просмотра (для отображения/навигации).
   const series = useMemo(() => {
     const winKeys = new Set(days.map((d) => d.key))
     return fullSeries.filter((p) => winKeys.has(p.key))
@@ -155,7 +134,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
   const breaks = useMemo(() => series.filter((p) => p.balance < 0), [series])
   const minBalance = useMemo(() => series.reduce((m, p) => Math.min(m, p.balance), 0), [series])
 
-  // Шаг по дням от выбранного: -1 назад, +1 вперёд (кламп по краям ряда).
   const moveSelected = (delta) => {
     if (!selected || series.length === 0) return
     const i = series.findIndex((p) => p.key === selected)
@@ -164,8 +142,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
     setSelected(series[next].key)
   }
 
-  // Десктоп: стрелки ←/→ перемещают выбранный день.
-  // Не перехватываем ввод в полях (input/textarea/contenteditable) и модалках.
   useEffect(() => {
     if (!selected) return
     const onKey = (e) => {
@@ -189,12 +165,9 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
   const atStart = selectedIndex <= 0
   const atEnd = selectedIndex < 0 || selectedIndex >= series.length - 1
 
-  // Границы окна просмотра: можно ли ещё сдвигать влево/вправо.
-  // Окно не должно выходить за границы data.window (min/max ±5 дней).
   const atWindowStart = !win || !data?.window || win.start.toISOString().slice(0, 10) <= data.window.start
   const atWindowEnd = !win || !data?.window || win.start.toISOString().slice(0, 10) >= data.window.end
 
-  // Кнопка «Сегодня» неактивна, когда окно уже на сегодня (или данных нет).
   const atToday =
     !win ||
     (() => {
@@ -203,9 +176,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
       return dayKey(win.start) === dayKey(now)
     })()
 
-  // Сдвиг всего графика на неделю (вперёд/назад) с клампом по границам
-  // данных: «сегодня» может лежать за пределами окна (все задачи в прошлом),
-  // поэтому шаг прижимается к min/max, а не блокируется.
   const moveWindow = (direction) => {
     if (!win || !data?.window) return
     const min = new Date(data.window.start)
@@ -218,7 +188,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
     setSelected(null)
   }
 
-  // Быстрый возврат к сегодняшнему дню: окно центрируется относительно «сегодня».
   const resetToday = () => {
     if (!win) return
     const now = new Date()
@@ -237,7 +206,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </p>
       )}
 
-      {/* Панель навигации по шкале времени */}
       {days.length > 0 && (
         <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-card p-2.5 shadow-sm">
           <button
@@ -275,7 +243,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </div>
       )}
 
-      {/* График баланса (SVG) */}
       {series.length > 1 && (
         <div className="rounded-xl border border-slate-200 bg-card p-3 shadow-sm overflow-x-auto">
           <BalanceChart series={series} selected={selected} onSelect={setSelected} />
@@ -287,8 +254,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </div>
       )}
 
-      {/* Кассовые разрывы — компактно, максимум 2 строки:
-          1) заголовок + мин. баланс в одну строку; 2) чипы без переноса с обрезкой */}
       {breaks.length > 0 && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2">
           <div className="flex items-baseline justify-between gap-2">
@@ -320,7 +285,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </div>
       )}
 
-      {/* Детализация выбранного дня */}
       {selectedPoint && (
         <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3">
           <div className="flex items-baseline justify-between gap-2">
@@ -364,7 +328,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </div>
       )}
 
-      {/* Мобильная навигация по дням: плавающие кнопки внизу экрана */}
       {selectedPoint && (
         <div className="fixed inset-x-0 bottom-4 z-[60] flex items-center justify-center gap-2 px-4 sm:hidden">
           <button
@@ -392,7 +355,6 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         </div>
       )}
 
-      {/* Легенда + переключатель завершённых */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> спик — разовый платёж</span>
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-400" /> поток — сумма на каждый день интервала</span>
@@ -407,16 +369,12 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
   )
 }
 
-// Подписи месяцев под графиком: один тег на месяц видимого ряда, ширина
-// блока пропорциональна числу дней месяца в ряду; зеркалит геометрию
-// BalanceChart (pad + 7 px на день при W = series.length * 7).
 function MonthLabels({ series }) {
   if (!series.length) return null
   const W = Math.max(560, series.length * 7)
   const pad = { left: 4, right: 4 }
   const x = (i) => pad.left + (i / (series.length - 1)) * (W - pad.left - pad.right)
 
-  // Собираем сегменты [от индекса, до индекса] по смене месяца.
   const segments = []
   let cur = null
   series.forEach((p, i) => {
@@ -433,9 +391,6 @@ function MonthLabels({ series }) {
   return (
     <div className="relative h-4 mt-0.5" aria-hidden="true">
       {segments.map((s) => {
-        // Границы сегмента в px контейнера (ширина = viewBox) — сам блок
-        // растягивается на всю ширину, как и SVG (w-full), поэтому проценты
-        // совпадают с координатами viewBox.
         const x0 = x(Math.max(0, s.from - 0.5))
         const x1 = x(Math.min(series.length - 1, s.to + 0.5))
         return (
@@ -452,8 +407,6 @@ function MonthLabels({ series }) {
   )
 }
 
-// SVG-график: линия баланса, нулевая линия, маркеры спиков, вертикальные
-// линии разрывов, вертикальные разделители месяцев, выбор дня по клику.
 function BalanceChart({ series, selected, onSelect }) {
   const W = Math.max(560, series.length * 7)
   const H = 160
@@ -466,11 +419,21 @@ function BalanceChart({ series, selected, onSelect }) {
   const x = (i) => pad.left + (i / (series.length - 1)) * (W - pad.left - pad.right)
 
   const zeroY = y(0)
-  const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
-  const area = `${line} L${x(series.length - 1).toFixed(1)},${zeroY} L${x(0).toFixed(1)},${zeroY} Z`
+  const area = series.length > 1
+    ? `M ${x(0)},${zeroY} L ${series.map((p, i) => `${x(i)},${y(p.balance)}`).join(' L ')} L ${x(series.length - 1)},${zeroY} Z`
+    : ''
 
-  // Первый день каждого нового месяца — позиция вертикального разделителя
-  // (дни ряда всегда идут подряд, поэтому достаточно проверить число).
+  const todayKey = dayKey(new Date())
+  const splitIndex = series.findIndex(p => p.key > todayKey)
+
+  const pastPoints = splitIndex === -1 
+    ? series.map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ') 
+    : series.slice(0, splitIndex + 1).map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+
+  const futurePoints = splitIndex === -1 || splitIndex === series.length - 1 
+    ? null 
+    : series.slice(splitIndex).map((p, i) => `${x(splitIndex + i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+
   const monthBorders = series
     .map((p, i) => ({ i, day: new Date(`${p.key}T00:00:00`).getDate() }))
     .filter(({ i, day }) => i > 0 && day === 1)
@@ -499,25 +462,20 @@ function BalanceChart({ series, selected, onSelect }) {
         <clipPath id="posClip"><rect x="0" y="0" width={W} height={zeroY} /></clipPath>
       </defs>
 
-      {/* область ниже нуля — красная */}
       {minV < 0 && (
         <>
           <rect x={pad.left} y={zeroY} width={W - pad.left - pad.right} height={H - pad.bottom - zeroY} fill="url(#balNeg)" />
           <line x1={pad.left} x2={W - pad.right} y1={zeroY} y2={zeroY} stroke="rgb(239 68 68)" strokeDasharray="4 3" strokeWidth="1" />
         </>
       )}
-      {/* заливка над нулём — зелёная */}
       <path d={area} fill="url(#balPos)" clipPath="url(#posClip)" />
 
-      {/* вертикали кассовых разрывов */}
       {series.map((p, i) =>
         p.balance < 0 ? (
           <line key={p.key} x1={x(i)} x2={x(i)} y1={pad.top} y2={H - pad.bottom} stroke="rgb(252 165 165)" strokeWidth="1" />
         ) : null,
       )}
 
-      {/* вертикальные разделители месяцев: линия на 1-м числе каждого месяца —
-          рисуется ПОСЛЕ линий разрывов, чтобы не теряться среди них */}
       {monthBorders.map(({ i }) => (
         <line
           key={`m${series[i].key}`}
@@ -530,11 +488,27 @@ function BalanceChart({ series, selected, onSelect }) {
         />
       ))}
 
-      <path d={line} fill="none" stroke="rgb(30 64 120)" strokeWidth="1.8" />
+      {pastPoints && (
+        <polyline
+          points={pastPoints}
+          fill="none"
+          stroke="rgb(22 163 74)"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+      {futurePoints && (
+        <polyline
+          points={futurePoints}
+          fill="none"
+          stroke="rgb(30 64 120)"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
 
-      {/* маркеры спиков (дни с разовым движением); фактические платежи —
-          бирюзовые, плановые — янтарные; несколько движений в один день
-          рисуются «столбиком», крупный платёж не затирается мелким */}
       {series.flatMap((p, i) =>
         p.parts
           .filter((pt) => pt.type === 'spike')
@@ -549,7 +523,6 @@ function BalanceChart({ series, selected, onSelect }) {
           )),
       )}
 
-      {/* выбранный день */}
       {selected &&
         (() => {
           const i = series.findIndex((p) => p.key === selected)

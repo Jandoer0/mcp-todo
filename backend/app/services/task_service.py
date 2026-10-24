@@ -1019,7 +1019,12 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
 
     Базовый слой (ТЗ «Реформа циклических задач»): задачи из системного
     списка «Регулярные» выделяются в итогах regular/operational — регулярные
-    доходы/расходы отделяются от разовых операционных событий."""
+    доходы/расходы отделяются от разовых операционных событий.
+
+    Приоритет истории итераций (п.7): завершённые итерации циклических задач
+    добавляются записями-фактами (actual=True, историческая сумма
+    actual_amount) и входят в fact/total/regular — «полученная зарплата»
+    учитывается по факту, а не теряется (завершённая задача удалена из tasks)."""
     from decimal import Decimal, ROUND_HALF_UP
 
     from .currency_service import convert_amount, default_currency, rates_map
@@ -1077,6 +1082,45 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
             }
         )
 
+    # Приоритет истории итераций (п.7): завершённые события циклических задач
+    # попадают в бюджет как ФАКТ по историческим суммам (actual_amount), а не
+    # как план. Завершённая итерация удаляется из задач — без этих записей
+    # «полученная зарплата» терялась бы из бюджета вовсе.
+    for log in (
+        db.query(TaskCycleLog)
+        .filter(
+            TaskCycleLog.user_id == user.id,
+            TaskCycleLog.board_id == board.id,
+            TaskCycleLog.action == "completed",
+            TaskCycleLog.actual_date.isnot(None),
+        )
+        .all()
+    ):
+        if log.currency_id:
+            src_rate = rates.get(log.currency_id)
+            if not src_rate:
+                missing_rate = True
+        else:
+            src_rate = rates.get(default.id) if default else 1.0
+            if default and not src_rate:
+                missing_rate = True
+        converted = convert_amount(log.actual_amount or 0, src_rate or 0, target_rate)
+        if converted is None:
+            missing_rate = True
+        entries.append(
+            {
+                "id": -log.id,  # синтетический id (логи не являются задачами)
+                "title": log.task_title,
+                "list": None,
+                "amount": float(log.actual_amount or 0),
+                "currency_id": log.currency_id,
+                "currency_code": _currency_code(db, log.currency_id),
+                "converted": float(converted) if converted is not None else None,
+                "is_regular": True,  # циклическая итерация = базовый слой
+                "actual": True,      # факт из истории (приоритет над планом)
+            }
+        )
+
     def _sum_converted(rows) -> Decimal:
         return sum(
             (Decimal(str(e["converted"])) for e in rows if e["converted"] is not None),
@@ -1084,7 +1128,10 @@ def board_budget(db: Session, user: User, board_id: int) -> dict:
         )
 
     total = _sum_converted(entries)
-    fact = _sum_converted(e for e in entries if e["list"] in done_names)
+    # Факт = задачи в done-списках + завершённые итерации из истории (п.7).
+    fact = _sum_converted(
+        e for e in entries if e["list"] in done_names or e.get("actual")
+    )
     income = _sum_converted(e for e in entries if e["amount"] > 0)
     expense = _sum_converted(e for e in entries if e["amount"] < 0)
     # Базовый слой = регулярные платежи (список «Регулярные»);
@@ -1159,8 +1206,12 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
     План vs Факт (ТЗ «Реформа циклических задач»): завершённые итерации
     циклических задач берутся из истории TaskCycleLog (фактическая сумма в
     фактическую дату, флаг done=True), а не из плановой задачи. Регулярные
-    задачи помечены is_regular — фронтенд отделяет ретроспективу от прогноза."""
-    from datetime import timedelta
+    задачи помечены is_regular — фронтенд отделяет ретроспективу от прогноза.
+
+    Приоритет истории (п.7): план циклической задачи не перекрывает уже
+    реализованные дни — поток сдвигается за последний факт цикла, а спик
+    в день факта подавляется; историческая сумма всегда важнее плановой. """
+    from datetime import date, timedelta
 
     from decimal import Decimal, ROUND_HALF_UP
 
@@ -1190,6 +1241,29 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
 
     missing_rate = target_id is None or not target_rate
     events = []
+    # Приоритет истории итераций (п.7): для каждого цикла запоминаем дни с
+    # уже реализованными фактами и последнюю такую дату — план циклической
+    # задачи не должен перекрывать историю.
+    completed_logs = (
+        db.query(TaskCycleLog)
+        .filter(
+            TaskCycleLog.user_id == user.id,
+            TaskCycleLog.board_id == board.id,
+            TaskCycleLog.action == "completed",
+            TaskCycleLog.actual_date.isnot(None),
+        )
+        .all()
+    )
+    fact_days_by_group: dict = {}
+    last_fact_by_group: dict = {}
+    for log in completed_logs:
+        if not log.cycle_group_id or not log.actual_date:
+            continue
+        day_iso = log.actual_date.date().isoformat()
+        fact_days_by_group.setdefault(log.cycle_group_id, set()).add(day_iso)
+        prev = last_fact_by_group.get(log.cycle_group_id)
+        if prev is None or day_iso > prev:
+            last_fact_by_group[log.cycle_group_id] = day_iso
     for t in tasks:
         if t.currency_id:
             src_rate = rates.get(t.currency_id)
@@ -1208,6 +1282,18 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
             end = t.deadline.date()
             if end < start:  # инвертированный интервал — разворачиваем
                 start, end = end, start
+            # Циклическая задача: план не должен перекрывать уже
+            # реализованную историю (п.7) — сдвигаем начало за последний
+            # факт этого цикла (start_date переносится при регенерации и
+            # иначе поток «задним числом» накладывается на прошлые итерации).
+            if t.is_cyclic and t.cycle_group_id:
+                last_fact = last_fact_by_group.get(t.cycle_group_id)
+                if last_fact:
+                    cutoff = date.fromisoformat(last_fact) + timedelta(days=1)
+                    if cutoff > start:
+                        start = cutoff
+            if start > end:  # весь период уже покрыт историей — плана нет
+                continue
             days = (end - start).days + 1
             per_day = (converted / Decimal(days)).quantize(
                 Decimal("0.0001"), rounding=ROUND_HALF_UP
@@ -1232,6 +1318,14 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
             if anchor is None:  # нет дат — задача не попадает на график
                 continue
             anchor = anchor.date()
+            # Приоритет истории (п.7): если в этот день уже есть факт этого
+            # цикла — плановый спик не показываем, историческая сумма важнее.
+            if (
+                t.is_cyclic
+                and t.cycle_group_id
+                and anchor.isoformat() in fact_days_by_group.get(t.cycle_group_id, set())
+            ):
+                continue
             events.append(
                 {
                     "id": t.id,
@@ -1251,16 +1345,7 @@ def board_cashflow(db: Session, user: User, board_id: int) -> dict:
     # (TaskCycleLog) — реальная сумма в реальную дату выполнения. Плановые
     # итерации в прошлом заменяются этими фактами на фронтенде (по флагу done).
     completed_events = []
-    for log in (
-        db.query(TaskCycleLog)
-        .filter(
-            TaskCycleLog.user_id == user.id,
-            TaskCycleLog.board_id == board.id,
-            TaskCycleLog.action == "completed",
-            TaskCycleLog.actual_date.isnot(None),
-        )
-        .all()
-    ):
+    for log in completed_logs:
         if log.currency_id:
             src_rate = rates.get(log.currency_id)
             if not src_rate:

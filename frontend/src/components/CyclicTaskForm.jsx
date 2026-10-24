@@ -83,7 +83,7 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
     e.preventDefault()
     const n = Number.parseFloat(String(amount).replace(',', '.')) || 0
     onSubmit({
-      title: form.title, description: form.description || null, deadline: form.deadline || null,
+      title: form.title, description: editorMarkdown || null, deadline: form.deadline || null,
       list: regularName, tags: selectedTags, amount: n ? (amountType === 'income' ? n : -n) : 0,
       currency_id: n ? currencyId : null, is_cyclic: true, cycle_period: form.cycle_period,
       cycle_interval: Number(form.cycle_interval) || 1, reminder_days: Number(form.reminder_days) || 0,
@@ -118,32 +118,11 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
           </div>
         </div>
         <div className="md:col-span-2">
-          <div className="flex items-center justify-between mb-1">
-            <label className="field-label">Описание</label>
-            <button
-              type="button"
-              onClick={() => setDescPreview((v) => !v)}
-              className="px-2 py-0.5 rounded border text-[10px] font-medium transition-colors bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200"
-            >
-              {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
-            </button>
-          </div>
-          {descPreview ? (
-            <div className="w-full min-h-[6rem] p-2 border rounded bg-slate-50">
-              {form.description?.trim() ? (
-                <Markdown text={form.description} onToggleCheckItem={handleToggleCheckItem} />
-              ) : (
-                <p className="text-xs text-slate-400">Описание пусто</p>
-              )}
-            </div>
-          ) : (
-            <textarea
-              value={form.description}
-              onChange={set('description')}
-              placeholder="Введите описание (поддерживается Markdown: **жирный**, *курсив*, списки, [ссылки](url), `код`)"
-              className="w-full p-2 border rounded min-h-24"
-            />
-          )}
+          <label className="field-label">Описание</label>
+          <MarkdownEditor
+            initialValue={form.description || ''}
+            onChange={(html) => setEditorMarkdown(html)}
+          />
         </div>
         <div className="md:col-span-2"><label className="field-label">Теги</label><TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} /></div>
         {task && (

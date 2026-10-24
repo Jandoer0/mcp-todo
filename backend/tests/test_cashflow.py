@@ -97,3 +97,69 @@ def test_cashflow_window_empty():
     bid = _board(h)
     r = client.get(f"/api/boards/{bid}/cashflow", headers=h).json()
     assert r["window"] is None
+
+
+def _make_and_complete_cycle(h, bid, *, planned, actual, on):
+    """Создать циклическую задачу (start+deadline = поток) и выполнить её
+    с фактической суммой `actual` в дату `on` — образует запись истории."""
+    r = client.post(
+        "/api/tasks",
+        headers=h,
+        json={
+            "board_id": bid,
+            "title": "Зарплата",
+            "amount": planned,
+            "is_cyclic": True,
+            "cycle_period": "monthly",
+            "cycle_interval": 1,
+            "start_date": "2026-01-01T00:00:00",
+            "deadline": "2026-01-31T00:00:00",
+        },
+    )
+    assert r.status_code in (200, 201), r.text
+    tid = r.json()["id"]
+    r = client.post(
+        f"/api/tasks/{tid}/cycle/complete",
+        headers=h,
+        json={"actual_date": on, "actual_amount": actual},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_budget_history_amounts_take_priority():
+    """П.7: завершённая итерация попадает в бюджет как ФАКТ по
+    исторической сумме; план — только следующая (текущая) итерация."""
+    h = _register("budget_hist")
+    bid = _board(h)
+    _make_and_complete_cycle(h, bid, planned=1000, actual=1200, on="2026-01-31T12:00:00")
+
+    b = client.get(f"/api/boards/{bid}/budget", headers=h).json()
+    hist = [e for e in b["entries"] if e.get("actual")]
+    assert hist, "история итераций должна попасть в записи бюджета"
+    assert hist[0]["title"] == "Зарплата"
+    assert abs(hist[0]["amount"] - 1200) < 1e-6  # историческая сумма, не плановая
+    # факт включает историю; план — только текущая (следующая) итерация
+    assert abs(b["fact"] - 1200) < 1e-6
+    assert abs(b["plan"] - 1000) < 1e-6
+    assert abs(b["total"] - 2200) < 1e-6
+
+
+def test_cashflow_history_priority_over_plan():
+    """П.7: факт истории стоит в свою дату со своей суммой, а план
+    циклической задачи не перекрывает уже реализованный день."""
+    h = _register("cf_hist")
+    bid = _board(h)
+    _make_and_complete_cycle(h, bid, planned=1000, actual=1200, on="2026-01-31T12:00:00")
+
+    r = client.get(f"/api/boards/{bid}/cashflow", headers=h).json()
+    events = r["events"]
+    facts = [e for e in events if e.get("actual")]
+    plans = [e for e in events if not e.get("actual")]
+
+    # факт: историческая сумма в фактическую дату
+    assert facts, "должно быть событие-факт из истории"
+    assert facts[0]["start"] == "2026-01-31"
+    assert abs(facts[0]["converted"] - 1200) < 1e-6
+    # план следующей итерации начинается ПОСЛЕ реализованного дня
+    for p in plans:
+        assert p["start"] > "2026-01-31", f"план перекрывает историю: {p['start']}"

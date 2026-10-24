@@ -91,11 +91,21 @@ export default function Layout({
             onSwitch={onSwitchBoard}
             onReorder={onReorderBoard}
             onEdit={onEditBoard}
-            onCreate={onCreateBoard}
           />
         ) : (
           <div className="flex-1" />
         )}
+
+        <button
+          type="button"
+          onClick={onCreateBoard}
+          disabled={boards.length >= (maxBoards ?? Infinity)}
+          title="Создать новую доску"
+          className="shrink-0 rounded-lg border border-dashed border-white/40 px-2.5 py-1.5 text-xs font-semibold text-white/80 hover:border-white/70 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span className="sm:hidden">+ Доска</span>
+          <span className="hidden sm:inline">+ Создать доску</span>
+        </button>
 
         {/* Профиль: иконка пользователя в стиле иконки «Корзины» + dropdown */}
         <div className="relative shrink-0" ref={menuRef}>

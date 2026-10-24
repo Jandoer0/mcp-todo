@@ -1,78 +1,61 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MAX_BOARDS } from '../constants'
 
-// Board card text is always white for a uniform look; on light board colors
-// a soft two-layer shadow keeps it readable without hard edges (smoother look).
 const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0.25)'
 
-// Header board carousel ("барабан"): the whole strip of boards slides inside a
-// clipped viewport so that the ACTIVE card is always exactly centered. Click a
-// side card to switch context, click the centered card to edit it; a special
-// "+ Создать доску" card closes the strip. The number of boards visible at
-// once depends on the viewport width (mobile shows ~3, wide desktop 6-7).
-export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCreate, onReorder, maxBoards = MAX_BOARDS }) {
+// Бесконечная лента: активная доска всегда находится в средней копии
+// циклического ряда, поэтому по обе стороны от неё всегда есть соседи.
+export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onReorder }) {
   const wrapRef = useRef(null)
   const stripRef = useRef(null)
   const cardRefs = useRef(new Map())
   const [offset, setOffset] = useState(0)
-  // Drag-and-drop reordering of board cards (mouse with the button held):
-  // while dragging, the strip shows a LIVE preview — the dragged card is
-  // re-inserted at the hovered position and the other cards slide apart
-  // (FLIP-animated) to free the slot.
   const [dragId, setDragId] = useState(null)
-  const [previewIds, setPreviewIds] = useState(null) // board id order during drag
+  const [previewIds, setPreviewIds] = useState(null)
   const prevRects = useRef(new Map())
 
   const origIds = boards.map((b) => b.id)
   const orderIds = previewIds || origIds
-  const orderedBoards = orderIds
-    .map((id) => boards.find((b) => b.id === id))
-    .filter(Boolean)
+  const orderedBoards = orderIds.map((id) => boards.find((b) => b.id === id)).filter(Boolean)
+  const count = orderedBoards.length
+  const activeIndex = Math.max(0, orderIds.indexOf(activeId))
+  // Три копии дают запас для видимых карточек по краям. Средняя копия
+  // используется как якорь и не позволяет ленте «закончиться».
+  const visibleBoards = count
+    ? [...orderedBoards, ...orderedBoards, ...orderedBoards]
+    : []
+  const anchorIndex = count + activeIndex
 
-  // FLIP: after each preview reorder, animate every card from its previous
-  // position to the new one instead of jumping.
   useLayoutEffect(() => {
     if (!dragId) return
-    const newRects = new Map()
-    cardRefs.current.forEach((el, id) => newRects.set(id, el.getBoundingClientRect()))
-    cardRefs.current.forEach((el, id) => {
-      const old = prevRects.current.get(id)
-      const now = newRects.get(id)
+    const next = new Map()
+    cardRefs.current.forEach((el, key) => next.set(key, el.getBoundingClientRect()))
+    cardRefs.current.forEach((el, key) => {
+      const old = prevRects.current.get(key)
+      const now = next.get(key)
       if (!old || !now) return
       const dx = old.left - now.left
       if (!dx) return
-      // отменяем незавершённую анимацию этого элемента, чтобы не копить скачки
       if (el._flipRaf) cancelAnimationFrame(el._flipRaf)
       el.style.transition = 'none'
       el.style.transform = `translateX(${dx}px)`
       el._flipRaf = requestAnimationFrame(() => {
         el._flipRaf = null
-        el.style.transition = 'transform 180ms ease-out'
+        el.style.transition = 'transform 280ms ease-out'
         el.style.transform = ''
       })
     })
-    prevRects.current = newRects
+    prevRects.current = next
   }, [previewIds, dragId])
 
-  const idx = boards.findIndex((b) => b.id === activeId)
-
-  // Center the active card: translate the strip so that the middle of the
-  // active card aligns with the middle of the viewport area.
   const measure = useCallback(() => {
     const wrap = wrapRef.current
-    const card = idx >= 0 ? cardRefs.current.get(activeId) : null
+    const card = wrap.querySelector(`[data-board-id="${activeId}"]`) || null
     if (!wrap || !card) return
-    const target = wrap.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2)
-    setOffset(target)
-  }, [activeId, idx])
+    setOffset(wrap.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2))
+  }, [activeId])
 
-  useLayoutEffect(measure, [measure, boards])
-
-  // Re-center while the drag preview reorders the strip.
-  useLayoutEffect(measure, [measure, previewIds])
-
-  // Re-center on any size change of the wrapper or the strip itself (fonts,
-  // trailing create-card appear/disappear, window resize).
+  useLayoutEffect(measure, [measure, boards, previewIds])
   useEffect(() => {
     const ro = new ResizeObserver(measure)
     if (wrapRef.current) ro.observe(wrapRef.current)
@@ -84,6 +67,20 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     }
   }, [measure])
 
+  const reorderPreview = (hoveredId, after) => {
+    if (!dragId || hoveredId === dragId) return
+    setPreviewIds((current) => {
+      const base = current || origIds
+      const without = base.filter((id) => id !== dragId)
+      let index = without.indexOf(hoveredId)
+      if (index < 0) return base
+      if (after) index += 1
+      const next = [...without]
+      next.splice(index, 0, dragId)
+      return next.some((id, i) => id !== base[i]) ? next : base
+    })
+  }
+
   const dragProps = (board) => ({
     draggable: true,
     onDragStart: (e) => {
@@ -91,37 +88,16 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
       e.dataTransfer.setData('text/plain', String(board.id))
       setDragId(board.id)
       setPreviewIds(origIds)
-      prevRects.current = new Map()
-      cardRefs.current.forEach((el, id) => prevRects.current.set(id, el.getBoundingClientRect()))
+      const initial = new Map()
+      cardRefs.current.forEach((el, key) => initial.set(key, el.getBoundingClientRect()))
+      prevRects.current = initial
     },
     onDragOver: (e) => {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
-      if (!dragId) return
-      // Hit-test по ИСХОДНЫМ позициям карточек (замерены на dragStart):
-      // это разрывает петлю обратной связи «сдвинулись → навелся другой →
-      // снова сдвинулись», из-за которой карточки мельтешили.
-      let hovered = null
-      for (const id of origIds) {
-        if (id === dragId) continue
-        const r = prevRects.current.get(id)
-        if (r && e.clientX >= r.left && e.clientX <= r.right) {
-          hovered = { id, after: e.clientX > r.left + r.width / 2 }
-          break
-        }
-      }
-      if (!hovered) return
-      setPreviewIds((cur) => {
-        const base = cur || origIds
-        const arr = origIds.filter((id) => id !== dragId)
-        let idx = arr.indexOf(hovered.id)
-        if (idx === -1) return base
-        if (hovered.after) idx += 1
-        const next = [...arr]
-        next.splice(idx, 0, dragId)
-        // не обновляем, если слот не изменился — иначе анимация дёргается
-        return next.some((id, i) => id !== base[i]) ? next : base
-      })
+      if (!dragId || board.id === dragId) return
+      const r = e.currentTarget.getBoundingClientRect()
+      reorderPreview(board.id, e.clientX > r.left + r.width / 2)
     },
     onDrop: (e) => {
       e.preventDefault()
@@ -135,34 +111,26 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     },
   })
 
-  const card = (board, isActive) => {
-    const base =
-      'shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] max-w-[9rem] sm:max-w-[12rem] text-center shadow'
-    const dropMark =
-      dragId === board.id ? ' opacity-40' : ''
-    if (isActive) {
-      return (
-        <button
-          key={board.id}
-          ref={(el) => el && cardRefs.current.set(board.id, el)}
-          onClick={onEdit}
-          {...dragProps(board)}
-          title={`${board.name} — нажмите, чтобы редактировать доску`}
-          className={`${base} z-10 font-bold text-sm ring-2 ring-white/90 px-4 py-2 -my-0.5${dropMark}`}
-          style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
-        >
-          <span className="block truncate">{board.name}</span>
-        </button>
-      )
-    }
+  const renderCard = (board, index) => {
+    // Только карточка в средней копии считается активной. Боковые копии
+    // того же board.id остаются обычными переключателями и не открывают
+    // редактор при клике.
+    const isActive = index === anchorIndex
+    const key = `card-${index}`
+    const dropMark = dragId === board.id ? ' opacity-40' : ''
+    const base = 'shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] max-w-[9rem] sm:max-w-[12rem] text-center shadow'
     return (
       <button
-        key={board.id}
-        ref={(el) => el && cardRefs.current.set(board.id, el)}
-        onClick={() => onSwitch(board.id)}
+        key={key}
+        ref={(el) => {
+          if (el) cardRefs.current.set(key, el)
+          else cardRefs.current.delete(key)
+        }}
+        data-board-id={board.id}
+        onClick={() => (isActive ? onEdit() : onSwitch(board.id))}
         {...dragProps(board)}
-        title={`Переключиться на «${board.name}»`}
-        className={`${base} opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200${dropMark}`}
+        title={isActive ? `${board.name} — нажмите, чтобы редактировать доску` : `Переключиться на «${board.name}»`}
+        className={`${base} ${isActive ? 'z-10 font-bold text-sm ring-2 ring-white/90 px-4 py-2 -my-0.5' : 'opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200'}${dropMark}`}
         style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
       >
         <span className="block truncate">{board.name}</span>
@@ -170,34 +138,16 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onCr
     )
   }
 
-  const canCreate = boards.length < maxBoards // hard limit enforced server-side
-
   return (
     <div ref={wrapRef} className="relative flex-1 min-w-0 overflow-hidden h-10">
-      {/* Soft edge masks: boards fade out towards the clipped edges. */}
-      <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-10 z-10"
-        style={{ background: 'linear-gradient(90deg, #22384d 0%, transparent 100%)' }}
-      />
-      <div
-        className="pointer-events-none absolute inset-y-0 right-0 w-10 z-10"
-        style={{ background: 'linear-gradient(270deg, #22384d 0%, transparent 100%)' }}
-      />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-10 z-10" style={{ background: 'linear-gradient(90deg, #22384d 0%, transparent 100%)' }} />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-10 z-10" style={{ background: 'linear-gradient(270deg, #22384d 0%, transparent 100%)' }} />
       <div
         ref={stripRef}
         className="board-strip flex items-center gap-2 w-max h-full transition-transform duration-300 ease-out will-change-transform"
         style={{ transform: `translateX(${offset}px)` }}
       >
-        {orderedBoards.map((b) => card(b, b.id === activeId))}
-        {canCreate && (
-          <button
-            onClick={onCreate}
-            title="Создать новую доску"
-            className="shrink-0 rounded-lg px-3 py-1.5 min-w-[6rem] text-center border border-dashed border-white/40 text-white/70 hover:text-white hover:border-white/70 text-xs font-semibold whitespace-nowrap"
-          >
-            + Создать доску
-          </button>
-        )}
+        {visibleBoards.map((board, index) => renderCard(board, index))}
       </div>
     </div>
   )

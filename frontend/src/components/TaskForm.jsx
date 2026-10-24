@@ -5,6 +5,7 @@ import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
 import Markdown from './Markdown'
+import MarkdownEditor from './editor/MarkdownEditor'
 import { formatAmount } from '../utils/format'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
@@ -78,10 +79,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   const [currencyId, setCurrencyId] = useState(null)
   // Целевая доска для переноса задачи (только в режиме редактирования)
   const [targetBoardId, setTargetBoardId] = useState(null)
-  // Предпросмотр Markdown описания: в «Изменить задачу» открываем сразу
-  // в предпросмотре (удобно ознакомиться с оформленным текстом),
-  // в «Создать задачу» — сразу в редакторе.
-  const [descPreview, setDescPreview] = useState(false)
+  // markdown-строка из редактора (WYSIWYG хранит HTML, наружу отдаём markdown)
+  const [editorMarkdown, setEditorMarkdown] = useState('')
 
   const listOptions = useMemo(() => 
     lists.length ? lists : LISTS_FALLBACK.map((n) => ({ name: n, color: '#64748b' })), 
@@ -152,7 +151,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       setAmountStr(amt !== 0 ? String(Math.abs(amt)) : '')
       setCurrencyId(task.currency_id ?? null)
       setTargetBoardId(task.board_id ?? null)
-      setDescPreview(true)
+      setEditorMarkdown(task.description || '')
       setSelectedTags((task.tags || []).map((t) => (typeof t === 'string' ? t : t.name)))
       setSelectedBlockers(task.blocked_by || [])
     } else {
@@ -164,7 +163,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       // Валюта по умолчанию — первая в пользовательском порядке
       setCurrencyId(currencies[0]?.id ?? null)
       setTargetBoardId(defaultBoardId ?? null)
-      setDescPreview(false)
+      setEditorMarkdown('')
     }
   }, [open, task, defaultBoardId, initialList])
 
@@ -173,8 +172,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   const update = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  // Переключение чекбокса GFM-задачи (- [ ] / - [x]) в предпросмотре:
-  // правит markdown-источник в форме и сразу сохраняет у существующей задачи.
+  // Переключение чекбокса GFM-задачи (старая механика предпросмотра): больше не нужна —
+  // чекбоксы редактируются прямо в редакторе. Оставлена на случай старых дескрипшенов.
   const handleToggleCheckItem = async (index, checked) => {
     const lines = String(form.description || '').split('\n')
     let seen = -1
@@ -215,7 +214,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
     // Collect only changed fields to avoid overwriting with nulls/defaults
     const payload = {}
     if (!task || form.title !== task.title) payload.title = form.title
-    if (!task || form.description !== (task.description || '')) payload.description = form.description || null
+    // Описаниe — из редактора (markdown).
+    if (!task || editorMarkdown !== (task.description || '')) payload.description = editorMarkdown || null
     if (!task || form.start_date !== toDatetimeLocal(task.start_date)) payload.start_date = form.start_date || null
     if (!task || form.deadline !== toDatetimeLocal(task.deadline)) payload.deadline = form.deadline || null
     if (!task || Number(form.priority) !== task.priority) payload.priority = Number(form.priority)
@@ -400,37 +400,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </div>
           </div>
           <div className="md:col-span-2">
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Описание</label>
-              <button
-                type="button"
-                onClick={() => setDescPreview((v) => !v)}
-                className="px-2 py-0.5 rounded border text-[10px] font-medium transition-colors bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200"
-              >
-                {descPreview ? '✎ Редактировать' : '👁 Предпросмотр'}
-              </button>
-            </div>
-            {descPreview ? (
-              <div className="w-full min-h-[6rem] p-2 border rounded bg-slate-50">
-                {form.description?.trim() ? (
-                  <Markdown
-                    text={form.description}
-                    onToggleCheckItem={handleToggleCheckItem}
-                  />
-                ) : (
-                  <p className="text-xs text-slate-400">Описание пусто</p>
-                )}
-              </div>
-            ) : (
-            <textarea
-              id="task-description"
-              name="description"
-              placeholder="Введите описание задачи (поддерживается Markdown: **жирный**, *курсив*, списки, [ссылки](url), `код`)"
-              value={form.description}
-              onChange={update('description')}
-              className="w-full p-2 border rounded leading-relaxed"
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
+            <MarkdownEditor
+              initialValue={form.description || ''}
+              onChange={(html) => setEditorMarkdown(html)}
             />
-            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
