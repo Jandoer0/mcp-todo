@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { ToasterProvider } from '@gravity-ui/uikit'
+import { ThemeProvider, ToasterProvider } from '@gravity-ui/uikit'
 import { toaster as sharedToaster } from '@gravity-ui/uikit/toaster-singleton'
 import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-editor'
 
@@ -76,6 +76,7 @@ export function GravityEditor({ initialValue = '', onChange }) {
   }, [initialValue, editor])
 
   return (
+    <ThemeProvider theme="light">
     <ToasterProvider toaster={sharedToaster}>
       <div
         ref={wrapperRef}
@@ -88,6 +89,7 @@ export function GravityEditor({ initialValue = '', onChange }) {
         />
       </div>
     </ToasterProvider>
+    </ThemeProvider>
   )
 }
 
