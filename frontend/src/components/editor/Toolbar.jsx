@@ -115,7 +115,7 @@ export default function Toolbar({ editor }) {
       <button className={BTN_STYLE} onClick={() => exec('redo')} disabled={!editor.can().redo()} title="Повторить">
         ↷
       </button>
-      <SEPARATOR />
+      {SEPARATOR}
       {/* стили текста */}
       <button className={BTN_STYLE} onClick={() => exec('toggleBold')} title="Жирный">
         <b>B</b>
@@ -181,7 +181,7 @@ export default function Toolbar({ editor }) {
           ))}
         </div>
       )}
-      <SEPARATOR />
+      {SEPARATOR}
       {/* заголовки / текст */}
       {['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map((tag, i) => (
         <button
@@ -193,7 +193,7 @@ export default function Toolbar({ editor }) {
           {tag === 'p' ? '¶' : tag.toUpperCase()}
         </button>
       ))}
-      <SEPARATOR />
+      {SEPARATOR}
       {/* списки / чекпоинт */}
       <button className={BTN_STYLE} onClick={() => exec('toggleBulletList')} title="Маркированный список">
         •
@@ -204,7 +204,7 @@ export default function Toolbar({ editor }) {
       <button className={BTN_STYLE} onClick={() => exec('toggleTaskList')} title="Чекпоинт">
         ☐
       </button>
-      <SEPARATOR />
+      {SEPARATOR}
       {/* block */}
       <button className={BTN_STYLE} onClick={() => exec('toggleBlockquote')} title="Цитата">
         «
@@ -218,7 +218,7 @@ export default function Toolbar({ editor }) {
       <button className={BTN_STYLE} onClick={() => exec('setHorizontalRule')} title="Разделитель">
         ―
       </button>
-      <SEPARATOR />
+      {SEPARATOR}
       {/* media / insert */}
       <button className={BTN_STYLE} onClick={handleImage} title="Вставить изображение">
         🖼
