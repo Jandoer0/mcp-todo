@@ -25,3 +25,4 @@ backend/data/
 # локальная infra-конфигурация (не для репозитория)
 infra/gitea.container
 infra/mcp-todo.container
+Screenshot 2026-10-25 221508.png
