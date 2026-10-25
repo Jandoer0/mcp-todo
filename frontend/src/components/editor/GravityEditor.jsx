@@ -6,6 +6,7 @@ import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-edit
 // Пресет панелей из Planka — удаляем лишние элементы (checkbox/file/tabs)
 import { full as toolbarsPreset } from '@gravity-ui/markdown-editor/_/modules/toolbars/presets'
 import { ActionName } from '@gravity-ui/markdown-editor/_/bundle/config/action-names'
+import { ToolbarName } from '@gravity-ui/markdown-editor/_/modules/toolbars/constants'
 
 const removedActionNamesSet = new Set([
   ActionName.checkbox,
@@ -24,6 +25,10 @@ removedActionNamesSet.forEach((actionName) => {
     })
   })
 })
+
+// Отключаем всплывающую панель при выделении текста (wysiwygSelection):
+// она дублирует кнопки основной панели и закрывает текст.
+toolbarsPreset.orders[ToolbarName.wysiwygSelection] = []
 
 const commandMenuActions = toolbarsPreset.items.wCommandMenu
   ? toolbarsPreset.items.wCommandMenu.filter(

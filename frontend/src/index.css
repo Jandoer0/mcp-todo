@@ -188,3 +188,13 @@ html {
   background: rgba(255, 255, 255, 0.6);
   background-clip: padding-box;
 }
+
+
+/* OmniTask: подавление тултипов кнопок gravity-редактора (дублируют иконку,
+   слишком крупны) и косметика всплывающей selection-панели */
+
+/* Подсказки кнопок тулбара (ActionTooltip рендерится в body-портале):
+   заголовок с горячей клавишей дублирует иконку и выглядит чужеродно */
+.g-action-tooltip {
+  display: none !important;
+}
