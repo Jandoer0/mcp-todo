@@ -23,7 +23,7 @@ export default function Toolbar({ editor }) {
   const pickerRef = useRef(null)
 
   const exec = useCallback((cmd, ...args) => {
-    editor.chain().focus().run(cmd, ...args)
+    editor.chain().focus()[cmd](...args).run()
     setColorPicker(null); setHlPicker(null); setEmojiOpen(false)
   }, [editor])
 
@@ -109,27 +109,27 @@ export default function Toolbar({ editor }) {
   return (
     <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg border border-slate-200 text-slate-800" ref={pickerRef}>
       {/* undo / redo */}
-      <button className={BTN_STYLE} onClick={() => exec('undo')} disabled={!editor.can().undo()} title="Отменить">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('undo')} disabled={!editor.can().undo()} title="Отменить">
         ↶
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('redo')} disabled={!editor.can().redo()} title="Повторить">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('redo')} disabled={!editor.can().redo()} title="Повторить">
         ↷
       </button>
       {SEPARATOR}
       {/* стили текста */}
-      <button className={BTN_STYLE} onClick={() => exec('toggleBold')} title="Жирный">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleBold')} title="Жирный">
         <b>B</b>
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('toggleItalic')} title="Курсив">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleItalic')} title="Курсив">
         <i>I</i>
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('toggleUnderline')} title="Подчёркнутый">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleUnderline')} title="Подчёркнутый">
         <u>U</u>
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('toggleStrike')} title="Зачёркнутый">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleStrike')} title="Зачёркнутый">
         <s>S</s>
       </button>
-      <button
+      <button type="button"
         className={BTN_STYLE}
         onClick={(e) => {
           e.stopPropagation()
@@ -140,7 +140,7 @@ export default function Toolbar({ editor }) {
       >
         <span className="bg-yellow-300 px-1 rounded">A</span>
       </button>
-      <button
+      <button type="button"
         className={BTN_STYLE}
         onClick={(e) => {
           e.stopPropagation()
@@ -154,7 +154,7 @@ export default function Toolbar({ editor }) {
       {colorPicker === 'color' && (
         <div className="absolute z-[150] bg-white border border-slate-300 rounded-lg shadow-xl p-2 flex flex-wrap gap-1" style={{ top: 40, left: 0 }}>
           {FONT_COLORS.map((c) => (
-            <button
+            <button type="button"
               key={c}
               className="w-6 h-6 rounded border border-slate-300"
               style={{ backgroundColor: c }}
@@ -169,7 +169,7 @@ export default function Toolbar({ editor }) {
       {hlPicker === 'color' && (
         <div className="absolute z-[150] bg-white border border-slate-300 rounded-lg shadow-xl p-2 flex flex-wrap gap-1" style={{ top: 40, left: 0 }}>
           {HIGHLIGHT_COLORS.map((c) => (
-            <button
+            <button type="button"
               key={c}
               className="w-6 h-6 rounded border border-slate-300"
               style={{ backgroundColor: c }}
@@ -184,7 +184,7 @@ export default function Toolbar({ editor }) {
       {SEPARATOR}
       {/* заголовки / текст */}
       {['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map((tag, i) => (
-        <button
+        <button type="button"
           key={tag}
           className={BTN_STYLE}
           onClick={() => tag === 'p' ? exec('setParagraph') : exec('toggleHeading', { level: i })}
@@ -195,46 +195,46 @@ export default function Toolbar({ editor }) {
       ))}
       {SEPARATOR}
       {/* списки / чекпоинт */}
-      <button className={BTN_STYLE} onClick={() => exec('toggleBulletList')} title="Маркированный список">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleBulletList')} title="Маркированный список">
         •
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('toggleOrderedList')} title="Нумерованный список">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleOrderedList')} title="Нумерованный список">
         1.
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('toggleTaskList')} title="Чекпоинт">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleTaskList')} title="Чекпоинт">
         ☐
       </button>
       {SEPARATOR}
       {/* block */}
-      <button className={BTN_STYLE} onClick={() => exec('toggleBlockquote')} title="Цитата">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleBlockquote')} title="Цитата">
         «
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('toggleCodeBlock')} title="Блок кода">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('toggleCodeBlock')} title="Блок кода">
         {'</>'}
       </button>
-      <button className={BTN_STYLE} onClick={() => insertText('`', '`')} title="Встроенный код">
+      <button type="button" className={BTN_STYLE} onClick={() => insertText('`', '`')} title="Встроенный код">
         {`code`}
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('setHorizontalRule')} title="Разделитель">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('setHorizontalRule')} title="Разделитель">
         ―
       </button>
       {SEPARATOR}
       {/* media / insert */}
-      <button className={BTN_STYLE} onClick={handleImage} title="Вставить изображение">
+      <button type="button" className={BTN_STYLE} onClick={handleImage} title="Вставить изображение">
         🖼
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('setLink', { href: prompt('URL ссылки: ') || '#' })} title="Ссылка">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('setLink', { href: prompt('URL ссылки: ') || '#' })} title="Ссылка">
         🔗
       </button>
-      <button className={BTN_STYLE} onClick={() => exec('insertTable', { rows: tableCols, cols: tableCols, withHeaderRow: false })} title="Таблица">
+      <button type="button" className={BTN_STYLE} onClick={() => exec('insertTable', { rows: tableCols, cols: tableCols, withHeaderRow: false })} title="Таблица">
         🗒
       </button>
-      <button className={BTN_STYLE} onClick={() => {
+      <button type="button" className={BTN_STYLE} onClick={() => {
         setEmojiOpen(o => !o); setImgDialogOpen(false); setColorPicker(null); setHlPicker(null)
       }} title="Эмодзи">
         😊
       </button>
-      <button className={BTN_STYLE} onClick={() => {
+      <button type="button" className={BTN_STYLE} onClick={() => {
         exec('setCallout', 'note')
         setColorPicker(null); setHlPicker(null); setEmojiOpen(false)
       }} title="Заметка (callout)">
@@ -245,7 +245,7 @@ export default function Toolbar({ editor }) {
       {emojiOpen && (
         <div className="absolute z-[150] bg-white border border-slate-300 rounded-lg shadow-xl p-2 w-64 h-64 overflow-y-auto grid grid-cols-8 gap-1">
           {emojis.map((e) => (
-            <button
+            <button type="button"
               key={e}
               className="text-xl hover:bg-slate-100 rounded p-1"
               onClick={() => {
@@ -271,8 +271,8 @@ export default function Toolbar({ editor }) {
             className="w-full p-2 border rounded text-sm"
           />
           <div className="flex gap-2 mt-3">
-            <button className="px-3 py-1.5 rounded bg-green-600 text-white text-sm" onClick={submitImage}>Вставить</button>
-            <button className="px-3 py-1.5 rounded border border-slate-300 text-sm" onClick={() => setImgDialogOpen(false)}>Отмена</button>
+            <button type="button" className="px-3 py-1.5 rounded bg-green-600 text-white text-sm" onClick={submitImage}>Вставить</button>
+            <button type="button" className="px-3 py-1.5 rounded border border-slate-300 text-sm" onClick={() => setImgDialogOpen(false)}>Отмена</button>
           </div>
         </div>
       )}
