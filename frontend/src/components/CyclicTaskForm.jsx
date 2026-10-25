@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Modal from './Modal'
 import TagInput from './TagInput'
 import DateTimePicker from './DateTimePicker'
-import Markdown from './Markdown'
+import { GravityEditor } from './editor/GravityEditor'
 import { currenciesApi, tasksApi } from '../api/client'
 
 function toDatetimeLocal(value) {
@@ -119,9 +119,9 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
         </div>
         <div className="md:col-span-2">
           <label className="field-label">Описание</label>
-          <MarkdownEditor
+          <GravityEditor
             initialValue={form.description || ''}
-            onChange={(html) => setEditorMarkdown(html)}
+            onChange={(markdown) => setEditorMarkdown(markdown)}
           />
         </div>
         <div className="md:col-span-2"><label className="field-label">Теги</label><TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} /></div>

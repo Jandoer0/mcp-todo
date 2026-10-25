@@ -4,9 +4,8 @@ import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
-import Markdown from './Markdown'
-import MarkdownEditor from './editor/MarkdownEditor'
 import { formatAmount } from '../utils/format'
+import { GravityEditor } from './editor/GravityEditor'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
@@ -401,9 +400,9 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
-            <MarkdownEditor
+            <GravityEditor
               initialValue={form.description || ''}
-              onChange={(html) => setEditorMarkdown(html)}
+              onChange={(markdown) => setEditorMarkdown(markdown)}
             />
           </div>
           <div className="md:col-span-2">
