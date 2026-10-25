@@ -68,17 +68,7 @@ export function GravityEditor({ initialValue = '', onChange }) {
     }
   }, [handleChange, editor])
 
-  useEffect(() => {
-    if (wrapperRef.current) {
-      const handlePaste = (e) => {
-        e.stopPropagation()
-      }
-      wrapperRef.current.addEventListener('paste', handlePaste)
-      return () => {
-        wrapperRef.current.removeEventListener('paste', handlePaste)
-      }
-    }
-  }, [])
+
 
   // Сброс редактора при смене initialValue (открытие формы редактирования)
   useEffect(() => {
