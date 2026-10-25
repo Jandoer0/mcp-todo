@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
+import { ToasterProvider } from '@gravity-ui/uikit'
+import { toaster as sharedToaster } from '@gravity-ui/uikit/toaster-singleton'
 import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-editor'
 
 // Пресет панелей из Planka — удаляем лишние элементы (checkbox/file/tabs)
@@ -51,7 +53,7 @@ export function GravityEditor({ initialValue = '', onChange }) {
     },
     initial: {
       markup: initialValue,
-      mode: 'markup', // только Markdown режим
+      mode: 'wysiwyg', // визуальный режим по умолчанию (переключение доступно в панели)
     },
   })
 
@@ -80,20 +82,22 @@ export function GravityEditor({ initialValue = '', onChange }) {
 
   // Сброс редактора при смене initialValue (открытие формы редактирования)
   useEffect(() => {
-    editor.setValue(initialValue || '')
+    editor.replace(initialValue || '')
   }, [initialValue, editor])
 
   return (
-    <div
-      ref={wrapperRef}
-      className="border border-slate-300 rounded-lg bg-white overflow-hidden"
-    >
-      <MarkdownEditorView
-        editor={editor}
-        toolbarsPreset={toolbarsPreset}
-        className="g-md-wysiwyg-editor"
-      />
-    </div>
+    <ToasterProvider toaster={sharedToaster}>
+      <div
+        ref={wrapperRef}
+        className="border border-slate-300 rounded-lg bg-white overflow-hidden"
+      >
+        <MarkdownEditorView
+          editor={editor}
+          toolbarsPreset={toolbarsPreset}
+          className="g-md-wysiwyg-editor"
+        />
+      </div>
+    </ToasterProvider>
   )
 }
 

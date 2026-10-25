@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Отдельный конфиг для vitest: без VitePWA и прочих прод-плагинов.
@@ -9,5 +9,6 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.js',
     include: ['src/**/*.test.{js,jsx}'],
+    css: false,
   },
 })
