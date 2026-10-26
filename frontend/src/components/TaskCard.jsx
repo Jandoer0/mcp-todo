@@ -39,6 +39,7 @@ function DateChip({ value }) {
 // the "done" property (kind='done'). Hover shows a tooltip with the blocker
 // list — rendered via portal because the card has overflow-hidden.
 function BlockersProgress({ blockers }) {
+  const { t } = useTranslation()
   const [pos, setPos] = useState(null) // { left, top, bottom } viewport coords
   const [above, setAbove] = useState(true)
   const tipRef = useRef(null)
