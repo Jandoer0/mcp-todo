@@ -9,6 +9,9 @@ import i18n from '../i18n/index.js'
 
 const numberLocale = () => (i18n.language === 'en' ? 'en-US' : 'ru-RU')
 
+// Локаль для toLocaleString в других компонентах (суммы в истории и т.п.).
+export { numberLocale }
+
 // «-10000» → «-10 000» (знак всегда, для маркеров и подсказок)
 export function formatAmount(v) {
   const n = Number(v) || 0

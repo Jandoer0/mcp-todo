@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 import i18n from '../i18n/index.js'
-import { compactAmount, currencySymbol, formatAmount } from '../utils/format'
-import { dateParts } from '../utils/locale'
+import { useSettings } from '../i18n/settings.jsx'
+import { compactAmount, currencySymbol, formatAmount, numberLocale } from '../utils/format'
+import { dateParts, formatDate as formatProfileDate } from '../utils/locale'
 import { toWallClock } from '../utils/datetime'
 
 // Ключи коротких месяцев в словаре (порядок = календарный).
@@ -152,6 +153,7 @@ function Trash() {
 
 export default function TaskCard({ task, allTasks = [], lists = [], tags = [], currencies = [], onSetList, onEdit, onEditCyclic, onDelete, onRefresh }) {
   const { t } = useTranslation()
+  const { dateFormat } = useSettings()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
   // Меню ⋯ на панели цикла (История / Остановить): рендерится порталом,
@@ -222,8 +224,8 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
 
   const handleDelete = () => {
     const msg = task.is_cyclic
-      ? `Удалить циклическую задачу «${task.title}» и ВСЮ её историю?`
-      : `Удалить задачу «${task.title}»?`
+      ? t('errors.deleteCyclicConfirm', { title: task.title })
+      : t('task.deleteConfirm', { title: task.title })
     if (confirm(msg)) onDelete(task)
   }
 
@@ -315,7 +317,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       await tasksApi.cycleSkip(task.id)
       onRefresh && onRefresh()
     } catch (e) {
-      alert(e?.response?.data?.detail || 'Не удалось пропустить цикл')
+      alert(e?.response?.data?.detail || t('task.skipFailed'))
     }
   }
 
@@ -325,7 +327,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       await tasksApi.cycleStop(task.id)
       onRefresh && onRefresh()
     } catch (e) {
-      alert(e?.response?.data?.detail || 'Не удалось остановить цикл')
+      alert(e?.response?.data?.detail || t('task.stopFailed'))
     }
   }
 
@@ -353,11 +355,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     const rawAmount = String(completeAmount).replace(',', '.').trim()
     const v = rawAmount === '' ? 0 : parseFloat(rawAmount)
     if (isNaN(v) || v < 0) {
-      setCompleteError('Введите сумму не меньше нуля')
+      setCompleteError(t('task.completeErrorAmount'))
       return
     }
     if (!completeDate) {
-      setCompleteError('Укажите дату выполнения')
+      setCompleteError(t('task.completeErrorDate'))
       return
     }
     try {
@@ -368,7 +370,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       setCompleteOpen(false)
       onRefresh && onRefresh()
     } catch (e) {
-      setCompleteError(e?.response?.data?.detail || 'Не удалось завершить итерацию')
+      setCompleteError(e?.response?.data?.detail || t('task.completeError'))
     }
   }
 
@@ -432,11 +434,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     const rawAmount = String(editAmount).replace(',', '.').trim()
     const v = rawAmount === '' ? 0 : parseFloat(rawAmount)
     if (isNaN(v) || v < 0) {
-      setEditError('Введите сумму не меньше нуля')
+      setEditError(t('task.completeErrorAmount'))
       return
     }
     if (!editDate) {
-      setEditError('Укажите дату выполнения')
+      setEditError(t('task.completeErrorDate'))
       return
     }
     setEditSaving(true)
@@ -453,7 +455,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       } catch {}
       onRefresh && onRefresh()
     } catch (e) {
-      setEditError(e?.response?.data?.detail || 'Не удалось сохранить правку')
+      setEditError(e?.response?.data?.detail || t('task.editLogError'))
     } finally {
       setEditSaving(false)
     }
@@ -543,7 +545,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
         >
           <span
             className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${priorityDot}`}
-            title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 1 ? 'Низкий приоритет' : 'Средний приоритет'}
+            title={task.priority === 3 ? t('task.priorityHigh') : task.priority === 1 ? t('task.priorityLow') : t('task.priorityMedium')}
           />
           <span className="line-clamp-2 break-words min-w-0">{task.title}</span>
         </div>
@@ -556,9 +558,9 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
             {task.is_cyclic ? (
               <span
                 className="inline-block px-1.5 py-0.5 rounded bg-violet-100 text-violet-600 text-[10px] font-semibold whitespace-nowrap"
-                title="Циклическая задача"
+                title={t('task.cyclicBadge')}
               >
-                ↻ {({ daily: 'ежедневно', weekly: 'еженедельно', monthly: 'ежемесячно', yearly: 'ежегодно' })[task.cycle_period] || 'цикл'}
+                ↻ {({ daily: t('task.cycleDaily'), weekly: t('task.cycleWeekly'), monthly: t('task.cycleMonthly'), yearly: t('task.cycleYearly') })[task.cycle_period] || t('task.cycleFallback')}
               </span>
             ) : (
               <DateChip value={task.start_date} />
@@ -570,7 +572,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                 className={`text-[11px] font-bold whitespace-nowrap ${
                   Number(task.amount) > 0 ? 'text-amber-400' : 'text-red-500'
                 }`}
-                title={`Сумма: ${formatAmount(task.amount)} ${currencySymbol(task, currencies)}`}
+                title={t('task.amountTitle', { amount: formatAmount(task.amount), currency: currencySymbol(task, currencies) })}
               >
                 {Number(task.amount) > 0 ? '+' : '−'}
                 {compactAmount(Number(task.amount))} {currencySymbol(task, currencies)}
@@ -608,7 +610,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
             доступную ширину (наведение показывает список блокеров). */}
         {blockers.length > 0 && (
           <div className="mt-1 flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-slate-400 shrink-0">Блокеры</span>
+            <span className="text-[10px] font-semibold text-slate-400 shrink-0">{t('task.blockers')}</span>
             <BlockersProgress blockers={blockers} />
           </div>
         )}
@@ -624,24 +626,24 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
               type="button"
               onClick={openComplete}
               disabled={task.is_blocked}
-              title={task.is_blocked ? 'Сначала выполните блокирующие задачи' : 'Отметить выполненной и создать следующую итерацию'}
+              title={task.is_blocked ? t('task.blockedByOthers') : t('task.completeTitle2')}
               className="px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700 disabled:opacity-40"
             >
-              ✓ Выполнить
+              {t('task.cycleCompleteBtn')}
             </button>
             <button
               type="button"
               onClick={handleSkip}
-              title="Сдвинуть срок на следующий цикл без записи в истории"
+              title={t('task.skipTitle')}
               className="px-2 py-0.5 rounded border border-green-600 text-green-600 text-[10px] font-semibold hover:bg-green-50"
             >
-              → Пропустить
+              {t('task.cycleSkipBtn')}
             </button>
             <button
               ref={menuBtnRef}
               type="button"
               onClick={toggleCycleMenu}
-              title="Ещё действия: история итераций, остановка цикла"
+              title={t('task.menuTitle')}
               className="ml-auto w-6 h-6 rounded border border-slate-300 text-slate-500 text-sm leading-none hover:bg-slate-100 flex items-center justify-center"
             >
               ⋯
@@ -668,7 +670,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
             <button
               type="button"
               className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50"
-              title="Новые копии создаваться больше не будут"
+              title={t('task.stopTooltip')}
               onClick={() => { closeCycleMenu(); handleStop() }}
             >
               {t('task.cycleStopButton')}
@@ -680,7 +682,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
 
       <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={t('task.cycleHistoryModalTitle', { title: task.title })}>
         {history.length === 0 ? (
-          <p className="text-sm text-slate-500">Записей пока нет — история появляется после выполнения или остановки цикла.</p>
+          <p className="text-sm text-slate-500">{t('task.historyEmptyLong')}</p>
         ) : (
           <ul className="space-y-2">
             {history.map((h) => (
@@ -693,26 +695,26 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                   />
                   {h.task_title}
                   <span className="text-slate-400 ml-2">
-                    {h.action === 'completed' ? 'выполнена' : 'цикл остановлен'}
+                    {h.action === 'completed' ? t('task.historyCompleted') : t('task.historyStopped')}
                   </span>
                   {h.action === 'completed' && h.actual_amount != null && (
                     <span className="ml-2 text-xs tabular-nums font-semibold">
-                      факт:{' '}
+                      {t('task.factLabel')}{' '}
                       <span className={h.actual_amount < 0 ? 'text-red-500' : 'text-green-600'}>
                         {h.actual_amount > 0 ? '+' : ''}
-                        {Math.abs(h.actual_amount).toLocaleString('ru-RU')}
+                        {Math.abs(h.actual_amount).toLocaleString(numberLocale())}
                       </span>
                       {h.planned_amount != null && Number(h.planned_amount) !== Number(h.actual_amount) && (
                         <span className="text-slate-400 font-normal">
-                          {' '}(план: {h.planned_amount > 0 ? '+' : ''}
-                          {Math.abs(h.planned_amount).toLocaleString('ru-RU')})
+                          {' '}({t('task.planLabel')} {h.planned_amount > 0 ? '+' : ''}
+                          {Math.abs(h.planned_amount).toLocaleString(numberLocale())})
                         </span>
                       )}
                     </span>
                   )}
                   {h.action === 'completed' && h.actual_date && (
                     <span className="ml-2 text-xs text-slate-400">
-                      {new Date(h.actual_date).toLocaleDateString('ru-RU')}
+                      {formatProfileDate(h.actual_date, dateFormat, t)}
                     </span>
                   )}
                 </span>
@@ -723,7 +725,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                   <button
                     type="button"
                     onClick={() => openLogEdit(h)}
-                    title="Корректировать факт этой итерации"
+                    title={t('task.editIteration')}
                     className="px-2 py-0.5 rounded border border-slate-300 text-slate-500 text-[10px] hover:bg-slate-100"
                   >
                     Корректировать
@@ -754,7 +756,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
               </div>
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                  Фактическая сумма
+                  {t('task.completeAmountLabel')}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -763,7 +765,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
                     className="w-full p-2 border rounded"
-                    placeholder="Сумма платежа"
+                    placeholder={t('task.paymentAmount')}
                   />
                   <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
                     <button
@@ -788,7 +790,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                 </div>
                 {editLog.planned_amount && (
                   <p className="mt-1 text-xs text-slate-400">
-                    По плану: {editLog.planned_amount > 0 ? '+' : '−'}{' '}{Math.abs(editLog.planned_amount).toLocaleString('ru-RU')}
+                    По плану: {editLog.planned_amount > 0 ? '+' : '−'}{' '}{Math.abs(editLog.planned_amount).toLocaleString(numberLocale())}
                   </p>
                 )}
               </div>
@@ -808,7 +810,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                   disabled={editSaving}
                   className="px-3 py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
-                  {editSaving ? 'Сохранение...' : 'Сохранить'}
+                  {editSaving ? t('task.editLogSaving') : t('common.save')}
                 </button>
               </div>
             </div>
@@ -817,13 +819,13 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       </Modal>
 
       {/* «План vs Факт»: подтверждение завершения циклической итерации */}
-      <Modal open={completeOpen} onClose={() => setCompleteOpen(false)} dismissible={false} title={`Выполнить: ${task.title}`}>
+      <Modal open={completeOpen} onClose={() => setCompleteOpen(false)} dismissible={false} title={t('task.completeTitle', { title: task.title })}>
         <div className="space-y-3">
           <p className="text-sm text-slate-500">
             Подтвердите фактический платёж — он попадёт в историю итераций и на график (ретроспектива).
           </p>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата выполнения</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.completeDateLabel')}</label>
             <input
               type="date"
               value={completeDate}
@@ -832,7 +834,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Фактическая сумма</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.completeAmountLabel')}</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -840,7 +842,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
                 value={completeAmount}
                 onChange={(e) => setCompleteAmount(e.target.value)}
                 className="w-full p-2 border rounded"
-                placeholder="Не указана (0)"
+                placeholder={t('task.completeAmountPlaceholder')}
               />
               <div className="flex rounded overflow-hidden border border-slate-200 shrink-0">
                 <button
@@ -861,7 +863,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
             </div>
             {task.amount ? (
               <p className="mt-1 text-xs text-slate-400">
-                По плану: {task.amount > 0 ? '+' : '−'}{Math.abs(task.amount).toLocaleString('ru-RU')}
+                По плану: {task.amount > 0 ? '+' : '−'}{Math.abs(task.amount).toLocaleString(numberLocale())}
               </p>
             ) : null}
           </div>

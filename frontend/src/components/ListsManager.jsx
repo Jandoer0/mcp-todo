@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { listsApi } from '../api/client'
 import Modal from './Modal'
 import { PALETTE } from '../constants'
@@ -22,6 +23,7 @@ function Palette({ value, onPick }) {
 }
 
 export default function ListsManager({ boardId, open, onClose, lists, onChanged }) {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(PALETTE[0])
   const [editingColor, setEditingColor] = useState(null)
@@ -44,7 +46,7 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
       await promise
       await onChanged()
     } catch (e) {
-      alert(e?.response?.data?.detail || 'Ошибка')
+      alert(e?.response?.data?.detail || t('common.error'))
     }
   }
 
@@ -52,7 +54,7 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
     const name = newName.trim()
     if (!name) return
     if (lists.some((l) => l.name.toLowerCase() === name.toLowerCase())) {
-      alert('Список с таким именем уже есть')
+      alert(t('lists.duplicateName'))
       return
     }
     refresh(listsApi.create(boardId, { name, color: newColor })).then(() => setNewName(''))
@@ -62,7 +64,7 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
     const n = name.trim()
     if (!n || n === list.name) return
     if (lists.some((l) => l.name.toLowerCase() === n.toLowerCase() && l.id !== list.id)) {
-      alert('Имя списка занято')
+      alert(t('lists.nameTaken'))
       return
     }
     refresh(listsApi.update(boardId, list.id, { name: n }))
@@ -71,7 +73,13 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   const setColor = (list, color) => refresh(listsApi.update(boardId, list.id, { color }))
 
   const remove = (list) => {
-    if (!confirm(`Удалить список «${list.name}»? Задачи переместятся в «Не начато».`)) return
+    // Приёмник удаляемых задач: первый список со статусом todo (бэкенд ищет
+    // приёмник по kind, имя может быть любым после локализации).
+    const target =
+      lists.find((l) => l.kind === 'todo' && l.id !== list.id)?.name ||
+      lists.find((l) => l.kind !== 'regular' && l.id !== list.id)?.name ||
+      list.name
+    if (!confirm(t('lists.deleteConfirm', { name: list.name, target }))) return
     refresh(listsApi.remove(boardId, list.id))
   }
 
@@ -97,22 +105,22 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Управление списками">
+    <Modal open={open} onClose={onClose} title={t('lists.title')}>
 
         <div className="mb-6 p-3 border rounded bg-gray-50">
-          <div className="text-sm font-medium mb-2">Новый список</div>
+          <div className="text-sm font-medium mb-2">{t('lists.newList')}</div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Название (напр. Срочные)"
+              placeholder={t('lists.namePlaceholder')}
               className="flex-1 p-2 border rounded"
             />
             <button
               onClick={addList}
               className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
             >
-              Добавить
+              {t('common.add')}
             </button>
           </div>
           <Palette value={newColor} onPick={setNewColor} />
@@ -127,20 +135,20 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
                   onClick={() => setEditingColor(editingColor === list.id ? null : list.id)}
                   className="w-5 h-5 rounded-full border border-gray-300"
                   style={{ backgroundColor: list.color }}
-                  title="Цвет списка"
+                  title={t('lists.colorTitle')}
                 />
                 <input
                   defaultValue={list.name}
                   readOnly={isRegular(list)}
                   onBlur={(e) => rename(list, e.target.value)}
                   className={`flex-1 p-1 border rounded bg-transparent ${isRegular(list) ? 'text-slate-500' : ''}`}
-                  title={isRegular(list) ? 'Системный список — переименование недоступно' : undefined}
+                  title={isRegular(list) ? t('lists.regularProtected') : undefined}
                 />
                 <button
                   onClick={() => reorder(list, 'up')}
                   disabled={sorted[0].id === list.id}
                   className="px-2 text-gray-500 disabled:opacity-30"
-                  title="Выше"
+                  title={t('lists.up')}
                 >
                   ↑
                 </button>
@@ -148,7 +156,7 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
                   onClick={() => reorder(list, 'down')}
                   disabled={sorted[sorted.length - 1].id === list.id}
                   className="px-2 text-gray-500 disabled:opacity-30"
-                  title="Ниже"
+                  title={t('lists.down')}
                 >
                   ↓
                 </button>
@@ -157,20 +165,20 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
                   disabled={isRegular(list)}
                   onChange={(e) => setKind(list, e.target.value)}
                   className="text-xs border rounded px-1 py-1 bg-white disabled:text-slate-500 disabled:bg-slate-50"
-                  title={isRegular(list) ? 'Системный список «Регулярные»' : 'Статус списка: задачи в списке со статусом «Завершено» считаются выполненными'}
+                  title={isRegular(list) ? t('lists.regularTitle') : t('lists.kindTitle')}
                 >
-                  {isRegular(list) && <option value="regular">Регулярные</option>}
-                  <option value="todo">К выполнению</option>
-                  <option value="progress">В работе</option>
-                  <option value="done">Завершено</option>
+                  {isRegular(list) && <option value="regular">{t('lists.kindRegular')}</option>}
+                  <option value="todo">{t('lists.kindTodo')}</option>
+                  <option value="progress">{t('lists.kindProgress')}</option>
+                  <option value="done">{t('lists.kindDone')}</option>
                 </select>
                 <button
                   onClick={() => remove(list)}
                   disabled={isRegular(list)}
                   className="text-red-500 text-xs disabled:opacity-30"
-                  title={isRegular(list) ? 'Системный список удалить нельзя' : 'Удалить'}
+                  title={isRegular(list) ? t('lists.deleteProtected') : t('lists.deleteTitle')}
                 >
-                  Удалить
+                  {t('common.delete')}
                 </button>
               </div>
               {editingColor === list.id && (
