@@ -23,6 +23,7 @@ export default function Layout({
   onReorderBoard,
   onEditBoard,
   onCreateBoard,
+  onPlanner,
   activeBoard = null,
   maxBoards,
   children,
@@ -80,6 +81,14 @@ export default function Layout({
           <span className="text-lg font-extrabold tracking-widest uppercase text-white">
             Omni<span className="text-sky-300">Task</span>
           </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onPlanner}
+          className="shrink-0 rounded-lg border border-green-400/70 px-2.5 py-1.5 text-xs font-semibold text-green-100 hover:bg-green-600/30"
+        >
+          Планировщик
         </button>
 
         {/* Переключатель досок — центр хедера */}

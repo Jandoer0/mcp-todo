@@ -471,29 +471,20 @@ function BalanceChart({ series, selected, onSelect }) {
           <stop offset="100%" stopColor="rgb(239 68 68)" stopOpacity="0.25" />
         </linearGradient>
         <clipPath id="posClip"><rect x="0" y="0" width={W} height={zeroY} /></clipPath>
+        <clipPath id="pastAreaClip"><rect x={pad.left} y="0" width={pastWidth} height={H} /></clipPath>
+        <clipPath id="futureAreaClip"><rect x={todayX} y="0" width={futureWidth} height={H} /></clipPath>
       </defs>
 
-      {/* Фон временной шкалы: историческая часть до сегодняшнего дня — зелёная,
-          прогнозная часть начиная с сегодняшнего дня — синяя. */}
+      {/* Заливаем именно область под графиком: история — зелёная,
+          прогноз после сегодняшнего дня — синяя. */}
       {pastWidth > 0 && (
-        <rect
-          x={pad.left}
-          y={pad.top}
-          width={pastWidth}
-          height={H - pad.top - pad.bottom}
-          fill="rgb(34 197 94)"
-          fillOpacity="0.07"
-        />
+        <path d={area} fill="rgb(34 197 94)" fillOpacity="0.25" clipPath="url(#pastAreaClip)" />
       )}
       {futureWidth > 0 && (
-        <rect
-          x={todayX}
-          y={pad.top}
-          width={futureWidth}
-          height={H - pad.top - pad.bottom}
-          fill="rgb(37 99 235)"
-          fillOpacity="0.08"
-        />
+        <path d={area} fill="rgb(37 99 235)" fillOpacity="0.25" clipPath="url(#futureAreaClip)" />
+      )}
+      {minV < 0 && (
+        <line x1={pad.left} x2={W - pad.right} y1={zeroY} y2={zeroY} stroke="rgb(239 68 68)" strokeDasharray="4 3" strokeWidth="1" />
       )}
       {splitIndex > 0 && splitIndex < series.length && (
         <line
@@ -506,14 +497,6 @@ function BalanceChart({ series, selected, onSelect }) {
           strokeWidth="1"
         />
       )}
-
-      {minV < 0 && (
-        <>
-          <rect x={pad.left} y={zeroY} width={W - pad.left - pad.right} height={H - pad.bottom - zeroY} fill="url(#balNeg)" />
-          <line x1={pad.left} x2={W - pad.right} y1={zeroY} y2={zeroY} stroke="rgb(239 68 68)" strokeDasharray="4 3" strokeWidth="1" />
-        </>
-      )}
-      <path d={area} fill="url(#balPos)" clipPath="url(#posClip)" />
 
       {series.map((p, i) =>
         p.balance < 0 ? (

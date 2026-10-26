@@ -12,6 +12,7 @@ import ListsManager from './components/ListsManager'
 import BoardForm from './components/BoardForm'
 import AdminPanel from './components/AdminPanel'
 import CurrencyManager from './components/CurrencyManager'
+import Planner from './components/Planner'
 import { PALETTE } from './constants'
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
   const [currenciesOpen, setCurrenciesOpen] = useState(false)
   const [cyclicFormOpen, setCyclicFormOpen] = useState(false)
   const [editingCyclicTask, setEditingCyclicTask] = useState(null)
+  const [plannerOpen, setPlannerOpen] = useState(false)
 
   const loadCurrencies = () =>
     currenciesApi
@@ -411,7 +413,9 @@ export default function App() {
   }
 
   return (
-    <Layout
+    <>
+      <Planner open={plannerOpen} onClose={() => setPlannerOpen(false)} />
+      <Layout
       isAdmin={isAdmin}
       onAdmin={openAdmin}
       onLogout={logout}
@@ -433,6 +437,7 @@ export default function App() {
         setEditingBoard(null)
         setBoardFormOpen(true)
       }}
+      onPlanner={() => setPlannerOpen(true)}
       maxBoards={profile?.max_boards}
     >
       <Dashboard 
@@ -653,6 +658,7 @@ export default function App() {
         onChanged={openAdmin}
         onBack={() => setAdminView(false)}
       />
-    </Layout>
+      </Layout>
+    </>
   )
 }
