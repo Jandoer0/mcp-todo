@@ -270,7 +270,7 @@ def create_task(
     deadline: str | None = None,
     priority: int = 2,
     tags: list[str] | None = None,
-    list: str = "Не начато",
+    list: str | None = None,
     blocked_by: list[int] | None = None,
     is_cyclic: bool = False,
     cycle_period: str = "monthly",
@@ -294,7 +294,7 @@ def create_task(
     t_dead = data.get("deadline")
     t_prio = data.get("priority", 2)
     t_tags = data.get("tags")
-    t_list = data.get("list", "Не начато")
+    t_list = data.get("list")  # None -> первый todo-список доски (_resolve_list)
     t_blocked = data.get("blocked_by")
 
     if not token or not t_title or data.get("board_id") is None:

@@ -169,7 +169,7 @@ export default function Layout({
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
               >
-                Выйти
+                {t('layout.logout')}
               </button>
             </div>
           )}

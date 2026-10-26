@@ -1,13 +1,16 @@
+import { useTranslation } from 'react-i18next'
+
 export default function Dashboard({ summary, activeFilter, onFilterChange }) {
+  const { t } = useTranslation()
   if (!summary) return null
 
   const filters = [
-    { id: 'all', label: 'Всего задач', value: summary.total, color: 'text-blue-500' },
-    { id: 'todo', label: 'К выполнению', value: summary.todo, color: 'text-yellow-500' },
-    { id: 'in_progress', label: 'В работе', value: summary.in_progress, color: 'text-purple-500' },
-    { id: 'done', label: 'Выполнено', value: summary.done, color: 'text-green-500' },
-    { id: 'overdue', label: 'Просрочено', value: summary.overdue, color: 'text-red-500' },
-    { id: 'planned', label: 'Запланировано', value: summary.planned ?? 0, color: 'text-slate-400' },
+    { id: 'all', label: t('filters.all'), value: summary.total, color: 'text-blue-500' },
+    { id: 'todo', label: t('filters.todo'), value: summary.todo, color: 'text-yellow-500' },
+    { id: 'in_progress', label: t('filters.in_progress'), value: summary.in_progress, color: 'text-purple-500' },
+    { id: 'done', label: t('filters.done'), value: summary.done, color: 'text-green-500' },
+    { id: 'overdue', label: t('filters.overdue'), value: summary.overdue, color: 'text-red-500' },
+    { id: 'planned', label: t('filters.planned'), value: summary.planned ?? 0, color: 'text-slate-400' },
   ]
 
   // Desktop: one compact row. Mobile: hidden — a dropdown lives in the toolbar.

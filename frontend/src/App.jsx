@@ -346,12 +346,12 @@ export default function App() {
 
   const FILTERS = summary
     ? [
-        { id: 'all', label: 'Всего задач', count: summary.total },
-        { id: 'todo', label: 'К выполнению', count: summary.todo },
-        { id: 'in_progress', label: 'В работе', count: summary.in_progress },
-        { id: 'done', label: 'Выполнено', count: summary.done },
-        { id: 'overdue', label: 'Просрочено', count: summary.overdue },
-        { id: 'planned', label: 'Запланировано', count: summary.planned ?? 0 },
+        { id: 'all', label: t('filters.all'), count: summary.total },
+        { id: 'todo', label: t('filters.todo'), count: summary.todo },
+        { id: 'in_progress', label: t('filters.in_progress'), count: summary.in_progress },
+        { id: 'done', label: t('filters.done'), count: summary.done },
+        { id: 'overdue', label: t('filters.overdue'), count: summary.overdue },
+        { id: 'planned', label: t('filters.planned'), count: summary.planned ?? 0 },
       ]
     : []
 

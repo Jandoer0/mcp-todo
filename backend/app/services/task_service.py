@@ -254,12 +254,28 @@ def _list_row(db: Session, user_id: int, board_id: int | None, name: str):
 
 
 def regular_list_name(db: Session, user_id: int, board_id: int | None) -> str:
-    """Return the system regular list name for the board, creating the default
-    lists if a legacy board predates the 'Регулярные' list."""
-    row = _list_row(db, user_id, board_id, REGULAR_LIST_NAME)
+    """Return the system regular list name for the board. Имя зависит от
+    языка профиля, поэтому список ищется по kind='regular' (с фолбэком на
+    русское имя для legacy-строк); при отсутствии — дефолтные списки
+    создаются заново."""
+    q = db.query(TaskList).filter(
+        TaskList.user_id == user_id, TaskList.kind == "regular"
+    )
+    if board_id is not None:
+        q = q.filter(TaskList.board_id == board_id)
+    row = q.first()
     if not row:
-        ensure_default_lists(db, user_id, board_id)
+        # Legacy: список мог быть создан до kind, ищем по старому имени.
         row = _list_row(db, user_id, board_id, REGULAR_LIST_NAME)
+    if not row:
+        user = db.get(User, user_id)
+        ensure_default_lists(db, user_id, board_id, language=user.language if user else None)
+        q = db.query(TaskList).filter(
+            TaskList.user_id == user_id, TaskList.kind == "regular"
+        )
+        if board_id is not None:
+            q = q.filter(TaskList.board_id == board_id)
+        row = q.first()
     return row.name if row else REGULAR_LIST_NAME
 
 
@@ -270,15 +286,17 @@ def _list_kind(db: Session, user_id: int, board_id: int | None, name: str) -> st
 
 def _fallback_list_name(db: Session, user_id: int, board_id: int | None) -> str:
     """First non-regular list of the board (used when a cycle is stopped or a
-    cyclic task is un-flagged)."""
+    cyclic task is un-flagged). Регулярный исключается по kind, а не по имени
+    (имя зависит от языка профиля)."""
+    regular_name = regular_list_name(db, user_id, board_id)
     q = db.query(TaskList).filter(
         TaskList.user_id == user_id,
-        TaskList.name != REGULAR_LIST_NAME,
+        TaskList.name != regular_name,
     )
     if board_id is not None:
         q = q.filter(TaskList.board_id == board_id)
     row = q.order_by(TaskList.position, TaskList.id).first()
-    return row.name if row else "Не начато"
+    return row.name if row else regular_name
 
 
 def cycle_log(
@@ -493,8 +511,9 @@ def _resolve_list(
     db: Session, name: str | None, user_id: int, board_id: int | None = None
 ) -> tuple[str, str]:
     """Resolve a list name to (list_name, task_status). The status comes from
-    the list's editable kind; unknown names fall back to the board's
-    'Не начато' list. Scoped to the board when board_id is given."""
+    the list's editable kind; unknown names fall back to the board's first
+    todo-list (по позиции; имя зависит от языка профиля). Scoped to the board
+    when board_id is given."""
     def _find(nm):
         q = db.query(TaskList).filter(
             TaskList.user_id == user_id, TaskList.name == nm
@@ -505,9 +524,17 @@ def _resolve_list(
 
     row = _find(name) if name else None
     if not row:
-        row = _find("Не начато")
+        # Fallback: первый список со статусом todo (по позиции). Не по имени —
+        # дефолтные списки локализованы.
+        q = db.query(TaskList).filter(
+            TaskList.user_id == user_id,
+            TaskList.kind == "todo",
+        )
+        if board_id is not None:
+            q = q.filter(TaskList.board_id == board_id)
+        row = q.order_by(TaskList.position, TaskList.id).first()
     if not row:
-        return ("Не начато", "todo")
+        return (regular_list_name(db, user_id, board_id), "todo")
     return (row.name, status_for_kind(row.kind))
 
 

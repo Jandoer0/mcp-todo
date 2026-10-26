@@ -133,7 +133,7 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     from ..board import ensure_default_board, ensure_default_lists
 
     board = ensure_default_board(db, user.id)
-    ensure_default_lists(db, user.id, board.id)
+    ensure_default_lists(db, user.id, board.id, language=user.language)
     return user
 
 @router.put("/users/{user_id}")

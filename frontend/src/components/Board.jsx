@@ -498,7 +498,7 @@ export default function Board({
                     {gapAtEnd && <Gap height={gapHeight} />}
                     {group.items.length === 0 && (
                       <p className={`text-xs italic px-1 ${isOver ? 'text-white/70' : 'text-white/40'}`}>
-                        {isOver ? 'Отпустите, чтобы переместить' : 'Нет задач'}
+                        {isOver ? t('board.dropHere') : t('board.noTasks')}
                       </p>
                     )}
                     {/* Кнопка добавления — последняя «карточка» столбика:
@@ -508,7 +508,7 @@ export default function Board({
                       onClick={() => (regular ? onEditCyclic?.() : onAddTask?.(group.name))}
                       className="w-full py-2 rounded bg-white/5 text-white/60 hover:bg-white/10 hover:text-white text-xs transition-colors border border-dashed border-white/20"
                     >
-                      + Добавить задачу
+                      + {t('board.addTask').replace(/^\+\s*/, '')}
                     </button>
                   </div>
                 </div>

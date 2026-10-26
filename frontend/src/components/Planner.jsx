@@ -143,19 +143,15 @@ export default function Planner({ open, onClose, onEdit }) {
   return (
     <div className="fixed inset-0 z-[40] flex flex-col bg-[#35506b] text-slate-800">
       <header className="shrink-0 border-b border-white/10 bg-[#22384d] px-5 py-3 text-white shadow-lg">
+        {/* Заголовок и дата — в одной строке, между ними дата, справа «Закрыть».
+            Под список задач отдаётся вся оставшаяся высота. Дата форматируется
+            по профилю (ТЗ §5), название дня — по языку интерфейса. */}
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-extrabold leading-tight">{t('planner.title')}</h1>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">{t('planner.close')} ×</button>
-        </div>
-        {/* Карточка выбранной даты — в хедере: под список задач отдаётся
-            вся оставшаяся высота, а не блок с крупным заголовком.
-            Дата форматируется по профилю (ТЗ §5), название дня — по языку. */}
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-white/50">{t('planner.selectedDate')}</span>
-          <h2 className="text-base font-extrabold capitalize leading-tight text-white sm:text-lg">
+          <h1 className="shrink-0 text-lg font-extrabold leading-tight">{t('planner.title')}</h1>
+          <h2 className="min-w-0 truncate text-center text-base font-extrabold capitalize leading-tight text-white sm:text-lg">
             {selectedDate.toLocaleDateString(LOCALE_TAG[i18n.language] || 'ru-RU', { weekday: 'long' })}, {formatDate(selected, dateFormat, t)}
           </h2>
-          <span className="hidden text-xs text-white/60 sm:inline">{t('planner.subtitle')}</span>
+          <button type="button" onClick={onClose} className="shrink-0 rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">{t('planner.close')} ×</button>
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col md:flex-row bg-[#35506b]">

@@ -6,13 +6,15 @@ import Modal from './Modal'
 import { compactAmount, currencySymbol, formatAmount } from '../utils/format'
 import { toWallClock } from '../utils/datetime'
 
-// "12 окт." when the year matches the current one, "12 окт. 2027" otherwise.
+// «12 окт.» / «Oct 12» — карточка даты. Месяц — из словаря (months.short),
+// формат числовой части фиксированный. Плановые даты — календарный день,
+// сдвиг по поясу не применяется (см. utils/datetime.js).
 function formatDate(value) {
   if (!value) return ''
-  const d = new Date(value)
-  const opts = { day: 'numeric', month: 'short' }
-  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric'
-  return d.toLocaleDateString('ru-RU', opts)
+  const p = dateParts(value)
+  if (!p) return ''
+  const month = i18n.t(`months.short.${MONTH_SHORT_KEYS[p.m - 1]}`)
+  return p.y !== new Date().getFullYear() ? `${p.d} ${month} ${p.y}` : `${p.d} ${month}`
 }
 
 // Date rendered as a tag-like chip: gray when the day hasn't come yet,

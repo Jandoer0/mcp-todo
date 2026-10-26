@@ -171,14 +171,29 @@ def delete_list(
             status_code=400,
             detail="Системный список «Регулярные» удалить нельзя",
         )
-    # Reassign only the owner's tasks of this board to the default list.
-    db.query(Task).filter(
-        Task.list == lst.name,
-        Task.user_id == current_user.id,
-        Task.board_id == lst.board_id,
-    ).update(
-        {Task.list: "Не начато"}, synchronize_session=False
+    # Reassign only the owner's tasks of this board to another list.
+    # Приёмник — первый по позиции список с kind != 'regular', исключая
+    # сам удаляемый (имена локализованы, фильтруем по kind). Если других
+    # списков нет (кроме Regular), задача временно остаётся в удаляемом
+    # имени — но сам список удаляется, и задача попадает в «Прочее» при
+    # рендере доски, откуда её можно перенести вручную.
+    fallback = (
+        db.query(TaskList)
+        .filter(
+            TaskList.user_id == current_user.id,
+            TaskList.board_id == lst.board_id,
+            TaskList.kind != "regular",
+            TaskList.id != lst.id,
+        )
+        .order_by(TaskList.position, TaskList.id)
+        .first()
     )
+    if fallback:
+        db.query(Task).filter(
+            Task.list == lst.name,
+            Task.user_id == current_user.id,
+            Task.board_id == lst.board_id,
+        ).update({Task.list: fallback.name}, synchronize_session=False)
     db.delete(lst)
     db.commit()
     return {"ok": True}

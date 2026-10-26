@@ -83,17 +83,47 @@ PALETTE = [
 # Системный список для всех циклических (регулярных) платежей. Связь
 # «циклическая ⇔ Регулярные» жёсткая: только циклические задачи могут в нём
 # находиться и любая циклическая обязана в нём находиться.
+#
+# Локализация (ТЗ «Многоязычность»): имена дефолтных списков зависят от
+# языка пользователя и фиксируются при создании списка — списки с kind и
+# позициями одинаковы для всех языков, отличается только name.
+# REGULAR_LIST_NAME остаётся русской константой: это ключ совместимости для
+# старых строк БД и миграций, в рантайме регулярный список ищется по kind
+# (см. regular_list_name в task_service).
 REGULAR_LIST_NAME = "Регулярные"
 REGULAR_LIST_COLOR = "#14b8a6"
 
-DEFAULT_LISTS = [
-    # Регулярные — первый столбец (закрепление слева, как в ТЗ); позиции 1..5.
-    {"name": REGULAR_LIST_NAME, "color": REGULAR_LIST_COLOR, "position": 1, "kind": "regular"},
-    {"name": "Не начато", "color": "#64748b", "position": 2, "kind": "todo"},
-    {"name": "В работе", "color": "#3b82f6", "position": 3, "kind": "progress"},
-    {"name": "Готово", "color": "#22c55e", "position": 4, "kind": "done"},
-    {"name": "Архив", "color": "#8b5cf6", "position": 5, "kind": "done"},
-]
+# Имена дефолтных списков по языку профиля (kind → name).
+DEFAULT_LIST_NAMES = {
+    "ru": {
+        "regular": "Регулярные",
+        "todo": "Не начато",
+        "progress": "В работе",
+        "done": "Готово",
+        "archive": "Архив",
+    },
+    "en": {
+        "regular": "Regular",
+        "todo": "To Do",
+        "progress": "In Progress",
+        "done": "Done",
+        "archive": "Archive",
+    },
+}
+
+
+def default_lists_for(language: str | None) -> list[dict]:
+    """Protected default lists for the user's language. Names localize,
+    kind/color/position — общие. Неизвестный язык -> русские имена."""
+    names = DEFAULT_LIST_NAMES.get(language or "ru", DEFAULT_LIST_NAMES["ru"])
+    return [
+        # Регулярные — первый столбец (закрепление слева, как в ТЗ); позиции 1..5.
+        {"name": names["regular"], "color": REGULAR_LIST_COLOR, "position": 1, "kind": "regular"},
+        {"name": names["todo"], "color": "#64748b", "position": 2, "kind": "todo"},
+        {"name": names["progress"], "color": "#3b82f6", "position": 3, "kind": "progress"},
+        {"name": names["done"], "color": "#22c55e", "position": 4, "kind": "done"},
+        {"name": names["archive"], "color": "#8b5cf6", "position": 5, "kind": "done"},
+    ]
 
 DONE_LIST = "Готово"
 PROGRESS_LIST = "В работе"
@@ -125,17 +155,19 @@ def status_for_kind(kind) -> str:
     return "todo"
 
 
-def ensure_default_lists(db, user_id: int, board_id: int | None = None) -> None:
+def ensure_default_lists(db, user_id: int, board_id: int | None = None, language: str | None = None) -> None:
     """Create the protected default lists for a user (or a specific board) if
     they are missing. Called at startup, at registration and when a new board
-    is created — lists are strictly per-user and per-board."""
+    is created — lists are strictly per-user and per-board.
+    Имена списков локализуются по языку профиля (language), семантика (kind)
+    одинакова для всех языков."""
     from .models import TaskList
 
     q = db.query(TaskList.name).filter(TaskList.user_id == user_id)
     if board_id is not None:
         q = q.filter(TaskList.board_id == board_id)
     existing = {r[0] for r in q.all()}
-    for spec in DEFAULT_LISTS:
+    for spec in default_lists_for(language):
         if spec["name"] not in existing:
             db.add(
                 TaskList(

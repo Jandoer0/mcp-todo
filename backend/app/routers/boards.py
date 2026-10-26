@@ -108,7 +108,7 @@ def create_board(
     db.commit()
     db.refresh(board)
     # A new board gets its own copy of the protected default lists.
-    ensure_default_lists(db, current_user.id, board.id)
+    ensure_default_lists(db, current_user.id, board.id, language=current_user.language)
     return board
 
 

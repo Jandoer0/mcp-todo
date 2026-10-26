@@ -598,11 +598,16 @@ def seed_lists(db) -> None:
     including the system «Регулярные» list), and backfill tasks whose list
     does not reference one of the owner's lists."""
     from .board import ensure_default_lists, status_for_list, status_for_kind
-    from .models import Board, Task, TaskList
+    from .models import Board, Task, TaskList, User
 
+    user_language = {
+        u.id: (u.language or "ru") for u in db.query(User).all()
+    }
     # Только существующие доски: у задач может не быть board_id до бэкфилла.
     for board in db.query(Board).all():
-        ensure_default_lists(db, board.user_id, board.id)
+        ensure_default_lists(
+            db, board.user_id, board.id, language=user_language.get(board.user_id)
+        )
 
     # Backfill tasks whose list does not reference one of the owner's lists,
     # and keep status consistent with the (new) list. Жёсткая связь
@@ -618,14 +623,26 @@ def seed_lists(db) -> None:
             .first()
         )
         if not owned:
-            task.list = "Не начато"
+            # Первый todo-список доски (имена списков локализованы).
+            fallback = (
+                db.query(TaskList)
+                .filter(
+                    TaskList.user_id == task.user_id,
+                    TaskList.board_id == task.board_id,
+                    TaskList.kind == "todo",
+                )
+                .order_by(TaskList.position, TaskList.id)
+                .first()
+            )
+            task.list = fallback.name if fallback else "Не начато"
         if task.is_cyclic:
+            # Регулярный список ищется по kind — имя зависит от языка профиля.
             regular = (
                 db.query(TaskList)
                 .filter(
                     TaskList.user_id == task.user_id,
                     TaskList.board_id == task.board_id,
-                    TaskList.name == "Регулярные",
+                    TaskList.kind == "regular",
                 )
                 .first()
             )
@@ -633,13 +650,22 @@ def seed_lists(db) -> None:
                 task.list = regular.name
                 task.status = "todo"
                 continue
-        elif task.list == "Регулярные":
+        elif (
+            db.query(TaskList)
+            .filter(
+                TaskList.user_id == task.user_id,
+                TaskList.board_id == task.board_id,
+                TaskList.name == task.list,
+                TaskList.kind == "regular",
+            )
+            .first()
+        ):
             fallback = (
                 db.query(TaskList)
                 .filter(
                     TaskList.user_id == task.user_id,
                     TaskList.board_id == task.board_id,
-                    TaskList.name != "Регулярные",
+                    TaskList.kind != "regular",
                 )
                 .order_by(TaskList.position, TaskList.id)
                 .first()

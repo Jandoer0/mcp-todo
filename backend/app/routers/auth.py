@@ -117,7 +117,7 @@ def register(user: schemas.UserCreate, request: Request, db: Session = Depends(g
     from ..board import ensure_default_board, ensure_default_lists
 
     board = ensure_default_board(db, db_user.id)
-    ensure_default_lists(db, db_user.id, board.id)
+    ensure_default_lists(db, db_user.id, board.id, language=db_user.language)
     # Базовый набор валют (RUB/USD/EUR) для мультивалютного бюджета.
     from ..services.currency_service import ensure_default_currencies
 

@@ -98,7 +98,10 @@
       "budget": "Бюджет",
       "webhooks": "Веб-хуки",
       "import": "Импорт"
-    }
+    },
+    "addTask": "+ Добавить задачу",
+    "dropHere": "Отпустите, чтобы переместить",
+    "noTasks": "Нет задач"
   },
   "lists": {
     "manage": "Списки",
@@ -184,10 +187,13 @@
     "preview": "Предпросмотр",
     "editMode": "Редактирование"
   },
-  "priorities": {
-    "low": "Низкий",
-    "medium": "Средний",
-    "high": "Высокий"
+  "filters": {
+    "all": "Всего задач",
+    "todo": "К выполнению",
+    "in_progress": "В работе",
+    "done": "Выполнено",
+    "overdue": "Просрочено",
+    "planned": "Запланировано"
   },
   "dashboard": {
     "newTask": "Новая задача",
@@ -208,7 +214,6 @@
   },
   "planner": {
     "title": "Планировщик",
-    "subtitle": "Global Daily Focus · все доски",
     "selectedDate": "Выбранная дата",
     "calendar": "Календарь",
     "loading": "Загрузка задач со всех досок…",
@@ -298,7 +303,8 @@
     "currencySettings": "Параметры валют",
     "newBoard": "Создать новую доску",
     "newBoardShort": "+ Доска",
-    "newBoardFull": "+ Создать доску"
+    "newBoardFull": "+ Создать доску",
+    "logout": "Выйти"
   },
   "errors": {
     "loginFailed": "Неверный логин или пароль",
@@ -345,5 +351,14 @@
     "placeholder": "Введите тег и нажмите Enter",
     "add": "Добавить",
     "remove": "Удалить тег {{name}}"
+  },
+  "priorities": {
+    "low": "Низкий",
+    "medium": "Средний",
+    "high": "Высокий"
+  },
+  "money": {
+    "thousand": "тыс.",
+    "million": "млн"
   }
 }

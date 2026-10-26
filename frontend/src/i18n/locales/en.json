@@ -98,7 +98,10 @@
       "budget": "Budget",
       "webhooks": "Webhooks",
       "import": "Import"
-    }
+    },
+    "addTask": "+ Add Task",
+    "dropHere": "Drop to move here",
+    "noTasks": "No tasks"
   },
   "lists": {
     "manage": "Lists",
@@ -208,7 +211,6 @@
   },
   "planner": {
     "title": "Planner",
-    "subtitle": "Global Daily Focus · all boards",
     "selectedDate": "Selected date",
     "calendar": "Calendar",
     "loading": "Loading tasks from all boards…",
@@ -298,7 +300,8 @@
     "currencySettings": "Currency Settings",
     "newBoard": "Create new board",
     "newBoardShort": "+ Board",
-    "newBoardFull": "+ Create Board"
+    "newBoardFull": "+ Create Board",
+    "logout": "Logout"
   },
   "errors": {
     "loginFailed": "Invalid username or password",
@@ -345,5 +348,17 @@
     "placeholder": "Type a tag and press Enter",
     "add": "Add",
     "remove": "Remove tag {{name}}"
+  },
+  "filters": {
+    "all": "All tasks",
+    "todo": "To Do",
+    "in_progress": "In Progress",
+    "done": "Done",
+    "overdue": "Overdue",
+    "planned": "Planned"
+  },
+  "money": {
+    "thousand": "k",
+    "million": "M"
   }
 }
