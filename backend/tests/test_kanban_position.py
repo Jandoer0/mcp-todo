@@ -61,7 +61,7 @@ def test_reorder_between_and_within():
     h = _register("kanban_b")
     board = _first_board(h)
     a = client.post("/api/tasks", json={"title": "A", "board_id": board, "list": "Не начато"}, headers=h).json()
-    b = client.post("/api/tasks", json={"title": "B", "board_id": board, "list": "Не начато"}, headers=h).json()
+    client.post("/api/tasks", json={"title": "B", "board_id": board, "list": "Не начато"}, headers=h).json()
     c = client.post("/api/tasks", json={"title": "C", "board_id": board, "list": "Не начато"}, headers=h).json()
 
     # перенос C в начало колонки: position = midpoint(0, pos(A))

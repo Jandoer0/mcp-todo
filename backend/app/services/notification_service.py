@@ -71,11 +71,6 @@ def event_text(event: str, title: str) -> str:
     return template.format(title=title) if template else event
 
 
-def build_payload(webhook: Webhook, task: Task, event: str) -> dict:
-    """Payload in the format specified by the spec."""
-    return _build(webhook, task.id, task.title, task.deadline, event)
-
-
 def _build(webhook: Webhook, task_id, title: str, deadline, event: str,
            board_id: int | None = None) -> dict:
     return {
@@ -118,19 +113,6 @@ def dispatch_snapshot(
             continue
         payload = _build(webhook, task_id, title, deadline, event, board_id)
         send_async(webhook.url, webhook.token, payload)
-
-
-def send_webhook(webhook_id: int, task_id: int, event: str) -> None:
-    """Send a webhook by its own DB session (spec-required entry point,
-    usable from background jobs)."""
-    db = SessionLocal()
-    try:
-        webhook = db.get(Webhook, webhook_id)
-        task = db.get(Task, task_id)
-        if webhook and task:
-            send_async(webhook.url, webhook.token, build_payload(webhook, task, event))
-    finally:
-        db.close()
 
 
 def send_test(webhook: Webhook) -> dict:

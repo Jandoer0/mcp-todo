@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { boardsApi } from '../api/client'
+import { signedAmount } from '../utils/format'
 
 // Мультивалютный бюджет (UPDATE ТЗ): итоги (ПЛАН/ФАКТ/ИТОГО) считаются в
 // валюте расчёта доски (Decimal на бэкенде), записи показывают сумму в
 // оригинальной валюте + эквивалент в валюте расчёта: «-10 000 RUB (≈ -110 USD)».
 // Вложена в BudgetView (ТЗv2 §4): данные и селектор валюты расчёта живут
 // в оболочке; при внешнем `data` вкладка не грузит ничего сама.
-
-// 10000 → «10 000» (ru-RU uses non-breaking spaces as thousand separators)
-function fmt(n) {
-  return Math.abs(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
-}
-
-// Signed money: "-10 000" / "+20 000"
-function signed(n) {
-  return `${n < 0 ? '-' : '+'}${fmt(n)}`
-}
 
 export default function BudgetTab({ board, tasks = [], lists = [], data: externalBudget = null }) {
   const [copied, setCopied] = useState(false)
@@ -72,7 +63,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
   // без курса — исходная сумма с кодом валюты (см. предупреждение выше).
   const entryLine = (e) => {
     const value =
-      e.converted != null ? signed(e.converted) : `${signed(e.amount)}${e.currency_code ? ` ${e.currency_code}` : ''}`
+      e.converted != null ? signedAmount(e.converted) : `${signedAmount(e.amount)}${e.currency_code ? ` ${e.currency_code}` : ''}`
     return `${e.title}: ${value}`
   }
 
@@ -85,12 +76,12 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
       sortEntries(doneEntries).map(entryLine).join('\n'),
       planEntries.map(entryLine).join('\n'),
       line,
-      `ПЛАН: ${signed(plan)} ${reportCode}`,
-      `ФАКТ: ${signed(fact)} ${reportCode}`,
+      `ПЛАН: ${signedAmount(plan)} ${reportCode}`,
+      `ФАКТ: ${signedAmount(fact)} ${reportCode}`,
       line,
-      `ВСЕГО ДОХОД: ${signed(income)} ${reportCode}`,
-      `ВСЕГО РАСХОД: ${signed(expense)} ${reportCode}`,
-      `ИТОГО: ${signed(total)} ${reportCode}`,
+      `ВСЕГО ДОХОД: ${signedAmount(income)} ${reportCode}`,
+      `ВСЕГО РАСХОД: ${signedAmount(expense)} ${reportCode}`,
+      `ИТОГО: ${signedAmount(total)} ${reportCode}`,
     ]
       .filter((s) => s !== '')
       .join('\n')
@@ -127,7 +118,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
               total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
             }`}
           >
-            {signed(total)}
+            {signedAmount(total)}
           </div>
           {reportCode && (
             <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
@@ -155,7 +146,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
               <span className={`h-2 w-2 shrink-0 rounded-full ${row.dot}`} />
               <span className="shrink-0 text-slate-500">{row.label}</span>
               <span className="min-w-4 flex-1 border-b border-dotted border-slate-200" />
-              <span className={`shrink-0 font-bold tabular-nums ${row.text}`}>{signed(row.value)}</span>
+              <span className={`shrink-0 font-bold tabular-nums ${row.text}`}>{signedAmount(row.value)}</span>
             </div>
           ))}
         </div>
@@ -167,7 +158,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
         <div className="grid grid-cols-3 items-center divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
-            <div className="font-bold tabular-nums text-slate-800">{signed(plan)}</div>
+            <div className="font-bold tabular-nums text-slate-800">{signedAmount(plan)}</div>
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Баланс доски</div>
@@ -176,12 +167,12 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
                 total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
               }`}
             >
-              {signed(total)}
+              {signedAmount(total)}
             </div>
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Факт</div>
-            <div className="font-bold tabular-nums text-slate-800">{signed(fact)}</div>
+            <div className="font-bold tabular-nums text-slate-800">{signedAmount(fact)}</div>
           </div>
         </div>
 
@@ -195,11 +186,11 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-green-500" />
               <span className="text-slate-500">Доходы</span>
-              <span className="font-bold tabular-nums text-green-600">{signed(income)}</span>
+              <span className="font-bold tabular-nums text-green-600">{signedAmount(income)}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="text-slate-500">Расходы</span>
-              <span className="font-bold tabular-nums text-red-600">{signed(expense)}</span>
+              <span className="font-bold tabular-nums text-red-600">{signedAmount(expense)}</span>
               <span className="h-2 w-2 rounded-full bg-red-500" />
             </span>
           </div>
@@ -210,8 +201,8 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
               Базовый слой (регулярные)
             </span>
             <span className="tabular-nums font-semibold text-teal-700">
-              {signed(budget?.regular ?? 0)}
-              <span className="text-slate-400 font-normal"> · разовые: {signed(budget?.operational ?? 0)}</span>
+              {signedAmount(budget?.regular ?? 0)}
+              <span className="text-slate-400 font-normal"> · разовые: {signedAmount(budget?.operational ?? 0)}</span>
             </span>
           </div>
         </div>
@@ -249,7 +240,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
                   {e.title}
                 </span>
                 <span className={`shrink-0 font-mono tabular-nums text-right ${dim ? 'text-slate-300' : 'text-slate-600'}`}>
-                  {e.converted != null ? signed(e.converted) : signed(e.amount)}
+                  {e.converted != null ? signedAmount(e.converted) : signedAmount(e.amount)}
                   {e.converted == null && e.currency_code && (
                     <span className="font-sans" title="Курс не указан"> {e.currency_code} ⚠</span>
                   )}

@@ -17,7 +17,6 @@ from ..db import get_db
 from ..models import User
 from ..security import attempt_allowed, reset_attempts
 from ..site_settings import get_bool, get_int
-from ..site_settings import get_int
 from ..services import server_stats
 
 router = APIRouter(prefix="/auth", tags=["auth"])

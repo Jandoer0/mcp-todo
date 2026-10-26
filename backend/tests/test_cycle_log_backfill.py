@@ -55,7 +55,7 @@ def test_orphan_cycle_log_backfills_to_live_task_board():
             "deadline": "2026-11-23T12:00:00",
         },
     ).json()
-    nxt = client.post(
+    client.post(
         f"/api/tasks/{t['id']}/cycle/complete",
         headers=h,
         json={"actual_date": "2026-10-19T12:00:00", "actual_amount": -4000},

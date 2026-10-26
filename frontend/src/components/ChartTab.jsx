@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { boardsApi } from '../api/client'
+import { signedAmount } from '../utils/format'
 
 // Вкладка «График» — финансовый симулятор доски. Бэкенд (/cashflow) отдаёт
 // события: «спик» (одна дата → вся сумма в один день) и «поток» (интервал
 // → сумма равномерно на каждый день). Здесь строится ежедневный баланс,
 // подсвечиваются кассовые разрывы и детализируется выбранный день.
 // Все суммы — в валюте расчёта доски (Decimal на бэкенде).
-
-// Signed money: "-10 000" / "+20 000"
-function signed(n) {
-  const v = Math.abs(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
-  return `${n < 0 ? '-' : '+'}${v}`
-}
 
 function shortDate(iso) {
   const d = iso instanceof Date ? iso : new Date(`${iso}T00:00:00`)
@@ -268,7 +263,7 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
               ⚠ Кассовые разрывы ({breaks.length})
             </div>
             <div className="shrink-0 text-xs text-red-600 tabular-nums">
-              мин. {signed(minBalance)} {currency}
+              мин. {signedAmount(minBalance)} {currency}
             </div>
           </div>
           <div className="mt-1 flex gap-1.5 overflow-hidden">
@@ -277,10 +272,10 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
                 key={b.key}
                 type="button"
                 onClick={() => setSelected(b.key)}
-                title={`${longDate(b.key)} · ${signed(b.balance)} ${currency}`}
+                title={`${longDate(b.key)} · ${signedAmount(b.balance)} ${currency}`}
                 className="shrink-0 rounded-full bg-white border border-red-300 px-2 py-0.5 text-[11px] font-semibold text-red-600 tabular-nums hover:bg-red-100"
               >
-                {shortDate(b.key)} · {signed(b.balance)}
+                {shortDate(b.key)} · {signedAmount(b.balance)}
               </button>
             ))}
             {breaks.length > 6 && (
@@ -304,10 +299,10 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
             Переключайте дни клавишами ← и →
           </div>
           <div className={`mt-1 text-2xl font-extrabold tabular-nums ${selectedPoint.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-            Баланс: {signed(selectedPoint.balance)} {currency}
+            Баланс: {signedAmount(selectedPoint.balance)} {currency}
           </div>
           <div className={`text-sm font-semibold tabular-nums ${selectedPoint.delta < 0 ? 'text-red-500' : selectedPoint.delta > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-            Изменение за день: {selectedPoint.delta ? signed(selectedPoint.delta) : '0'} {currency}
+            Изменение за день: {selectedPoint.delta ? signedAmount(selectedPoint.delta) : '0'} {currency}
           </div>
           <div className="mt-2 divide-y divide-slate-100 rounded border border-slate-200 bg-white">
             {selectedPoint.parts.length === 0 ? (
@@ -327,7 +322,7 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
                     </span>
                     <span className={`truncate ${p.done ? 'text-slate-400 line-through' : 'text-slate-700'}`} title={p.title}>{p.title}</span>
                   </span>
-                  <span className={`shrink-0 font-mono tabular-nums ${p.amount < 0 ? 'text-red-500' : 'text-green-600'}`}>{signed(p.amount)}</span>
+                  <span className={`shrink-0 font-mono tabular-nums ${p.amount < 0 ? 'text-red-500' : 'text-green-600'}`}>{signedAmount(p.amount)}</span>
                 </div>
               ))
             )}

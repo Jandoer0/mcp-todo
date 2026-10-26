@@ -90,7 +90,6 @@ export const adminApi = {
   },
   setDbSizeLimit: (mb) =>
     api.put(`${API_URL}/admin/settings/db_size_limit_mb?limit_mb=${mb}`),
-  userBoards: (userId) => api.get(`${API_URL}/admin/users/${userId}/boards`),
 }
 
 export const listsApi = {
@@ -106,11 +105,8 @@ export const listsApi = {
 export const tagsApi = {
   list: (boardId) =>
     api.get(`${API_URL}/tags`, { params: { board_id: boardId } }),
-  create: (boardId, data) =>
-    api.post(`${API_URL}/tags`, data, { params: { board_id: boardId } }),
   update: (boardId, id, data) =>
     api.put(`${API_URL}/tags/${boardId}/${id}`, data),
-  remove: (boardId, id) => api.delete(`${API_URL}/tags/${boardId}/${id}`),
 }
 
 export const healthApi = {

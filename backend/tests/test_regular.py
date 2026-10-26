@@ -86,14 +86,12 @@ def test_regular_list_is_protected():
 
 def test_cyclic_task_lands_in_regular_list():
     h = _register("reg_cycl")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json=_cyclic_payload(list="Не начато")).json()
     assert t["is_cyclic"] and t["list"] == "Регулярные"
 
 
 def test_regular_task_cannot_enter_regular_list():
     h = _register("reg_norm")
-    bid = _first_board(h)
     # при создании
     t = client.post("/api/tasks", headers=h, json={"title": "Разовое", "list": "Регулярные"}).json()
     assert not t["is_cyclic"] and t["list"] != "Регулярные"
@@ -105,7 +103,6 @@ def test_regular_task_cannot_enter_regular_list():
 
 def test_cyclic_task_cannot_leave_regular_list():
     h = _register("reg_stay")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json=_cyclic_payload()).json()
     t = client.put(f"/api/tasks/{t['id']}", headers=h, json={"list": "В работе"}).json()
     assert t["is_cyclic"] and t["list"] == "Регулярные"
@@ -120,7 +117,6 @@ def test_cyclic_task_cannot_leave_regular_list():
 
 def test_bulk_respects_regular_invariant():
     h = _register("reg_bulk")
-    bid = _first_board(h)
     r = client.post(
         "/api/tasks/bulk",
         json={"tasks": [
@@ -139,7 +135,6 @@ def test_bulk_respects_regular_invariant():
 
 def test_cycle_complete_records_actuals():
     h = _register("reg_fact")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json=_cyclic_payload(amount=-500)).json()
     r = client.post(
         f"/api/tasks/{t['id']}/cycle/complete",
@@ -166,7 +161,6 @@ def test_cycle_complete_records_actuals():
 def test_cycle_complete_defaults():
     """Без факта: дата = сейчас, сумма = плановая."""
     h = _register("reg_def")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json=_cyclic_payload(amount=-500)).json()
     r = client.post(f"/api/tasks/{t['id']}/cycle/complete", headers=h, json={})
     assert r.status_code == 200
@@ -178,7 +172,6 @@ def test_cycle_complete_defaults():
 
 def test_cycle_stop_moves_out_of_regular():
     h = _register("reg_stop")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json=_cyclic_payload()).json()
     r = client.post(f"/api/tasks/{t['id']}/cycle/stop", headers=h)
     assert r.status_code == 200
@@ -190,7 +183,6 @@ def test_complete_via_done_list_put():
     """Завершение цикла общим PUT в список со свойством done: транзит
     разрешён, регенерация создаёт следующую итерацию в «Регулярных»."""
     h = _register("reg_put")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json=_cyclic_payload(amount=-700)).json()
     r = client.put(f"/api/tasks/{t['id']}", headers=h, json={"list": "Готово"})
     assert r.status_code == 200
@@ -202,7 +194,6 @@ def test_complete_via_done_list_put():
 
 def test_complete_non_cyclic_400():
     h = _register("reg_nc")
-    bid = _first_board(h)
     t = client.post("/api/tasks", headers=h, json={"title": "Разовое"}).json()
     assert client.post(f"/api/tasks/{t['id']}/cycle/complete", headers=h, json={}).status_code == 400
 
@@ -364,7 +355,6 @@ def test_cycle_log_correction():
 def test_cycle_log_correction_isolated():
     """Чужой пользователь не может править чужую историю (изоляция)."""
     h = _register("corr_iso_a")
-    bid = _first_board(h)
     r = client.post("/api/tasks", headers=h,
                     json=_cyclic_payload(title="Моя история", amount=100))
     assert r.status_code == 200, r.text

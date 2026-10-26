@@ -1,6 +1,5 @@
 """Task summary statistics for the authenticated user."""
 from datetime import timedelta
-from ..clock import utcnow
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session

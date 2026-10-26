@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from test_isolation import client  # noqa: F401  (app with isolated temp DB)
-from test_isolation import _first_board, _register
+from test_isolation import _first_board
 
 from app.board import BOARD_PALETTE
 from app.clock import utcnow
@@ -160,7 +160,7 @@ def test_delete_dispatch_is_board_scoped():
     """Regression: task_deleted must fire only for webhooks bound to the
     task's board, not to every webhook of the user."""
     hdr, uid = _admin()
-    hook = _hook(hdr, ["task_deleted"])
+    _hook(hdr, ["task_deleted"])
     r = client.post(
         "/api/boards", headers=hdr, json={"name": "other-board", "color": BOARD_PALETTE[1]}
     )

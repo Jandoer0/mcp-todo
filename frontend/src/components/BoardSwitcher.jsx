@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { MAX_BOARDS } from '../constants'
 
 const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0.25)'
 

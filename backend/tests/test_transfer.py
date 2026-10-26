@@ -44,7 +44,7 @@ def test_export_contains_everything():
     # блокер: обычная блокируется циклической? нельзя — циклическая в «Регулярных»,
     # блокеры разрешены внутри доски; создадим две обычные задачи
     t1 = _make_task(h, b, title="Первая")
-    t2 = _make_task(h, b, title="Вторая", blocked_by=[t1["id"]])
+    _make_task(h, b, title="Вторая", blocked_by=[t1["id"]])
 
     r = client.get(f"/api/boards/{b}/export", headers=h)
     assert r.status_code == 200, r.text

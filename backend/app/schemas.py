@@ -495,59 +495,6 @@ class BoardImportRequest(BaseModel):
             raise ValueError("mode: merge | replace")
         return v
 
-class WebhookBase(BaseModel):
-    name: str | None = Field(default=None, max_length=100)
-    url: str = Field(max_length=2048)
-    token: str | None = Field(default=None, max_length=256)  # HMAC secret
-    chat_id: str = Field(max_length=100)
-    thread_id: str | None = Field(default=None, max_length=50)
-    events: builtins.list[str] = []
-    excluded_events: builtins.list[str] = []
-
-    @field_validator("name")
-    @classmethod
-    def _name_not_empty(cls, v: str | None) -> str | None:
-        # None is allowed for the board-scoped upsert (WebhookPut defaults it
-        # to the board name); only explicit empty strings are rejected.
-        if v is not None and not v.strip():
-            raise ValueError("Укажите название веб-хука")
-        return v
-
-    @field_validator("url")
-    @classmethod
-    def _url_check(cls, v: str) -> str:
-        v = (v or "").strip()
-        if not v:
-            raise ValueError("Укажите URL приёмника уведомлений")
-        if " " in v:
-            raise ValueError("URL не должен содержать пробелов")
-        # SSRF guard: http(s) only, public hosts only (see security.py).
-        return validate_webhook_url(v)
-
-    @field_validator("chat_id")
-    @classmethod
-    def _chat_id_check(cls, v: str) -> str:
-        if not (v or "").strip():
-            raise ValueError("Укажите Telegram Chat ID (например: -1001234567890)")
-        return v.strip()
-
-    @field_validator("thread_id")
-    @classmethod
-    def _thread_id_check(cls, v: str | None) -> str | None:
-        if v is not None and not v.strip():
-            return None
-        return v
-
-    @field_validator("events", "excluded_events")
-    @classmethod
-    def _events_not_empty(cls, v: builtins.list[str]) -> builtins.list[str]:
-        # allow empty list (validation of known events happens in the router)
-        return v or []
-
-class WebhookCreate(WebhookBase):
-    user_id: int  # webhook is bound to a specific user (owner of its tasks)
-    board_id: int  # ...and to a specific board (only its task events fire)
-
 class WebhookPut(BaseModel):
     """Payload for the board-scoped upsert (PUT /boards/{id}/webhook):
     user and board are taken from the caller and the path, one webhook
@@ -590,16 +537,6 @@ class WebhookPut(BaseModel):
     def _thread_id_check(cls, v: str | None) -> str | None:
         return v.strip() if v and v.strip() else None
 
-
-class WebhookUpdate(BaseModel):
-    name: str | None = None
-    url: str | None = None
-    token: str | None = None
-    chat_id: str | None = None
-    thread_id: str | None = None
-    board_id: int | None = None
-    events: builtins.list[str] | None = None
-    excluded_events: builtins.list[str] | None = None
 
 class WebhookResponse(BaseModel):
     id: int

@@ -1,6 +1,5 @@
 """Security regression tests: privilege escalation, SSRF, rate limiting,
 payload size/length limits. Run: cd backend && python3 -m pytest tests/ -q"""
-import os
 import sys
 from pathlib import Path
 

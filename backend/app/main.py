@@ -464,7 +464,7 @@ def _backfill_cycle_log_boards() -> None:
     """
     from sqlalchemy import text
 
-    from .models import Board, TaskCycleLog
+    from .models import TaskCycleLog
 
     with SessionLocal() as db:
         # 1) группы, у которых есть живая задача — берём её доску
@@ -586,7 +586,7 @@ def seed_lists(db) -> None:
     including the system «Регулярные» list), and backfill tasks whose list
     does not reference one of the owner's lists."""
     from .board import ensure_default_lists, status_for_list, status_for_kind
-    from .models import Board, Task, TaskList, User
+    from .models import Board, Task, TaskList
 
     # Только существующие доски: у задач может не быть board_id до бэкфилла.
     for board in db.query(Board).all():

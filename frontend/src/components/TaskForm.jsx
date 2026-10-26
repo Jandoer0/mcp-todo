@@ -4,7 +4,6 @@ import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
-import { formatAmount } from '../utils/format'
 import { GravityEditor } from './editor/GravityEditor'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']

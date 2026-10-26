@@ -141,33 +141,6 @@ def _pick_tag_color(db, user_id: int, board_id: int | None = None) -> str:
     return color
 
 
-def repair_tag_colors(db, user_id: int, board_id: int | None = None) -> int:
-    """Reassign colors to tags that ended up with a color not allowed for tags
-    (e.g. the gray fallback colliding with the 'Не начато' list color)."""
-    avail = tag_palette(db, user_id, board_id)
-    if not avail:
-        avail = list(PALETTE)
-    allowed = set(avail)
-    q = db.query(Tag).filter(Tag.user_id == user_id)
-    if board_id is not None:
-        q = q.filter(Tag.board_id == board_id)
-    tags = q.all()
-    used = {t.color for t in tags if t.color in allowed}
-    fixed = 0
-    for tag in tags:
-        if tag.color in allowed:
-            continue
-        color = next((c for c in avail if c not in used), None)
-        if color is None:
-            color = avail[fixed % len(avail)]
-        tag.color = color
-        used.add(color)
-        fixed += 1
-    if fixed:
-        db.commit()
-    return fixed
-
-
 def ensure_tags(db: Session, names, user_id: int, board_id: int | None = None) -> list:
     """Ensure Tag rows exist for each name (auto color, never colliding with
     list colors; colors repeat cyclically when the palette is exhausted).
@@ -498,20 +471,6 @@ def update_cycle_log(
         log.actual_amount = float(actual_amount)
     db.commit()
     db.refresh(log)
-    return log
-
-
-def cycle_log_history(
-    db: Session, user: User, log_id: int
-) -> TaskCycleLog:
-    """Fetch a single cycle-log entry owned by the user (for edit forms)."""
-    log = (
-        db.query(TaskCycleLog)
-        .filter(TaskCycleLog.id == log_id, TaskCycleLog.user_id == user.id)
-        .first()
-    )
-    if not log:
-        raise LookupError("Cycle log entry not found")
     return log
 
 
