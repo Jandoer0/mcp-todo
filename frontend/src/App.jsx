@@ -262,18 +262,6 @@ export default function App() {
     }
   }
 
-  const handleCyclicStop = async (task) => {
-    if (!confirm(`Сделать задачу «${task.title}» обычной?`)) return
-    try {
-      await tasksApi.cycleStop(task.id)
-      setCyclicFormOpen(false)
-      setEditingCyclicTask(null)
-      await load()
-    } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось остановить цикл')
-    }
-  }
-
   const handleCyclicDelete = async (task) => {
     if (!confirm(`Удалить циклическую задачу «${task.title}» и всю её историю?`)) return
     try {
@@ -461,7 +449,7 @@ export default function App() {
 
       <div className="flex justify-between items-center mb-4 gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          {/* Mobile: filters as a dropdown between the two buttons */}
+          {/* Mobile: фильтры — дропдауном, рядом кнопка Планировщика */}
           <div className="md:hidden relative">
             <button
               onClick={() => (filterMenuOpen ? closeFilterMenu() : (clearTimeout(filterMenuTimer.current), setFilterMenuClosing(false), setFilterMenuOpen(true)))}
@@ -498,6 +486,16 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Mobile: кнопка Планировщика (на десктопе он остаётся в шапке) */}
+          <button
+            type="button"
+            onClick={() => setPlannerOpen(true)}
+            title="Открыть глобальный планировщик"
+            className="md:hidden shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700"
+          >
+            Планировщик
+          </button>
         </div>
 
         {/* Tag Cloud Filter — desktop: inside the buttons row */}
@@ -538,7 +536,6 @@ export default function App() {
           setEditingCyclicTask(null)
         }}
         onSubmit={handleCyclicSubmit}
-        onStop={handleCyclicStop}
         onDelete={handleCyclicDelete}
       />
 

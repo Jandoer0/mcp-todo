@@ -70,7 +70,7 @@ export default function Layout({
       }}
     >
       <header className="bg-[#22384d] shadow px-3 sm:px-4 py-3 flex items-center gap-2">
-        {/* Логотип + название — скрываются на мобильных (остаются только доски и профиль) */}
+        {/* Логотип + название — скрываются на мобильных */}
         <button
           type="button"
           onClick={() => window.location.reload()}
@@ -83,14 +83,15 @@ export default function Layout({
           </span>
         </button>
 
+        {/* Планировщик: на десктопе — в шапке; на мобильных кнопка живёт
+            в панели действий App.jsx (там же фильтры) — шапка не перегружается. */}
         <button
           type="button"
           onClick={onPlanner}
           title="Открыть глобальный планировщик"
-          className="shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-1 focus:ring-offset-[#22384d]"
+          className="hidden md:block shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-1 focus:ring-offset-[#22384d]"
         >
-          <span className="hidden sm:inline">Планировщик</span>
-          <span className="sm:hidden">План</span>
+          Планировщик
         </button>
 
         {/* Переключатель досок — центр хедера */}

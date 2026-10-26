@@ -131,9 +131,18 @@ export default function Planner({ open, onClose, onEdit }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[40] flex flex-col bg-[#35506b] text-slate-800">
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#22384d] px-5 py-4 text-white shadow-lg">
-        <div><h1 className="text-lg font-extrabold">Планировщик</h1><p className="text-xs text-white/60">Global Daily Focus · все доски</p></div>
-        <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">Закрыть ×</button>
+      <header className="shrink-0 border-b border-white/10 bg-[#22384d] px-5 py-3 text-white shadow-lg">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-extrabold leading-tight">Планировщик</h1>
+          <button type="button" onClick={onClose} className="shrink-0 rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">Закрыть ×</button>
+        </div>
+        {/* Карточка выбранной даты — в хедере: под список задач отдаётся
+            вся оставшаяся высота, а не блок с крупным заголовком. */}
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-white/50">Выбранная дата</span>
+          <h2 className="text-base font-extrabold capitalize leading-tight text-white sm:text-lg">{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2>
+          <span className="hidden text-xs text-white/60 sm:inline">Global Daily Focus · все доски</span>
+        </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col md:flex-row bg-[#35506b]">
         <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-200 bg-white p-4 md:w-72 md:border-b-0 md:border-r lg:w-80">
@@ -142,7 +151,7 @@ export default function Planner({ open, onClose, onEdit }) {
           <CalendarMonth month={shiftMonth(month, 1)} selected={selected} activity={activity} onSelect={setSelected} />
         </aside>
         <main className="min-w-0 flex-1 overflow-y-auto bg-[#35506b] p-4 md:p-6">
-          <div className="mx-auto max-w-4xl"><div className="mb-6 rounded-2xl border border-white/10 bg-white/10 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Выбранная дата</p><h2 className="text-2xl font-extrabold capitalize text-white">{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2></div>
+          <div className="mx-auto max-w-4xl">
             {loading ? <p className="py-12 text-center text-sm text-slate-400">Загрузка задач со всех досок…</p> : <div className="space-y-8"><GroupedFeed title="Просроченные" tasksByBoard={overdue} onEdit={onEdit} tone="red" empty="Просроченных задач нет" /><GroupedFeed title="Завершить" tasksByBoard={due} onEdit={onEdit} tone="amber" empty="На эту дату задач к завершению нет" /><GroupedFeed title="В работе" tasksByBoard={upcoming} onEdit={onEdit} tone="slate" empty="Нет незавершённых задач с более поздним дедлайном" /></div>}
           </div>
         </main>
