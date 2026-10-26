@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { boardsApi, currenciesApi } from '../api/client'
 import BudgetTab from './BudgetTab'
 import ChartTab from './ChartTab'
@@ -10,8 +11,8 @@ import ChartTab from './ChartTab'
 // Содержимое режимов — прежние BudgetTab/ChartTab, переиспользованные как есть.
 
 const MODES = [
-  { id: 'totals', label: 'Итоги' },
-  { id: 'chart', label: 'График' },
+  { id: 'totals', labelKey: 'budget.tabTotals' },
+  { id: 'chart', labelKey: 'budget.tabChart' },
 ]
 
 // Выбранный режим запоминается между открытиями (localStorage).
@@ -26,6 +27,7 @@ function initialMode() {
 }
 
 export default function BudgetView({ board, tasks = [], lists = [], onChanged }) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState(initialMode)
   const [budget, setBudget] = useState(null)
   const [cashflow, setCashflow] = useState(null)
@@ -70,7 +72,7 @@ export default function BudgetView({ board, tasks = [], lists = [], onChanged })
       reload()
       onChanged?.()
     } catch (err) {
-      setSaveError(err?.response?.data?.detail || 'Не удалось сохранить валюту расчёта')
+      setSaveError(err?.response?.data?.detail || t('budget.saveCurrencyError'))
     }
   }
 
@@ -89,7 +91,7 @@ export default function BudgetView({ board, tasks = [], lists = [], onChanged })
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            {m.label}
+            {t(m.labelKey)}
           </button>
         ))}
       </div>
@@ -97,7 +99,7 @@ export default function BudgetView({ board, tasks = [], lists = [], onChanged })
       {/* Валюта расчёта: одна на всю вкладку, действует и в итогах, и в графике */}
       <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Валюта расчёта
+          {t('budget.reportCurrency')}
         </span>
         <select
           value={budget?.report_currency?.id ?? ''}

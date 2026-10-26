@@ -25,7 +25,7 @@ const pad = (n) => String(n).padStart(2, '0')
 export const LOCALE_TAG = { ru: 'ru-RU', en: 'en-US' }
 
 // «Friendly» использует короткое имя месяца — ключ в словаре перевода.
-const MONTH_SHORT_KEYS = [
+export const MONTH_SHORT_KEYS = [
   'jan', 'feb', 'mar', 'apr', 'may', 'jun',
   'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
 ]

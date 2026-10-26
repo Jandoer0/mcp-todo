@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { currenciesApi } from '../api/client'
 
 const FIELDS = [
-  { key: 'code', label: 'Код', placeholder: 'GBP', maxLength: 10, cls: 'uppercase' },
-  { key: 'name', label: 'Название', placeholder: 'Фунт (UK)', maxLength: 100, cls: '' },
-  { key: 'symbol', label: 'Символ', placeholder: '£', maxLength: 10, cls: '' },
-  { key: 'rate', label: 'Курс (к $)', placeholder: '1.27', maxLength: 20, cls: 'tabular-nums' },
+  { key: 'code', placeholder: 'GBP', maxLength: 10, cls: 'uppercase' },
+  { key: 'name', placeholder: 'Фунт (UK)', maxLength: 100, cls: '' },
+  { key: 'symbol', placeholder: '£', maxLength: 10, cls: '' },
+  { key: 'rate', placeholder: '1.27', maxLength: 20, cls: 'tabular-nums' },
 ]
 
 const EMPTY = { code: '', name: '', symbol: '', rate: '' }
@@ -13,6 +14,7 @@ const EMPTY = { code: '', name: '', symbol: '', rate: '' }
 // «Параметры валют»: карточки валют с полным редактированием (код, название,
 // символ, курс к базовой единице USD) + добавление новой валюты.
 export default function CurrencyManager({ currencies = [], onChanged }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
   const [createError, setCreateError] = useState('')
@@ -31,12 +33,12 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
     e.preventDefault()
     setCreateError('')
     if (!form.code.trim() || !form.name.trim()) {
-      setCreateError('Укажите код и название валюты')
+      setCreateError(t('currency.needCodeName'))
       return
     }
     const rate = parseRate(form.rate)
     if (Number.isNaN(rate)) {
-      setCreateError('Курс должен быть числом больше нуля (или пустым)')
+      setCreateError(t('currency.ratePositive'))
       return
     }
     setBusy(true)
@@ -50,7 +52,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       setForm(EMPTY)
       onChanged?.()
     } catch (err) {
-      setCreateError(err?.response?.data?.detail || 'Не удалось создать валюту')
+      setCreateError(err?.response?.data?.detail || t('currency.createFailed'))
     } finally {
       setBusy(false)
     }
@@ -75,12 +77,12 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
   const saveEdit = async (c) => {
     setEditError('')
     if (!draft.code.trim() || !draft.name.trim()) {
-      setEditError('Укажите код и название валюты')
+      setEditError(t('currency.needCodeName'))
       return
     }
     const rate = parseRate(draft.rate)
     if (Number.isNaN(rate)) {
-      setEditError('Курс должен быть числом больше нуля (или пустым)')
+      setEditError(t('currency.ratePositive'))
       return
     }
     try {
@@ -93,19 +95,19 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       setEditingId(null)
       onChanged?.()
     } catch (err) {
-      setEditError(err?.response?.data?.detail || 'Не удалось сохранить валюту')
+      setEditError(err?.response?.data?.detail || t('currency.saveFailed'))
     }
   }
 
   const remove = async (c) => {
-    if (!confirm(`Удалить валюту «${c.code}»? Задачи с ней перейдут в дефолтную валюту.`)) return
+    if (!confirm(t('currency.deleteConfirm', { code: c.code }))) return
     setEditError('')
     try {
       await currenciesApi.remove(c.id)
       if (editingId === c.id) cancelEdit()
       onChanged?.()
     } catch (err) {
-      setEditError(err?.response?.data?.detail || 'Не удалось удалить валюту')
+      setEditError(err?.response?.data?.detail || t('currency.deleteFailed'))
     }
   }
 
@@ -120,7 +122,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       await currenciesApi.reorder(ids)
       onChanged?.()
     } catch (err) {
-      setEditError(err?.response?.data?.detail || 'Не удалось изменить порядок')
+      setEditError(err?.response?.data?.detail || t('currency.reorderFailed'))
     }
   }
 
@@ -131,7 +133,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
         <div key={f.key}>
           {withLabels && (
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-              {f.label}
+              {t(`currencies.fields.${f.key}`)}
             </label>
           )}
           <input
@@ -155,14 +157,13 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-slate-500">
-        Курс — стоимость 1 единицы валюты в базовых единицах (USD). Пример: курс RUB = 0,011
-        означает, что 10 000 ₽ ≈ 110 $. Если курс не указан, бюджет покажет предупреждение.
+        {t('currency.rateExplanation')}
       </p>
 
       {/* Карточки валют */}
       <div className="space-y-2 max-h-80 overflow-y-auto pr-0.5">
         {currencies.length === 0 && (
-          <p className="text-sm text-slate-400">Валют пока нет — добавьте первую ниже.</p>
+          <p className="text-sm text-slate-400">{t('currency.empty')}</p>
         )}
         {currencies.map((c, idx) =>
           editingId === c.id ? (
@@ -176,7 +177,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
                   onClick={() => remove(c)}
                   className="px-3 py-1.5 text-red-500 hover:bg-red-50 rounded font-medium text-sm transition-colors"
                 >
-                  Удалить
+                  {t('common.delete')}
                 </button>
                 <div className="flex gap-2">
                   <button
@@ -184,14 +185,14 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
                     onClick={cancelEdit}
                     className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded text-sm"
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="button"
                     onClick={() => saveEdit(c)}
                     className="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 font-medium text-sm"
                   >
-                    Сохранить
+                    {t('common.save')}
                   </button>
                 </div>
               </div>
@@ -211,7 +212,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
                   onClick={() => move(idx, -1)}
                   disabled={idx === 0}
                   className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
-                  title="Выше"
+                  title={t('currency.up')}
                 >
                   ▲
                 </button>
@@ -220,7 +221,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
                   onClick={() => move(idx, 1)}
                   disabled={idx === currencies.length - 1}
                   className="text-slate-400 hover:text-blue-600 disabled:opacity-30 leading-none text-[10px] px-1"
-                  title="Ниже"
+                  title={t('currency.down')}
                 >
                   ▼
                 </button>
@@ -237,15 +238,15 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
                   className={`text-xs tabular-nums ${
                     c.rate ? 'text-slate-500' : 'text-red-500 font-semibold'
                   }`}
-                  title={c.rate ? 'Курс к базовому USD' : 'Курс не указан'}
+                  title={c.rate ? t('currency.rateToUsd') : t('currency.rateNotSet')}
                 >
-                  {c.rate ? `1 = ${c.rate} $` : 'курс не указан'}
+                  {c.rate ? `1 = ${c.rate} $` : t('currency.rateLine')}
                 </span>
                 <button
                   type="button"
                   onClick={() => startEdit(c)}
                   className="px-2 py-1 rounded text-slate-500 hover:bg-slate-100 hover:text-blue-600 text-sm"
-                  title="Редактировать валюту"
+                  title={t('currency.editHint')}
                 >
                   ✎
                 </button>
@@ -258,7 +259,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       {/* Новая валюта */}
       <form onSubmit={create} className="rounded-lg border border-dashed border-slate-300 p-3 space-y-2">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Новая валюта
+          {t('currencies.add')}
         </div>
         {renderFields(form, setForm, true)}
         {createError && <p className="text-sm text-red-500">{createError}</p>}
@@ -268,7 +269,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
             disabled={busy}
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 font-medium text-sm"
           >
-            Добавить валюту
+            {t('currencies.add')}
           </button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { boardsApi } from '../api/client'
 import { signedAmount } from '../utils/format'
 
@@ -9,6 +10,7 @@ import { signedAmount } from '../utils/format'
 // в оболочке; при внешнем `data` вкладка не грузит ничего сама.
 
 export default function BudgetTab({ board, tasks = [], lists = [], data: externalBudget = null }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   // Бюджет приходит с бэкенда (Decimal-расчёты, конверсия по курсам).
   // В BudgetView данные загружаются снаружи (общий загрузчик с графиком);
@@ -71,17 +73,17 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
     const line = '--------------------------------'
     const planEntries = sortEntries(entries.filter((e) => !doneEntries.includes(e)))
     return [
-      `${board.name} — Бюджет${reportCode ? ` (${reportCode})` : ''}`,
+      `${t('budget.reportTitle', { name: board.name })}${reportCode ? ` (${reportCode})` : ''}`,
       line,
       sortEntries(doneEntries).map(entryLine).join('\n'),
       planEntries.map(entryLine).join('\n'),
       line,
-      `ПЛАН: ${signedAmount(plan)} ${reportCode}`,
-      `ФАКТ: ${signedAmount(fact)} ${reportCode}`,
+      `${t('budget.planUpper')}: ${signedAmount(plan)} ${reportCode}`,
+      `${t('budget.factUpper')}: ${signedAmount(fact)} ${reportCode}`,
       line,
-      `ВСЕГО ДОХОД: ${signedAmount(income)} ${reportCode}`,
-      `ВСЕГО РАСХОД: ${signedAmount(expense)} ${reportCode}`,
-      `ИТОГО: ${signedAmount(total)} ${reportCode}`,
+      `${t('budget.totalIncomeUpper')}: ${signedAmount(income)} ${reportCode}`,
+      `${t('budget.totalExpenseUpper')}: ${signedAmount(expense)} ${reportCode}`,
+      `${t('budget.totalUpper')}: ${signedAmount(total)} ${reportCode}`,
     ]
       .filter((s) => s !== '')
       .join('\n')
@@ -101,7 +103,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
     <div className="space-y-4">
       {budget?.missing_rate && (
         <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-          ⚠ У одной или нескольких валют не указан курс — обновите «Параметры валют», иначе итоги будут неполными.
+          {t('budget.missingRate')}
         </p>
       )}
 
@@ -111,7 +113,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
         {/* Герой: общий баланс крупно по центру */}
         <div className="rounded-lg bg-slate-50 py-3 text-center">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Баланс доски
+            {t('budget.balance')}
           </div>
           <div
             className={`text-3xl font-extrabold tabular-nums leading-tight ${
@@ -136,11 +138,11 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
         {/* Строки-выписка: метка ······ значение (чек-стиль) */}
         <div className="space-y-2">
           {[
-            { label: 'Доходы', value: income, dot: 'bg-green-500', text: 'text-green-600' },
-            { label: 'Расходы', value: expense, dot: 'bg-red-500', text: 'text-red-600' },
-            { label: 'План', value: plan, dot: 'bg-slate-300', text: 'text-slate-800' },
-            { label: 'Факт', value: fact, dot: 'bg-slate-400', text: 'text-slate-800' },
-            { label: 'Базовый слой', value: budget?.regular ?? 0, dot: 'bg-teal-500', text: 'text-teal-700' },
+            { label: t('budget.income'), value: income, dot: 'bg-green-500', text: 'text-green-600' },
+            { label: t('budget.expense'), value: expense, dot: 'bg-red-500', text: 'text-red-600' },
+            { label: t('budget.plan'), value: plan, dot: 'bg-slate-300', text: 'text-slate-800' },
+            { label: t('budget.fact'), value: fact, dot: 'bg-slate-400', text: 'text-slate-800' },
+            { label: t('budget.baseLayer'), value: budget?.regular ?? 0, dot: 'bg-teal-500', text: 'text-teal-700' },
           ].map((row) => (
             <div key={row.label} className="flex items-baseline gap-2 text-sm">
               <span className={`h-2 w-2 shrink-0 rounded-full ${row.dot}`} />
@@ -157,11 +159,11 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
         {/* План / Баланс / Факт — одна строка */}
         <div className="grid grid-cols-3 items-center divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">План</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('budget.plan')}</div>
             <div className="font-bold tabular-nums text-slate-800">{signedAmount(plan)}</div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Баланс доски</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('budget.balance')}</div>
             <div
               className={`text-xl font-extrabold tabular-nums ${
                 total > 0 ? 'text-green-600' : total < 0 ? 'text-red-600' : 'text-slate-800'
@@ -171,7 +173,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Факт</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('budget.fact')}</div>
             <div className="font-bold tabular-nums text-slate-800">{signedAmount(fact)}</div>
           </div>
         </div>
@@ -185,11 +187,11 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
           <div className="mt-2 flex items-center justify-between text-sm">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-slate-500">Доходы</span>
+              <span className="text-slate-500">{t('budget.income')}</span>
               <span className="font-bold tabular-nums text-green-600">{signedAmount(income)}</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="text-slate-500">Расходы</span>
+              <span className="text-slate-500">{t('budget.expense')}</span>
               <span className="font-bold tabular-nums text-red-600">{signedAmount(expense)}</span>
               <span className="h-2 w-2 rounded-full bg-red-500" />
             </span>
@@ -198,11 +200,11 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-teal-500" />
-              Базовый слой (регулярные)
+              {t('budget.baseLayerRegular')}
             </span>
             <span className="tabular-nums font-semibold text-teal-700">
               {signedAmount(budget?.regular ?? 0)}
-              <span className="text-slate-400 font-normal"> · разовые: {signedAmount(budget?.operational ?? 0)}</span>
+              <span className="text-slate-400 font-normal">{t('budget.operationalSuffix', { value: signedAmount(budget?.operational ?? 0) })}</span>
             </span>
           </div>
         </div>
@@ -210,7 +212,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
 
       {entries.length === 0 ? (
         <p className="text-sm text-slate-500">
-          Задач с суммой пока нет — укажите сумму в форме задачи (доход или расход).
+          {t('budget.noAmounts')}
         </p>
       ) : (
         <div className="rounded border border-slate-200 divide-y divide-slate-100 max-h-[min(33rem,50dvh)] overflow-y-auto">
@@ -224,7 +226,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
                   {e.actual && (
                     <span
                       className="inline-block align-middle mr-1.5 rounded px-1 text-[9px] font-bold uppercase bg-teal-100 text-teal-700"
-                      title="Факт из истории итераций (приоритет над планом)"
+                      title={t('budget.factBadgeTitle')}
                     >
                       факт
                     </span>
@@ -232,7 +234,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
                   {e.is_regular && (
                     <span
                       className="inline-block align-middle mr-1.5 rounded px-1 text-[9px] font-bold uppercase bg-teal-100 text-teal-700"
-                      title="Регулярный платёж — базовый слой бюджета"
+                      title={t('budget.baseBadgeTitle')}
                     >
                       базовый
                     </span>
@@ -242,7 +244,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
                 <span className={`shrink-0 font-mono tabular-nums text-right ${dim ? 'text-slate-300' : 'text-slate-600'}`}>
                   {e.converted != null ? signedAmount(e.converted) : signedAmount(e.amount)}
                   {e.converted == null && e.currency_code && (
-                    <span className="font-sans" title="Курс не указан"> {e.currency_code} ⚠</span>
+                    <span className="font-sans" title={t('budget.rateNotSetBadge')}> {e.currency_code} ⚠</span>
                   )}
                 </span>
               </div>
@@ -257,7 +259,7 @@ export default function BudgetTab({ board, tasks = [], lists = [], data: externa
         disabled={entries.length === 0}
         className="w-full bg-slate-600 text-white px-4 py-2 rounded hover:bg-slate-700 disabled:opacity-50 font-medium"
       >
-        {copied ? 'Скопировано ✓' : 'Копировать'}
+        {copied ? t('budget.copied') : t('budget.copy')}
       </button>
     </div>
   )

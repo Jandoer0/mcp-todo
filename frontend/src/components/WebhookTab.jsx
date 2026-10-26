@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { boardsApi } from '../api/client'
 import { formatApiError } from '../api/errors'
 
@@ -6,14 +7,15 @@ import { formatApiError } from '../api/errors'
 // The admin can revoke the right per user; a revoked user has no tab and
 // their webhook parameters are wiped server-side.
 
+// Ключи событий лежат в словаре под webhooks.events.*
 const WEBHOOK_EVENTS = [
-  ['task_created', 'Создание задачи'],
-  ['task_updated', 'Изменение задачи'],
-  ['task_completed', 'Выполнение задачи'],
-  ['task_deleted', 'Удаление задачи'],
-  ['priority_changed', 'Изменение приоритета'],
-  ['deadline_approaching', 'Приближение дедлайна (<24ч)'],
-  ['task_overdue', 'Просрочка задачи'],
+  'task_created',
+  'task_updated',
+  'task_completed',
+  'task_deleted',
+  'priority_changed',
+  'deadline_approaching',
+  'task_overdue',
 ]
 
 const EMPTY = {
@@ -28,19 +30,20 @@ const EMPTY = {
 }
 
 function EventMultiSelect({ value, onChange }) {
+  const { t } = useTranslation()
   const toggle = (ev) => {
     onChange(value.includes(ev) ? value.filter((e) => e !== ev) : [...value, ev])
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border rounded p-2 max-h-40 overflow-y-auto">
-      {WEBHOOK_EVENTS.map(([ev, label]) => (
+      {WEBHOOK_EVENTS.map((ev) => (
         <label key={ev} className="flex items-center gap-2 text-sm cursor-pointer">
           <input
             type="checkbox"
             checked={value.includes(ev)}
             onChange={() => toggle(ev)}
           />
-          <span>{label}</span>
+          <span>{t(`webhooks.events.${ev}`)}</span>
         </label>
       ))}
     </div>
@@ -48,6 +51,7 @@ function EventMultiSelect({ value, onChange }) {
 }
 
 export default function WebhookTab({ board }) {
+  const { t } = useTranslation()
   const [data, setData] = useState(EMPTY)
   const [exists, setExists] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -89,7 +93,7 @@ export default function WebhookTab({ board }) {
       })
   }, [board])
 
-  if (!loaded) return <p className="text-sm text-slate-500">Загрузка…</p>
+  if (!loaded) return <p className="text-sm text-slate-500">{t('webhooks.loading')}</p>
 
   const save = async (e) => {
     e.preventDefault()
@@ -99,27 +103,27 @@ export default function WebhookTab({ board }) {
     try {
       await boardsApi.webhook.put(board.id, {
         ...data,
-        name: data.name || `Доска «${board.name}»`,
+        name: data.name || t('webhooks.boardDefaultName', { name: board.name }),
       })
       setExists(true)
-      setMessage('Веб-хук сохранён.')
+      setMessage(t('webhooks.saved'))
     } catch (e) {
-      setError(formatApiError(e, 'Ошибка при сохранении веб-хука'))
+      setError(formatApiError(e, t('webhooks.saveError')))
     } finally {
       setSaving(false)
     }
   }
 
   const remove = async () => {
-    if (!window.confirm('Удалить параметры веб-хука этой доски?')) return
+    if (!window.confirm(t('webhooks.deleteConfirm'))) return
     try {
       await boardsApi.webhook.remove(board.id)
       setExists(false)
       setData(EMPTY)
       setError('')
-      setMessage('Веб-хук удалён.')
+      setMessage(t('webhooks.deleted'))
     } catch (e) {
-      setError(formatApiError(e, 'Ошибка при удалении веб-хука'))
+      setError(formatApiError(e, t('webhooks.deleteError')))
     }
   }
 
@@ -130,12 +134,12 @@ export default function WebhookTab({ board }) {
     try {
       const r = await boardsApi.webhook.test(board.id)
       if (r.data.ok) {
-        setMessage(`Тестовое уведомление отправлено (HTTP ${r.data.status_code}).`)
+        setMessage(t('webhooks.testSent', { code: r.data.status_code }))
       } else {
-        setError(`Ошибка доставки: ${r.data.error || 'неизвестная ошибка'}`)
+        setError(t('webhooks.testError', { error: r.data.error || t('webhooks.testUnknown') }))
       }
     } catch (e) {
-      setError(formatApiError(e, 'Ошибка отправки теста'))
+      setError(formatApiError(e, t('webhooks.testSendError')))
     } finally {
       setTesting(false)
     }
@@ -144,18 +148,16 @@ export default function WebhookTab({ board }) {
   return (
     <form onSubmit={save} className="space-y-4">
       <p className="text-xs text-slate-500">
-        Уведомления о событиях задач этой доски отправляются на указанный URL
-        (POST JSON, подпись HMAC-SHA256 в заголовке X-Hub-Signature-256).
-        Один веб-хук на доску.
+        {t('webhooks.intro')}
       </p>
       <div>
-        <label className="block text-sm font-medium mb-1">Название</label>
+        <label className="block text-sm font-medium mb-1">{t('webhooks.name')}</label>
         <input
           type="text"
           value={data.name}
           onChange={(e) => setData({ ...data, name: e.target.value })}
           className="w-full p-2 border rounded"
-          placeholder="Например: уведомления в Telegram"
+          placeholder={t('webhooks.namePlaceholder')}
         />
       </div>
       <div>
@@ -170,13 +172,13 @@ export default function WebhookTab({ board }) {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Секрет подписи (HMAC)</label>
+        <label className="block text-sm font-medium mb-1">{t('webhooks.secret')}</label>
         <input
           type="text"
           value={data.token}
           onChange={(e) => setData({ ...data, token: e.target.value })}
           className="w-full p-2 border rounded"
-          placeholder="необязательно — ключ HMAC-SHA256"
+          placeholder={t('webhooks.secretPlaceholder')}
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -187,7 +189,7 @@ export default function WebhookTab({ board }) {
             value={data.chat_id}
             onChange={(e) => setData({ ...data, chat_id: e.target.value })}
             className="w-full p-2 border rounded"
-            placeholder="например: -1001234567890"
+            placeholder={t('webhooks.chatIdPlaceholder')}
             required
           />
         </div>
@@ -198,12 +200,12 @@ export default function WebhookTab({ board }) {
             value={data.thread_id}
             onChange={(e) => setData({ ...data, thread_id: e.target.value })}
             className="w-full p-2 border rounded"
-            placeholder="необязательно"
+            placeholder={t('webhooks.urlPlaceholder')}
           />
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">События</label>
+        <label className="block text-sm font-medium mb-1">{t('webhooks.eventsTitle')}</label>
         <EventMultiSelect
           value={data.events}
           onChange={(events) => setData({ ...data, events })}
@@ -218,7 +220,7 @@ export default function WebhookTab({ board }) {
             onClick={remove}
             className="px-4 py-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded font-medium transition-colors"
           >
-            Удалить
+            {t('common.delete')}
           </button>
         ) : <span />}
         <div className="flex gap-2">
@@ -228,14 +230,14 @@ export default function WebhookTab({ board }) {
             disabled={!exists || testing}
             className="border border-green-600 text-green-600 px-4 py-2 rounded hover:bg-green-50 disabled:opacity-50"
           >
-            {testing ? 'Отправка…' : 'Тест'}
+            {testing ? t('webhooks.sending') : t('webhooks.test')}
           </button>
           <button
             type="submit"
             disabled={saving}
             className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium disabled:opacity-50"
           >
-            {saving ? 'Сохранение…' : 'Сохранить'}
+            {saving ? t('webhooks.saving') : t('common.save')}
           </button>
         </div>
       </div>

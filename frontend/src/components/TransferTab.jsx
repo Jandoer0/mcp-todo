@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { boardsApi } from '../api/client'
 import { formatApiError } from '../api/errors'
 
@@ -7,6 +8,7 @@ import { formatApiError } from '../api/errors'
 // итераций) в JSON-файл и обратно. Экспорт скачивается файлом; импорт
 // работает в двух режимах: «добавить» (merge) и «заменить» (replace).
 export default function TransferTab({ board, onImported }) {
+  const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
@@ -41,7 +43,7 @@ export default function TransferTab({ board, onImported }) {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setError(formatApiError(e, 'Ошибка экспорта'))
+      setError(formatApiError(e, t('transfer.exportError')))
     } finally {
       setBusy(false)
     }
@@ -56,22 +58,24 @@ export default function TransferTab({ board, onImported }) {
       try {
         const data = JSON.parse(reader.result)
         if (data.format && data.format !== 'mcp-todo-board') {
-          throw new Error('Это не файл экспорта доски')
+          throw new Error('not-export')
         }
-        if (!Array.isArray(data.tasks)) throw new Error('В файле нет списка задач')
+        if (!Array.isArray(data.tasks)) throw new Error('no-tasks')
         setPending({ data, fileName: f.name })
         setError('')
         setResult(null)
       } catch (err) {
         setPending(null)
         setError(
-          err?.message === 'Это не файл экспорта доски' || err?.message === 'В файле нет списка задач'
-            ? err.message
-            : 'Не удалось прочитать файл: ожидается JSON экспорта доски',
+          err?.message === 'not-export'
+            ? t('transfer.notExportFile')
+            : err?.message === 'no-tasks'
+              ? t('transfer.noTasksList')
+              : t('transfer.readError'),
         )
       }
     }
-    reader.onerror = () => setError('Не удалось прочитать файл')
+    reader.onerror = () => setError(t('transfer.readErrorShort'))
     reader.readAsText(f)
   }
 
@@ -79,9 +83,7 @@ export default function TransferTab({ board, onImported }) {
     if (!pending) return
     if (
       mode === 'replace' &&
-      !window.confirm(
-        `Заменить содержимое доски «${board.name}»? Текущие задачи, теги и история итераций будут удалены.`,
-      )
+      !window.confirm(t('transfer.replaceConfirm', { name: board.name }))
     )
       return
     setBusy(true)
@@ -95,7 +97,7 @@ export default function TransferTab({ board, onImported }) {
       setPending(null)
       onImported?.()
     } catch (e) {
-      setError(formatApiError(e, 'Ошибка импорта'))
+      setError(formatApiError(e, t('transfer.importError')))
     } finally {
       setBusy(false)
     }
@@ -108,11 +110,9 @@ export default function TransferTab({ board, onImported }) {
     <div className="space-y-5">
       {/* --- Экспорт ------------------------------------------------------- */}
       <section>
-        <h4 className="text-sm font-semibold text-slate-700 mb-1">Экспорт</h4>
+        <h4 className="text-sm font-semibold text-slate-700 mb-1">{t('transfer.export')}</h4>
         <p className="text-xs text-slate-500 mb-2">
-          Скачивает полный снимок доски: все задачи (включая циклические — с настройками
-          цикла, суммами и историей выполненных итераций), списки, теги и блокеры.
-          Файл можно импортировать на любую свою доску.
+          {t('transfer.exportHint')}
         </p>
         <button
           type="button"
@@ -120,33 +120,32 @@ export default function TransferTab({ board, onImported }) {
           disabled={busy}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-medium disabled:opacity-50"
         >
-          Скачать файл экспорта
+          {t('transfer.download')}
         </button>
       </section>
 
       {/* --- Импорт -------------------------------------------------------- */}
       <section>
-        <h4 className="text-sm font-semibold text-slate-700 mb-1">Импорт</h4>
+        <h4 className="text-sm font-semibold text-slate-700 mb-1">{t('transfer.import')}</h4>
         <p className="text-xs text-slate-500 mb-2">
-          Выберите ранее скачанный JSON-файл. Списки и теги сопоставляются по именам,
-          валюты — по коду; недостающие будут созданы.
+          {t('transfer.importHint')}
         </p>
         <label
           className={`inline-block border border-green-600 text-green-700 px-4 py-2 rounded hover:bg-green-50 font-medium cursor-pointer ${
             busy ? 'opacity-50 pointer-events-none' : ''
           }`}
         >
-          Выбрать файл…
+          {t('transfer.chooseFile')}
           <input type="file" accept=".json,application/json" onChange={onFile} className="hidden" />
         </label>
 
         {pending && (
           <div className="mt-3 border border-slate-200 rounded p-3 space-y-3">
             <p className="text-sm text-slate-700">
-              Файл: <span className="font-medium">{pending.fileName}</span> —{' '}
-              {pending.data.tasks.length} задач
-              {cyclicCount > 0 && `, из них циклических: ${cyclicCount}`}
-              {historyCount > 0 && `, история итераций: ${historyCount}`}
+              {t('transfer.fileLabel')} <span className="font-medium">{pending.fileName}</span> —{' '}
+              {t('transfer.tasksCount', { count: pending.data.tasks.length })}
+              {cyclicCount > 0 && t('transfer.cyclicOf', { count: cyclicCount })}
+              {historyCount > 0 && t('transfer.historyOf', { count: historyCount })}
             </p>
             <div className="space-y-1.5">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -157,9 +156,9 @@ export default function TransferTab({ board, onImported }) {
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="font-medium">Добавить к доске</span>
+                  <span className="font-medium">{t('transfer.mergeMode')}</span>
                   <span className="block text-xs text-slate-500">
-                    Существующие задачи останутся; факты истории дубликаты пропускают.
+                    {t('transfer.mergeHint')}
                   </span>
                 </span>
               </label>
@@ -171,9 +170,9 @@ export default function TransferTab({ board, onImported }) {
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="font-medium text-red-500">Заменить содержимое</span>
+                  <span className="font-medium text-red-500">{t('transfer.replaceMode')}</span>
                   <span className="block text-xs text-slate-500">
-                    Текущие задачи, теги и история итераций доски будут удалены.
+                    {t('transfer.replaceHint')}
                   </span>
                 </span>
               </label>
@@ -185,14 +184,14 @@ export default function TransferTab({ board, onImported }) {
                 disabled={busy}
                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-medium disabled:opacity-50"
               >
-                Импортировать
+                {t('transfer.importAction')}
               </button>
               <button
                 type="button"
                 onClick={() => setPending(null)}
                 className="px-4 py-2 text-gray-500 hover:text-gray-700"
               >
-                Отмена
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -200,11 +199,11 @@ export default function TransferTab({ board, onImported }) {
 
         {result && (
           <div className="mt-3 border border-green-200 bg-green-50 rounded p-3 text-sm text-green-800">
-            Импорт завершён: создано задач — {result.tasks_created}
-            {result.lists_created > 0 && `, списков — ${result.lists_created}`}
-            {result.tags_created > 0 && `, тегов — ${result.tags_created}`}
-            {result.history_imported > 0 && `, записей истории — ${result.history_imported}`}
-            {result.history_skipped > 0 && ` (пропущено дублей истории — ${result.history_skipped})`}
+            {t('transfer.resultLine', { tasks: result.tasks_created })}
+            {result.lists_created > 0 && t('transfer.resultLists', { count: result.lists_created })}
+            {result.tags_created > 0 && t('transfer.resultTags', { count: result.tags_created })}
+            {result.history_imported > 0 && t('transfer.resultHistory', { count: result.history_imported })}
+            {result.history_skipped > 0 && t('transfer.resultSkipped', { count: result.history_skipped })}
             .
           </div>
         )}

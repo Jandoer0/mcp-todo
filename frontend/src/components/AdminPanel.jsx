@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { adminApi } from '../api/client'
 import { formatApiError } from '../api/errors'
 import Modal from './Modal'
@@ -6,75 +7,54 @@ import Modal from './Modal'
 // Edit dialog state: one form for both create and edit.
 const EMPTY_FORM = { username: '', password: '', role: 'user', webhooks_enabled: true }
 
-function formatBytes(b) {
-  if (!b) return '0 Б'
-  if (b < 1024) return `${b} Б`
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} КБ`
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(2)} МБ`
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} ГБ`
+// Форматтеры получают t — юниты лежат в словаре (admin.units.*).
+function formatBytes(b, t) {
+  if (!b) return `0 ${t('admin.units.b')}`
+  if (b < 1024) return `${b} ${t('admin.units.b')}`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} ${t('admin.units.kb')}`
+  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(2)} ${t('admin.units.mb')}`
+  return `${(b / 1024 / 1024 / 1024).toFixed(2)} ${t('admin.units.gb')}`
 }
 
-function formatUptime(sec) {
+function formatUptime(sec, t) {
   const d = Math.floor(sec / 86400)
   const h = Math.floor((sec % 86400) / 3600)
   const m = Math.floor((sec % 3600) / 60)
-  if (d > 0) return `${d} д ${h} ч`
-  if (h > 0) return `${h} ч ${m} мин`
-  return `${m} мин`
+  if (d > 0) return `${d} ${t('admin.units.d')} ${h} ${t('admin.units.h')}`
+  if (h > 0) return `${h} ${t('admin.units.h')} ${m} ${t('admin.units.min')}`
+  return `${m} ${t('admin.units.min')}`
 }
 
 // Admin-panel tunables (PUT /admin/settings), grouped for the Server tab.
+// Подписи полей и групп — в словаре (admin.settings.* / admin.groups.*).
 const TUNABLE_GROUPS = [
   {
     key: 'security',
-    title: 'Безопасность',
     fields: [
-      { key: 'session_expire_minutes', label: 'Срок жизни сессии, мин', min: 60, max: 43200 },
-      { key: 'login_rate_limit', label: 'Rate-limit входа (защита от перебора)', bool: true },
-      { key: 'login_max_attempts', label: 'Попыток входа на имя', min: 1, max: 1000 },
-      { key: 'login_window_sec', label: 'Окно rate-limit, сек', min: 30, max: 86400 },
-      {
-        key: 'register_rate_limit_per_hour',
-        label: 'Регистраций в час на IP (0 — выкл.)',
-        min: 0,
-        max: 10000,
-      },
-      { key: 'password_min_length', label: 'Мин. длина пароля', min: 4, max: 128 },
-      { key: 'max_body_mb', label: 'Макс. размер запроса, МБ', min: 1, max: 100 },
-      {
-        key: 'maintenance_mode',
-        label: 'Режим обслуживания: 503 всем, кроме админов',
-        bool: true,
-        danger: true,
-      },
+      { key: 'session_expire_minutes', min: 60, max: 43200 },
+      { key: 'login_rate_limit', bool: true },
+      { key: 'login_max_attempts', min: 1, max: 1000 },
+      { key: 'login_window_sec', min: 30, max: 86400 },
+      { key: 'register_rate_limit_per_hour', min: 0, max: 10000 },
+      { key: 'password_min_length', min: 4, max: 128 },
+      { key: 'max_body_mb', min: 1, max: 100 },
+      { key: 'maintenance_mode', bool: true, danger: true },
     ],
   },
   {
-    key: 'notify',
-    title: 'Уведомления и планировщик',
+    key: 'notifications',
     fields: [
-      { key: 'scheduler_interval_min', label: 'Интервал проверки задач, мин', min: 1, max: 1440 },
-      { key: 'deadline_window_hours', label: '«Дедлайн приближается», за ч', min: 1, max: 720 },
-      {
-        key: 'overdue_repeat_hours',
-        label: 'Повтор о просрочке, ч (0 — один раз)',
-        min: 0,
-        max: 720,
-      },
-      { key: 'webhook_timeout_sec', label: 'Таймаут веб-хука, сек', min: 1, max: 120 },
+      { key: 'scheduler_interval_min', min: 1, max: 1440 },
+      { key: 'deadline_window_hours', min: 1, max: 720 },
+      { key: 'overdue_repeat_hours', min: 0, max: 720 },
+      { key: 'webhook_timeout_sec', min: 1, max: 120 },
     ],
   },
   {
     key: 'limits',
-    title: 'Лимиты',
     fields: [
-      { key: 'max_boards_per_user', label: 'Макс. досок на пользователя', min: 1, max: 1000 },
-      {
-        key: 'max_description_length',
-        label: 'Макс. описание задачи, симв.',
-        min: 1000,
-        max: 1000000,
-      },
+      { key: 'max_boards_per_user', min: 1, max: 1000 },
+      { key: 'max_description_length', min: 1000, max: 1000000 },
     ],
   },
 ]
@@ -88,6 +68,7 @@ export default function AdminPanel({
   onChanged,
   open,
 }) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState('users')
   const allowRegistration = settings?.allow_registration !== false
   const [isEditing, setIsEditing] = useState(false)
@@ -118,10 +99,10 @@ export default function AdminPanel({
       .catch(() => setWebhooks([]))
   }
 
-  const openTab = (t) => {
-    setTab(t)
-    if (t === 'webhooks' && webhooks === null) loadWebhooks()
-    if (t === 'server' && stats === null) {
+  const openTab = (key) => {
+    setTab(key)
+    if (key === 'webhooks' && webhooks === null) loadWebhooks()
+    if (key === 'server' && stats === null) {
       loadStats()
       loadTunables()
     }
@@ -154,7 +135,7 @@ export default function AdminPanel({
       setSavedGroup(group.key)
       setTimeout(() => setSavedGroup(null), 2000)
     } catch (e) {
-      alert(formatApiError(e, 'Ошибка сохранения настроек'))
+      alert(formatApiError(e, t('admin.saveSettingsError')))
     } finally {
       setSavingGroup(null)
     }
@@ -178,7 +159,7 @@ export default function AdminPanel({
       setStats((s) => ({ ...s, db_size_limit_mb: res.data.db_size_limit_mb }))
       setDbLimit(String(res.data.db_size_limit_mb))
     } catch (e) {
-      alert(formatApiError(e, 'Ошибка сохранения лимита'))
+      alert(formatApiError(e, t('admin.saveLimitError')))
     } finally {
       setSavingLimit(false)
     }
@@ -212,7 +193,7 @@ export default function AdminPanel({
       setCopied(false)
       if (onChanged) onChanged()
     } catch (e) {
-      alert(formatApiError(e, 'Ошибка генерации токена'))
+      alert(formatApiError(e, t('admin.tokenGenError')))
     }
   }
 
@@ -222,7 +203,7 @@ export default function AdminPanel({
       setMcpToken(null)
       if (onChanged) onChanged()
     } catch (e) {
-      alert(formatApiError(e, 'Ошибка отзыва токена'))
+      alert(formatApiError(e, t('admin.tokenRevokeError')))
     }
   }
 
@@ -249,21 +230,21 @@ export default function AdminPanel({
       // но НЕ закрываем саму панель администратора.
       if (onChanged) onChanged()
     } catch (err) {
-      alert(formatApiError(err, 'Ошибка при сохранении пользователя'))
+      alert(formatApiError(err, t('admin.saveUserError')))
     }
   }
 
   const userName = (id) => users.find((u) => u.id === id)?.username || `#${id}`
 
   return (
-    <Modal open={open} onClose={onBack} title="Панель администратора" wide>
+    <Modal open={open} onClose={onBack} title={t('admin.title')} wide>
       <div>
         {/* Tabs */}
         <div className="flex gap-1 mb-4 border-b border-gray-200">
           {[
-            ['users', 'Пользователи'],
-            ['webhooks', 'Веб-хуки'],
-            ['server', 'Сервер'],
+            ['users', t('admin.tabs.users')],
+            ['webhooks', t('admin.tabs.webhooks')],
+            ['server', t('admin.tabs.server')],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -282,7 +263,7 @@ export default function AdminPanel({
         {tab === 'users' && (
           <div>
               <section className="bg-gray-50/50 rounded-lg p-4 mb-6 border">
-                <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">Настройки сервера</h2>
+                <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">{t('admin.serverSettings')}</h2>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -291,9 +272,9 @@ export default function AdminPanel({
                     className="w-5 h-5"
                   />
                   <span className="text-sm">
-                    Разрешить регистрацию новых пользователей
+                    {t('admin.allowRegistration')}
                     <span className="block text-xs text-gray-500">
-                      Если выключено, новые пользователи не смогут создать аккаунт.
+                      {t('admin.allowRegistrationHint')}
                     </span>
                   </span>
                 </label>
@@ -303,9 +284,9 @@ export default function AdminPanel({
                 <table className="w-full text-left">
                   <thead className="bg-gray-50">
                     <tr className="text-xs uppercase text-gray-500">
-                      <th className="p-4">Пользователь</th>
-                      <th className="p-4 hidden sm:table-cell">Веб-хуки</th>
-                      <th className="p-2 sm:p-4 text-right">Действия</th>
+                      <th className="p-4">{t('admin.colUser')}</th>
+                      <th className="p-4 hidden sm:table-cell">{t('admin.colWebhooks')}</th>
+                      <th className="p-2 sm:p-4 text-right">{t('admin.colActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -314,7 +295,7 @@ export default function AdminPanel({
                         <td className="p-2 sm:p-4 font-medium">{u.username}</td>
                         <td className="p-2 sm:p-4 text-sm">
                           <span className={u.webhooks_enabled === false ? 'text-red-500' : 'text-green-600'}>
-                            {u.webhooks_enabled === false ? 'запрещены' : 'разрешены'}
+                            {u.webhooks_enabled === false ? t('admin.forbidden') : t('admin.allowed')}
                           </span>
                         </td>
                         <td className="p-2 sm:p-4 text-right">
@@ -323,13 +304,13 @@ export default function AdminPanel({
                               onClick={() => handleOpenEdit(u)}
                               className="text-blue-500 text-xs hover:underline whitespace-nowrap"
                             >
-                              Изменить
+                              {t('admin.edit')}
                             </button>
                             <button
                               onClick={() => onDeleteUser(u.id)}
                               className="text-red-500 text-xs hover:underline whitespace-nowrap"
                             >
-                              Удалить
+                              {t('common.delete')}
                             </button>
                           </div>
                         </td>
@@ -343,7 +324,7 @@ export default function AdminPanel({
                   onClick={handleOpenCreate}
                   className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 transition-colors whitespace-nowrap"
                 >
-                  + Создать пользователя
+                  {t('admin.createUser')}
                 </button>
               </div>
           </div>
@@ -352,19 +333,17 @@ export default function AdminPanel({
         {tab === 'webhooks' && (
           <div>
             <p className="text-xs text-gray-500 mb-3">
-              Обзор всех веб-хуков сервера. Настройка веб-хуков выполняется
-              пользователем в окне редактирования доски (вкладка «Веб-хуки»,
-              один веб-хук на доску).
+              {t('admin.hooksOverview')}
             </p>
             <div className="bg-card rounded-lg border overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-gray-50">
                   <tr className="text-xs uppercase text-gray-500">
-                    <th className="p-4">Пользователь</th>
-                    <th className="p-4">Доска</th>
-                    <th className="p-4">Название</th>
+                    <th className="p-4">{t('admin.colUser')}</th>
+                    <th className="p-4">{t('admin.colBoard')}</th>
+                    <th className="p-4">{t('admin.colName')}</th>
                     <th className="p-4 hidden sm:table-cell">URL</th>
-                    <th className="p-4 hidden sm:table-cell">События</th>
+                    <th className="p-4 hidden sm:table-cell">{t('admin.colEvents')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -387,7 +366,7 @@ export default function AdminPanel({
                   {webhooks !== null && webhooks.length === 0 && (
                     <tr>
                       <td colSpan={5} className="p-4 text-sm text-gray-400 text-center">
-                        Веб-хуков пока нет.
+                        {t('admin.noHooks')}
                       </td>
                     </tr>
                   )}
@@ -401,11 +380,11 @@ export default function AdminPanel({
           <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 relative">
               <h2 className="text-lg font-bold mb-4">
-                {currentUser ? 'Редактировать пользователя' : 'Создать пользователя'}
+                {currentUser ? t('admin.editUserTitle') : t('admin.createUserTitle')}
               </h2>
               <form onSubmit={handleSaveUser} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Имя пользователя</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin.username')}</label>
                   <input
                     type="text"
                     value={formData.username}
@@ -415,7 +394,7 @@ export default function AdminPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Пароль</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin.password')}</label>
                   <input
                     type="password"
                     value={formData.password}
@@ -423,17 +402,17 @@ export default function AdminPanel({
                     className="w-full p-2 border rounded"
                     required={!currentUser}
                   />
-                  {currentUser && <p className="text-[10px] text-gray-500 mt-1">Оставьте пустым, чтобы не менять пароль</p>}
+                  {currentUser && <p className="text-[10px] text-gray-500 mt-1">{t('admin.passwordKeep')}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Роль</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin.role')}</label>
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full p-2 border rounded"
                   >
-                    <option value="user">Пользователь</option>
-                    <option value="admin">Администратор</option>
+                    <option value="user">{t('admin.roleUser')}</option>
+                    <option value="admin">{t('admin.roleAdmin')}</option>
                   </select>
                 </div>
                 {currentUser && (
@@ -447,11 +426,9 @@ export default function AdminPanel({
                       className="w-5 h-5"
                     />
                     <span className="text-sm">
-                      Разрешить веб-хуки
+                      {t('admin.allowWebhooks')}
                       <span className="block text-xs text-gray-500">
-                        Если выключить, вкладка «Веб-хуки» в редакторе доски
-                        скроется, а настроенные веб-хуки этого пользователя
-                        будут удалены.
+                        {t('admin.allowWebhooksHint')}
                       </span>
                     </span>
                   </label>
@@ -459,10 +436,9 @@ export default function AdminPanel({
 
                 {currentUser && (
                   <div className="border-t border-gray-200 pt-4 mt-4">
-                    <div className="text-sm font-medium mb-1">MCP-токен (для ИИ-агента)</div>
+                    <div className="text-sm font-medium mb-1">{t('admin.mcpToken')}</div>
                     <p className="text-xs text-gray-500 mb-2">
-                      Долгоживущий ключ для агента. Показывается только при генерации —
-                      скопируйте его сразу в настройки агента.
+                      {t('admin.mcpTokenHint')}
                     </p>
                     {mcpToken ? (
                       <div className="flex items-center gap-2 mb-2">
@@ -477,12 +453,12 @@ export default function AdminPanel({
                           onClick={handleCopy}
                           className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm whitespace-nowrap"
                         >
-                          {copied ? 'Скопировано!' : 'Копировать'}
+                          {copied ? t('admin.copied') : t('admin.copy')}
                         </button>
                       </div>
                     ) : (
                       <div className="text-xs text-gray-500 mb-2">
-                        {currentUser.has_mcp_token ? 'Токен установлен.' : 'Токен не установлен.'}
+                        {currentUser.has_mcp_token ? t('admin.tokenSet') : t('admin.tokenNotSet')}
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -491,7 +467,7 @@ export default function AdminPanel({
                         onClick={handleRegenerate}
                         className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                       >
-                        {currentUser.has_mcp_token || mcpToken ? 'Сгенерировать новый' : 'Сгенерировать MCP-токен'}
+                        {currentUser.has_mcp_token || mcpToken ? t('admin.generateNew') : t('admin.generateToken')}
                       </button>
                       {currentUser.has_mcp_token && !mcpToken && (
                         <button
@@ -499,7 +475,7 @@ export default function AdminPanel({
                           onClick={handleRevoke}
                           className="px-3 py-2 text-red-500 border border-red-500 rounded hover:bg-red-50 text-sm"
                         >
-                          Отозвать
+                          {t('admin.revoke')}
                         </button>
                       )}
                     </div>
@@ -511,13 +487,13 @@ export default function AdminPanel({
                     onClick={() => setIsEditing(false)}
                     className="px-4 py-2 text-gray-500 hover:text-gray-700"
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium"
                   >
-                    Сохранить
+                    {t('common.save')}
                   </button>
                 </div>
               </form>
@@ -528,15 +504,15 @@ export default function AdminPanel({
         {tab === 'server' && (
           <div>
             {!stats ? (
-              <p className="text-sm text-gray-500">Не удалось загрузить статистику</p>
+              <p className="text-sm text-gray-500">{t('admin.statsError')}</p>
             ) : (
               <div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                   {[
-                    ['Размер БД', formatBytes(stats.db)],
-                    ['WAL-журнал', formatBytes(stats.wal)],
-                    ['Всего на диске', formatBytes(stats.total)],
-                    ['Время работы', formatUptime(stats.uptime_seconds)],
+                    [t('admin.stats.dbSize'), formatBytes(stats.db, t)],
+                    [t('admin.stats.wal'), formatBytes(stats.wal, t)],
+                    [t('admin.stats.total'), formatBytes(stats.total, t)],
+                    [t('admin.stats.uptime'), formatUptime(stats.uptime_seconds, t)],
                   ].map(([label, value]) => (
                     <div key={label} className="bg-gray-50/50 border rounded-lg p-3 text-center">
                       <div className="text-xs text-gray-500">{label}</div>
@@ -547,16 +523,16 @@ export default function AdminPanel({
 
                 <section className="bg-gray-50/50 rounded-lg p-4 mb-4 border">
                   <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
-                    Количество записей
+                    {t('admin.recordCounts')}
                   </h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
-                      ['Пользователи', stats.counts.users],
-                      ['Доски', stats.counts.boards],
-                      ['Задачи', stats.counts.tasks],
-                      ['Списки', stats.counts.lists],
-                      ['Теги', stats.counts.tags],
-                      ['Веб-хуки', stats.counts.webhooks],
+                      [t('admin.stats.users'), stats.counts.users],
+                      [t('admin.stats.boards'), stats.counts.boards],
+                      [t('admin.stats.tasks'), stats.counts.tasks],
+                      [t('admin.stats.lists'), stats.counts.lists],
+                      [t('admin.stats.tags'), stats.counts.tags],
+                      [t('admin.stats.webhooks'), stats.counts.webhooks],
                     ].map(([label, n]) => (
                       <div key={label} className="bg-card border rounded-lg p-3 flex justify-between items-center">
                         <span className="text-sm text-gray-600">{label}</span>
@@ -568,13 +544,12 @@ export default function AdminPanel({
 
                 <section className="bg-gray-50/50 rounded-lg p-4 mb-4 border">
                   <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
-                    Ограничение размера БД
+                    {t('admin.dbLimit')}
                   </h2>
                   <div className="flex items-end gap-2">
                     <label className="flex-1">
                       <span className="block text-xs text-gray-500 mb-1">
-                        Лимит в мегабайтах (0 — без ограничения). При превышении запрещается
-                        создание новых задач, досок и регистрация.
+                        {t('admin.dbLimitHint')}
                       </span>
                       <input
                         type="number"
@@ -589,7 +564,7 @@ export default function AdminPanel({
                       disabled={savingLimit}
                       className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                     >
-                      Сохранить
+                      {t('common.save')}
                     </button>
                   </div>
                 </section>
@@ -601,7 +576,7 @@ export default function AdminPanel({
                       className="bg-gray-50/50 rounded-lg p-4 mb-4 border"
                     >
                       <h2 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-500">
-                        {group.title}
+                        {t(`admin.groups.${group.key}`)}
                       </h2>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {group.fields.map((f) =>
@@ -620,11 +595,11 @@ export default function AdminPanel({
                                 }
                                 className="mt-0.5"
                               />
-                              <span>{f.label}</span>
+                              <span>{t(`admin.settings.${f.key}`)}</span>
                             </label>
                           ) : (
                             <label key={f.key} className="text-xs text-gray-500">
-                              {f.label}
+                              {t(`admin.settings.${f.key}`)}
                               <input
                                 type="number"
                                 min={f.min}
@@ -645,22 +620,21 @@ export default function AdminPanel({
                           disabled={savingGroup === group.key}
                           className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
                         >
-                          Сохранить
+                          {t('common.save')}
                         </button>
                         {savedGroup === group.key && (
-                          <span className="text-sm text-green-600">Сохранено ✓</span>
+                          <span className="text-sm text-green-600">{t('admin.saved')}</span>
                         )}
                         {group.key === 'security' && tunable.maintenance_mode && (
                           <span className="text-xs text-red-500">
-                            Включён: не-админы получают 503, вход доступен только
-                            администраторам
+                            {t('admin.maintenanceOn')}
                           </span>
                         )}
                       </div>
                     </section>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500 mb-4">Загрузка настроек…</p>
+                  <p className="text-sm text-gray-500 mb-4">{t('admin.loadingSettings')}</p>
                 )}
               </div>
             )}

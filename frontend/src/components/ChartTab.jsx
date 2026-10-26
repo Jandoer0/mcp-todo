@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { boardsApi } from '../api/client'
 import { signedAmount } from '../utils/format'
+import { LOCALE_TAG } from '../utils/locale'
 
 // Вкладка «График» — финансовый симулятор доски. Бэкенд (/cashflow) отдаёт
 // события: «спик» (одна дата → вся сумма в один день) и «поток» (интервал
@@ -10,7 +12,7 @@ import { signedAmount } from '../utils/format'
 
 function shortDate(iso) {
   const d = iso instanceof Date ? iso : new Date(`${iso}T00:00:00`)
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+  return d.toLocaleDateString(LOCALE_TAG, { day: 'numeric', month: 'short' })
 }
 
 function windowEdge(win, side) {
@@ -21,7 +23,7 @@ function windowEdge(win, side) {
 
 function longDate(iso) {
   const d = new Date(`${iso}T00:00:00`)
-  return d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return d.toLocaleDateString(LOCALE_TAG, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 // Локальная дата (без UTC-сдвига): toISOString смещал «сегодня» на день
@@ -34,6 +36,7 @@ const dayKey = (d) => {
 }
 
 export default function ChartTab({ board, data: externalCashflow = undefined }) {
+  const { t } = useTranslation()
   const [ownData, setOwnData] = useState(null)
   const [selected, setSelected] = useState(null)
   const [showDone, setShowDone] = useState(true)
@@ -198,13 +201,13 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
     setSelected(null)
   }
 
-  if (!data) return <p className="text-sm text-slate-500">Загрузка графика…</p>
+  if (!data) return <p className="text-sm text-slate-500">{t('chart.loading')}</p>
 
   return (
     <div className="space-y-4">
       {data.missing_rate && (
         <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-          ⚠ У одной или нескольких валют не указан курс — обновите «Параметры валют», иначе график будет неполным.
+          {t('chart.missingRate')}
         </p>
       )}
 
@@ -214,7 +217,7 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
             type="button"
             onClick={() => moveWindow(-1)}
             disabled={atWindowStart}
-            aria-label="На неделю назад"
+            aria-label={t('chart.weekBack')}
             className="h-9 w-9 shrink-0 rounded-full border border-slate-200 bg-white text-lg leading-none text-slate-700 shadow-sm active:bg-slate-100 disabled:opacity-40"
           >
             ‹
@@ -222,13 +225,13 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
           <span className="min-w-[10rem] shrink-0 text-center text-sm font-semibold text-slate-700 tabular-nums">
             {win
               ? `${shortDate(windowEdge(win, 'start'))} — ${shortDate(windowEdge(win, 'end'))}`
-              : 'Период'}
+              : t('chart.period')}
           </span>
           <button
             type="button"
             onClick={() => moveWindow(1)}
             disabled={atWindowEnd}
-            aria-label="На неделю вперёд"
+            aria-label={t('chart.weekForward')}
             className="h-9 w-9 shrink-0 rounded-full border border-slate-200 bg-white text-lg leading-none text-slate-700 shadow-sm active:bg-slate-100 disabled:opacity-40"
           >
             ›
@@ -237,10 +240,10 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
             type="button"
             onClick={resetToday}
             disabled={atToday}
-            aria-label="Вернуться к сегодняшнему дню"
+            aria-label={t('chart.backToToday')}
             className="ml-2 rounded-lg border border-green-600 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40"
           >
-            Сегодня
+            {t('chart.today')}
           </button>
         </div>
       )}
@@ -260,10 +263,10 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2">
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-sm font-semibold text-red-700 truncate">
-              ⚠ Кассовые разрывы ({breaks.length})
+              ⚠ {t('chart.cashGaps', { count: breaks.length })}
             </div>
             <div className="shrink-0 text-xs text-red-600 tabular-nums">
-              мин. {signedAmount(minBalance)} {currency}
+              {t('chart.minLabel', { value: signedAmount(minBalance), currency })}
             </div>
           </div>
           <div className="mt-1 flex gap-1.5 overflow-hidden">
@@ -292,21 +295,21 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-sm font-semibold capitalize text-slate-700">{longDate(selectedPoint.key)}</div>
             <button type="button" onClick={() => setSelected(null)} className="text-xs text-slate-500 hover:text-slate-700">
-              Закрыть
+              {t('common.close')}
             </button>
           </div>
           <div className="hidden sm:block text-[10px] text-slate-400 mt-0.5">
-            Переключайте дни клавишами ← и →
+            {t('chart.keysHint')}
           </div>
           <div className={`mt-1 text-2xl font-extrabold tabular-nums ${selectedPoint.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-            Баланс: {signedAmount(selectedPoint.balance)} {currency}
+            {t('chart.balance', { value: signedAmount(selectedPoint.balance), currency })}
           </div>
           <div className={`text-sm font-semibold tabular-nums ${selectedPoint.delta < 0 ? 'text-red-500' : selectedPoint.delta > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-            Изменение за день: {selectedPoint.delta ? signedAmount(selectedPoint.delta) : '0'} {currency}
+            {t('chart.dayDelta', { value: selectedPoint.delta ? signedAmount(selectedPoint.delta) : '0', currency })}
           </div>
           <div className="mt-2 divide-y divide-slate-100 rounded border border-slate-200 bg-white">
             {selectedPoint.parts.length === 0 ? (
-              <p className="px-2 py-1.5 text-sm text-slate-400">В этот день движений по суммам нет</p>
+              <p className="px-2 py-1.5 text-sm text-slate-400">{t('chart.noEvents')}</p>
             ) : (
               selectedPoint.parts.map((p, i) => (
                 <div key={`${p.title}-${i}`} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
@@ -318,7 +321,7 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
                           ? 'bg-blue-100 text-blue-600'
                           : 'bg-amber-100 text-amber-600'
                     }`}>
-                      {p.actual ? 'факт' : p.type === 'stream' ? 'поток' : 'спик'}
+                      {p.actual ? t('chart.actual') : p.type === 'stream' ? t('chart.stream') : t('chart.spike')}
                     </span>
                     <span className={`truncate ${p.done ? 'text-slate-400 line-through' : 'text-slate-700'}`} title={p.title}>{p.title}</span>
                   </span>
@@ -336,20 +339,20 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
             type="button"
             onClick={() => moveSelected(-1)}
             disabled={atStart}
-            aria-label="Предыдущий день"
+            aria-label={t('chart.prevDay')}
             className="h-12 w-12 shrink-0 rounded-full border border-slate-200 bg-white text-2xl leading-none text-slate-700 shadow-lg active:bg-slate-100 disabled:opacity-40"
           >
             ←
           </button>
           <div className="min-w-[7rem] rounded-full border border-blue-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-600 shadow-lg tabular-nums">
             {shortDate(selectedPoint.key)}
-            <span className="block font-normal text-slate-400">день {selectedIndex + 1} из {series.length}</span>
+            <span className="block font-normal text-slate-400">{t('chart.dayOf', { current: selectedIndex + 1, total: series.length })}</span>
           </div>
           <button
             type="button"
             onClick={() => moveSelected(1)}
             disabled={atEnd}
-            aria-label="Следующий день"
+            aria-label={t('chart.nextDay')}
             className="h-12 w-12 shrink-0 rounded-full border border-slate-200 bg-white text-2xl leading-none text-slate-700 shadow-lg active:bg-slate-100 disabled:opacity-40"
           >
             →
@@ -358,13 +361,13 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
       )}
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> спик — разовый платёж</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-400" /> поток — сумма на каждый день интервала</span>
-        <span className="flex items-center gap-1" title="Завершённые итерации регулярных платежей — фактические суммы">
-          <span className="h-2 w-2 rounded-full bg-teal-500" /> факт — реальные платежи из истории</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> {t('chart.legendSpike')}</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-400" /> {t('chart.legendStream')}</span>
+        <span className="flex items-center gap-1" title={t('chart.legendActualTitle')}>
+          <span className="h-2 w-2 rounded-full bg-teal-500" /> {t('chart.legendActual')}</span>
         <label className="ml-auto flex items-center gap-1.5 cursor-pointer">
           <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} className="accent-green-600" />
-          Учитывать завершённые
+          {t('chart.includeCompleted')}
         </label>
       </div>
     </div>
@@ -372,6 +375,7 @@ export default function ChartTab({ board, data: externalCashflow = undefined }) 
 }
 
 function MonthLabels({ series }) {
+  const { i18n } = useTranslation()
   if (!series.length) return null
   const W = Math.max(560, series.length * 7)
   const pad = { left: 4, right: 4 }
@@ -381,7 +385,7 @@ function MonthLabels({ series }) {
   let cur = null
   series.forEach((p, i) => {
     const d = new Date(`${p.key}T00:00:00`)
-    const label = d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+    const label = d.toLocaleDateString(LOCALE_TAG, { month: 'long', year: 'numeric' })
     if (!cur || cur.label !== label) {
       cur = { label, from: i, to: i }
       segments.push(cur)

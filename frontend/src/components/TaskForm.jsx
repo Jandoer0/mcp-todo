@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { tasksApi, currenciesApi } from '../api/client'
 import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
@@ -6,38 +7,45 @@ import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
 import { GravityEditor } from './editor/GravityEditor'
 import { fmtInstant } from '../utils/datetime'
+import { numberLocale } from '../utils/format'
+import { MONTH_SHORT_KEYS } from '../utils/locale'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
-const PRIORITY_LABELS = { 1: 'Низкий', 2: 'Средний', 3: 'Высокий' }
-const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.']
+// Ключи приоритетов в словаре перевода (priorities.*).
+const PRIORITY_KEYS = { 1: 'low', 2: 'medium', 3: 'high' }
 
-// «2025-10-12» → «12 окт. 2025». Плановые даты (start_date / deadline)
-// читаются как есть — без сдвига по часовому поясу (см. utils/datetime.js).
-function fmtLogDate(value) {
+// «2025-10-12» → «12 окт. 2025» / «Oct 12 2025». Плановые даты (start_date /
+// deadline) читаются как есть — без сдвига по часовому поясу (utils/datetime.js).
+function fmtLogDate(value, t) {
   if (!value) return '—'
   const [y, m, d] = String(value).slice(0, 10).split('-').map(Number)
-  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`
+  return `${d} ${t(`months.short.${MONTH_SHORT_KEYS[m - 1]}`)} ${y}`
 }
 
 // Строка истории по записи лога (field, old_value, new_value)
-function describeChange(c) {
+function describeChange(c, t) {
+  const priorityLabel = (v) => t(`priorities.${PRIORITY_KEYS[Number(v)] || 'low'}`)
   if (c.field === 'completed_at') {
-    return `Задача выполнена: ${fmtInstant(c.new_value)}`
+    return `${t('task.changeLogField.completed_at')}: ${fmtInstant(c.new_value)}`
   }
-  if (c.field === 'description') return 'Описание задания изменено'
+  if (c.field === 'description') return t('task.changeDescription')
   if (c.field === 'priority') {
-    return `Приоритет: «${PRIORITY_LABELS[Number(c.old_value)] || '—'}» → «${PRIORITY_LABELS[Number(c.new_value)] || '—'}»`
+    return t('task.changePriority', { old: priorityLabel(c.old_value), new: priorityLabel(c.new_value) })
   }
   if (c.field === 'amount') {
-    const f = (v) => (v == null ? '—' : `${Number(v) > 0 ? '+' : v < 0 ? '-' : ''}${Math.abs(Number(v)).toLocaleString('ru-RU')}`)
-    return `Сумма: «${f(c.old_value)}» → «${f(c.new_value)}»`
+    const f = (v) => (v == null ? '—' : `${Number(v) > 0 ? '+' : v < 0 ? '-' : ''}${Math.abs(Number(v)).toLocaleString(numberLocale())}`)
+    return t('task.changeAmount', { old: f(c.old_value), new: f(c.new_value) })
   }
   if (c.field === 'list') {
-    return `Статус: «${c.old_value || '—'}» → «${c.new_value || '—'}»`
+    return t('task.changeStatus', { old: c.old_value || '—', new: c.new_value || '—' })
   }
-  const label = c.field === 'start_date' ? 'Дата начала' : 'Дата завершения'
-  return `${label}: «${c.old_value ? fmtLogDate(c.old_value) : '—'}» → «${c.new_value ? fmtLogDate(c.new_value) : '—'}»`
+  const label = c.field === 'start_date' ? t('task.startDate') : t('task.endDate')
+  return t('task.changeDate', {
+    label,
+    old: c.old_value ? fmtLogDate(c.old_value, t) : '—',
+    new: c.new_value ? fmtLogDate(c.new_value, t) : '—',
+  })
 }
 
 const EMPTY = {
@@ -59,6 +67,7 @@ function toDatetimeLocal(value) {
 }
 
 export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], lists = [], tags = [], initialTags = [], boards = [], defaultBoardId = null, onMove, onQuickUpdate, initialList = null }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState(EMPTY)
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedBlockers, setSelectedBlockers] = useState([])
@@ -247,15 +256,15 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={task ? 'Изменить задачу' : 'Создать задачу'}>
+    <Modal open={open} onClose={onClose} title={task ? t('task.editTitle') : t('task.createTitle')}>
       <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Название</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.title')}</label>
             <input
               type="text"
               id="task-title"
               name="title"
-              placeholder="Введите название задачи"
+              placeholder={t('task.titlePlaceholder')}
               value={form.title}
               onChange={update('title')}
               className="w-full p-2 border rounded"
@@ -263,27 +272,27 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата начала</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.startDate')}</label>
             <DateTimePicker
               id="task-start-date"
               name="start_date"
               value={form.start_date}
               onChange={update('start_date')}
-              placeholder="Не указана"
+              placeholder={t('task.notSet')}
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Дата завершения</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.endDate')}</label>
             <DateTimePicker
               id="task-deadline"
               name="deadline"
               value={form.deadline}
               onChange={update('deadline')}
-              placeholder="Не указана"
+              placeholder={t('task.notSet')}
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Приоритет</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.priority')}</label>
             <select
               id="task-priority"
               name="priority"
@@ -291,13 +300,13 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               onChange={update('priority')}
               className="w-full p-2 border rounded"
             >
-              <option value={1}>Низкий</option>
-              <option value={2}>Средний</option>
-              <option value={3}>Высокий</option>
+              <option value={1}>{t('priorities.low')}</option>
+              <option value={2}>{t('priorities.medium')}</option>
+              <option value={3}>{t('priorities.high')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Статус</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.status')}</label>
             <select
               id="task-list"
               name="list"
@@ -307,20 +316,20 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             >
               {listOptions.map((l) => (
                 <option key={l.name} value={l.name} disabled={l.kind === 'regular'}>
-                  {l.name}{l.kind === 'regular' ? ' — только для циклических' : ''}
+                  {l.name}{l.kind === 'regular' ? t('task.regularOnlyHint') : ''}
                 </option>
               ))}
             </select>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Сумма (финансовый вес)</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.amountWeight')}</label>
             <div className="flex gap-2">
               {/* Доход/Расход: на мобильных — кнопка-знак (+/−), на десктопе — переключатель */}
               {amountCompact ? (
                 <button
                   type="button"
                   onClick={() => setAmountType(amountType === 'income' ? 'expense' : 'income')}
-                  title={amountType === 'income' ? 'Доход (нажмите для расхода)' : 'Расход (нажмите для дохода)'}
+                  title={amountType === 'income' ? t('task.incomeHint') : t('task.expenseHint')}
                   className={`w-11 shrink-0 rounded text-lg font-bold text-white transition-colors ${
                     amountType === 'income' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'
                   }`}
@@ -338,7 +347,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                         : 'bg-white text-slate-500 hover:bg-slate-50'
                     }`}
                   >
-                    Доход
+                    {t('task.income')}
                   </button>
                   <button
                     type="button"
@@ -349,7 +358,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                         : 'bg-white text-slate-500 hover:bg-slate-50'
                     }`}
                   >
-                    Расход
+                    {t('task.expense')}
                   </button>
                 </div>
               )}
@@ -382,7 +391,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
                 onChange={(e) => setCurrencyId(e.target.value ? Number(e.target.value) : null)}
                 className="p-2 border rounded text-sm shrink-0"
                 style={amountCompact ? { maxWidth: '5.5rem' } : undefined}
-                title="Валюта суммы"
+                title={t('task.currency')}
               >
                 {currencies.length === 0 && <option value="">—</option>}
                 {currencies.map((c) => (
@@ -394,14 +403,14 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             </div>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Описание</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.description')}</label>
             <GravityEditor
               initialValue={form.description || ''}
               onChange={(markdown) => setEditorMarkdown(markdown)}
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Теги</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.tags')}</label>
             <TagInput
               value={selectedTags}
               availableTags={tags}
@@ -410,7 +419,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Блокирующие задачи</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.blockersLabel2')}</label>
             <TaskLinkInput
               value={selectedBlockers}
               tasks={tasks}
@@ -418,11 +427,11 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               onChange={setSelectedBlockers}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Эти задачи должны быть выполнены до того, как данную можно будет отметить «Готово».
+              {t('task.blockersHint')}
             </p>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Доска</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.board')}</label>
             <select
               id="task-board"
               value={targetBoardId ?? ''}
@@ -436,21 +445,21 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               ))}
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              При переносе сбрасываются теги и блокирующие связи.
+              {t('task.moveHint')}
             </p>
           </div>
       <div className="md:col-span-2 flex justify-between items-center mt-4">
         <button
           type="button"
           onClick={() => {
-            if (task && confirm(`Вы уверены, что хотите удалить задачу «${task.title}»?`)) {
+            if (task && confirm(t('task.deleteConfirm', { title: task.title }))) {
               onSubmit({ _action: 'delete' })
             }
           }}
           disabled={!task}
           className="px-4 py-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded font-medium transition-colors"
         >
-          Удалить
+          {t('common.delete')}
         </button>
         <div className="flex gap-2">
           <button
@@ -458,13 +467,13 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             onClick={onClose}
             className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded"
           >
-            Отмена
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-medium"
           >
-            {task ? 'Сохранить' : 'Создать задачу'}
+            {task ? t('common.save') : t('task.createTitle')}
           </button>
         </div>
       </div>
@@ -472,16 +481,16 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
       {task && (
         <div className="md:col-span-2 mt-4 pt-3 border-t border-slate-200">
           <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
-            История изменений
+            {t('task.changeLog')}
           </h4>
           {changes.length === 0 ? (
-            <p className="text-xs text-slate-400">Изменений ещё не было.</p>
+            <p className="text-xs text-slate-400">{t('task.noChangesYet')}</p>
           ) : (
             <div className="max-h-44 overflow-y-auto overscroll-contain rounded border border-slate-100 divide-y divide-slate-100">
               {/* свежие записи сверху; ползунок прокрутки — в верхнем положении */}
               {[...changes].reverse().map((c) => (
                 <div key={c.id} className="px-2 py-1.5 text-xs text-slate-600 flex justify-between gap-2">
-                  <span>{describeChange(c)}</span>
+                  <span>{describeChange(c, t)}</span>
                   <span className="text-slate-400 shrink-0">{fmtInstant(c.changed_at)}</span>
                 </div>
               ))}
