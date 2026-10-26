@@ -66,7 +66,7 @@ export default function Modal({ open, onClose, title, children, wide, dismissibl
     <div
       role="dialog"
       aria-modal="true"
-      className={`fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-start sm:pt-[6vh] justify-center sm:p-4 pointer-events-auto ${
+      className={`fixed inset-0 z-[120] bg-slate-900/60 flex items-end sm:items-start sm:pt-[6vh] justify-center sm:p-4 pointer-events-auto ${
         closing ? 'modal-overlay-out' : 'modal-overlay-in'
       }`}
       onMouseDown={(e) => {

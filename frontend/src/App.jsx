@@ -417,14 +417,10 @@ export default function App() {
       <Planner
         open={plannerOpen}
         onClose={() => setPlannerOpen(false)}
-        onEdit={(task, board) => {
-          setPlannerOpen(false)
-          if (task.board_id === activeBoardId) openEdit(task)
-          else {
-            setActiveBoardId(board.id)
-            setEditingTask(task)
-            setModalOpen(true)
-          }
+        onEdit={(task) => {
+          // Планировщик остаётся под модальным окном: доска не переключается,
+          // пользователь возвращается к той же дате после закрытия редактора.
+          openEdit(task)
         }}
       />
       <Layout

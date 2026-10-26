@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { boardsApi, listsApi, tasksApi } from '../api/client'
+import { boardsApi, listsApi, tagsApi, tasksApi } from '../api/client'
 
 const pad = (n) => String(n).padStart(2, '0')
 const keyOf = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
@@ -47,7 +47,7 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
   )
 }
 
-function BoardGroup({ board, tasks, allTasks, lists, onEdit }) {
+function BoardGroup({ board, tasks, allTasks, lists, tags = [], onEdit }) {
   const listByName = new Map(lists.map((list) => [list.name, list]))
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -63,7 +63,7 @@ function BoardGroup({ board, tasks, allTasks, lists, onEdit }) {
                 <span className="min-w-0 truncate text-sm font-semibold text-slate-700">{task.title}</span>
                 <span className="shrink-0 text-xs tabular-nums text-slate-400">{task.deadline ? new Date(task.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : 'без даты'}</span>
               </div>
-              {(task.tags || []).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{task.tags.map((tag, index) => { const name = typeof tag === 'string' ? tag : tag.name; return <span key={`${name}-${index}`} className="max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: tag.color || '#64748b' }}>{name}</span> })}</div>}
+              {(task.tags || []).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{task.tags.map((tag, index) => { const name = typeof tag === 'string' ? tag : tag.name; return <span key={`${name}-${index}`} className="max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: (typeof tag === 'object' && tag.color) || tags.find((item) => item.name === name)?.color || '#64748b' }}>{name}</span> })}</div>}
               {blockers.length > 0 && <div className="mt-2 flex items-center gap-2"><span className="shrink-0 text-[10px] font-semibold text-slate-400">Блокеры</span><div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${percent}%` }} /></div><span className="shrink-0 text-[10px] tabular-nums text-slate-500">{done}/{blockers.length}</span></div>}
             </button>
           )
@@ -73,12 +73,12 @@ function BoardGroup({ board, tasks, allTasks, lists, onEdit }) {
   )
 }
 
-function GroupedFeed({ title, tasksByBoard, empty, onEdit }) {
+function GroupedFeed({ title, tasksByBoard, empty, onEdit, tone = 'slate' }) {
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-base font-extrabold text-slate-800">{title}</h2>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{tasksByBoard.reduce((sum, item) => sum + item.tasks.length, 0)}</span>
+        <h2 className={`text-base font-extrabold ${tone === 'red' ? 'text-red-100' : tone === 'amber' ? 'text-amber-100' : 'text-white'}`}>{title}</h2>
+        <span className={`rounded-full px-2 py-0.5 text-xs ${tone === 'red' ? 'bg-red-200 text-red-800' : tone === 'amber' ? 'bg-amber-200 text-amber-800' : 'bg-white/20 text-white'}`}>{tasksByBoard.reduce((sum, item) => sum + item.tasks.length, 0)}</span>
       </div>
       {tasksByBoard.length ? <div className="space-y-3">{tasksByBoard.map((item) => <BoardGroup key={item.board.id} {...item} onEdit={onEdit} />)}</div> : <p className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-4 py-6 text-center text-sm text-slate-400">{empty}</p>}
     </section>
@@ -101,7 +101,8 @@ export default function Planner({ open, onClose, onEdit }) {
       const data = await Promise.all(loaded.map(async (board) => {
         const [tasksResponse, listsResponse] = await Promise.all([tasksApi.list(board.id), listsApi.list(board.id)])
         const progressNames = new Set((listsResponse.data || []).filter((list) => list.kind === 'progress').map((list) => list.name))
-        return { board, lists: listsResponse.data || [], allTasks: tasksResponse.data || [], tasks: (tasksResponse.data || []).filter((task) => progressNames.has(task.list)) }
+        const tagsResponse = await tagsApi.list(board.id)
+        return { board, lists: listsResponse.data || [], tags: tagsResponse.data || [], allTasks: tasksResponse.data || [], tasks: (tasksResponse.data || []).filter((task) => progressNames.has(task.list)) }
       }))
       if (!cancelled) { setBoards(loaded); setRecords(data) }
     }).catch(() => { if (!cancelled) { setBoards([]); setRecords([]) } }).finally(() => { if (!cancelled) setLoading(false) })
@@ -109,15 +110,23 @@ export default function Planner({ open, onClose, onEdit }) {
   }, [open])
 
   const activity = useMemo(() => new Set(records.flatMap(({ tasks }) => tasks.filter((task) => task.deadline).map((task) => parseDate(task.deadline)))), [records])
-  const grouped = (predicate) => records.map(({ board, lists, allTasks, tasks }) => ({ board, lists, allTasks, tasks: tasks.filter(predicate) })).filter(({ tasks }) => tasks.length)
+  const grouped = (predicate) => records.map(({ board, lists, tags, allTasks, tasks }) => ({ board, lists, tags, allTasks, tasks: tasks.filter(predicate) })).filter(({ tasks }) => tasks.length)
+  const overdue = useMemo(() => grouped((task) => parseDate(task.deadline) && parseDate(task.deadline) < selected), [records, selected])
   const due = useMemo(() => grouped((task) => parseDate(task.deadline) === selected), [records, selected])
   const upcoming = useMemo(() => grouped((task) => parseDate(task.deadline) > selected), [records, selected])
   const selectedDate = new Date(`${selected}T12:00:00`)
 
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (event) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[#35506b] text-slate-800">
-      <header className="flex shrink-0 items-center justify-between bg-[#22384d] px-4 py-3 text-white shadow-lg">
+    <div className="fixed inset-0 z-[40] flex flex-col bg-[#35506b] text-slate-800">
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#22384d] px-5 py-4 text-white shadow-lg">
         <div><h1 className="text-lg font-extrabold">Планировщик</h1><p className="text-xs text-white/60">Global Daily Focus · все доски</p></div>
         <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">Закрыть ×</button>
       </header>
@@ -127,9 +136,9 @@ export default function Planner({ open, onClose, onEdit }) {
           <CalendarMonth month={month} selected={selected} activity={activity} onSelect={setSelected} />
           <CalendarMonth month={shiftMonth(month, 1)} selected={selected} activity={activity} onSelect={setSelected} />
         </aside>
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 md:p-6 bg-[#35506b]">
-          <div className="mx-auto max-w-3xl"><div className="mb-6"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Выбранная дата</p><h2 className="text-2xl font-extrabold capitalize text-slate-800">{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2></div>
-            {loading ? <p className="py-12 text-center text-sm text-slate-400">Загрузка задач со всех досок…</p> : <div className="space-y-8"><GroupedFeed title="Завершить" tasksByBoard={due} onEdit={onEdit} empty="На эту дату задач к завершению нет" /><GroupedFeed title="В работе" tasksByBoard={upcoming} onEdit={onEdit} empty="Нет незавершённых задач с более поздним дедлайном" /></div>}
+        <main className="min-w-0 flex-1 overflow-y-auto bg-[#35506b] p-4 md:p-6">
+          <div className="mx-auto max-w-4xl"><div className="mb-6 rounded-2xl border border-white/10 bg-white/10 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Выбранная дата</p><h2 className="text-2xl font-extrabold capitalize text-white">{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2></div>
+            {loading ? <p className="py-12 text-center text-sm text-slate-400">Загрузка задач со всех досок…</p> : <div className="space-y-8"><GroupedFeed title="Просроченные" tasksByBoard={overdue} onEdit={onEdit} tone="red" empty="Просроченных задач нет" /><GroupedFeed title="Завершить" tasksByBoard={due} onEdit={onEdit} tone="amber" empty="На эту дату задач к завершению нет" /><GroupedFeed title="В работе" tasksByBoard={upcoming} onEdit={onEdit} tone="slate" empty="Нет незавершённых задач с более поздним дедлайном" /></div>}
           </div>
         </main>
       </div>
