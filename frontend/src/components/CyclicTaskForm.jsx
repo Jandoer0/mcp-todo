@@ -23,6 +23,8 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
   const [showAllHistory, setShowAllHistory] = useState(false)
   // Предпросмотр Markdown описания — как в обычной TaskForm: в редактировании
   // открываем сразу в предпросмотре, в создании — сразу в редакторе.
+  // markdown-строка из редактора (WYSIWYG хранит HTML, наружу отдаём markdown)
+  const [editorMarkdown, setEditorMarkdown] = useState('')
   const [descPreview, setDescPreview] = useState(false)
 
   useEffect(() => {

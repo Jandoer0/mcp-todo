@@ -198,3 +198,35 @@ html {
 .g-action-tooltip {
   display: none !important;
 }
+
+/* --- Markdown-редактор: непрозрачные всплывающие панели и меню ---
+   Gravity UI рендерит popup через portal в body, поэтому селектор должен
+   быть глобальным, а не зависеть от wrapper редактора. */
+.g-popup,
+.g-menu,
+.g-list,
+.g-md-command-menu__list,
+.g-md-code-tooltip-menu,
+.g-md-code-block__select-popup,
+.g-md-search-popup,
+.g-md-link-tooltip-view__popup,
+.g-md-gpt-popup,
+.g-md-toolbar-button-with-popup-menu__menu-group {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+.g-popup {
+  border-color: #e2e8f0;
+}
+
+.g-menu-item:hover,
+.g-list__item:hover,
+.g-md-command-menu__list-item:hover {
+  background-color: #f1f5f9;
+}
+
+.g-markdown-editor-own-wrapper .g-md-toolbar,
+.g-markdown-editor-own-wrapper .g-md-flex-toolbar {
+  background-color: #ffffff;
+}

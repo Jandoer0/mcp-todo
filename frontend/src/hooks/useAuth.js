@@ -60,11 +60,18 @@ export function useAuth() {
         setView('tasks')
         setReady(true)
       })
-      .catch(() => {
-        localStorage.removeItem('token')
-        setToken(null)
-        setView('login')
-        setReady(true)
+      .catch((err) => {
+        // 401 here means the token is no longer valid — discard it and go back to login.
+        // Note: summaryApi.get() needs a board_id; if the user simply isn't logged in
+        // the `!token` branch above handles that path, so anything that reaches here
+        // should be treated as an auth failure.
+        const status = err?.response?.status
+        if (status === 401) {
+          localStorage.removeItem('token')
+          setToken(null)
+          setView('login')
+          setReady(true)
+        }
       })
   }, [token])
 

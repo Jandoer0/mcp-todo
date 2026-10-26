@@ -3,6 +3,15 @@ import { ThemeProvider, ToasterProvider } from '@gravity-ui/uikit'
 import { toaster as sharedToaster } from '@gravity-ui/uikit/toaster-singleton'
 import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-editor'
 
+// Тема и шрифты Gravity UI: всплывающие панели редактора (dropdown-меню
+// тулбара, командное меню, tooltip'ы) рисуются на g-color-* переменных.
+// Без импорта темы переменные не определены — панели теряют непрозрачный
+// фон и выглядят «прозрачными» на цветном фоне приложения.
+// CSS импортируется из JS (не из постcss @import) — так vite гарантированно
+// включает его в сборку.
+import '@gravity-ui/uikit/styles/styles.css'
+import '@gravity-ui/uikit/styles/fonts.css'
+
 // Пресет панелей из Planka — удаляем лишние элементы (checkbox/file/tabs)
 import { full as toolbarsPreset } from '@gravity-ui/markdown-editor/_/modules/toolbars/presets'
 import { ActionName } from '@gravity-ui/markdown-editor/_/bundle/config/action-names'
@@ -85,7 +94,7 @@ export function GravityEditor({ initialValue = '', onChange }) {
     <ToasterProvider toaster={sharedToaster}>
       <div
         ref={wrapperRef}
-        className="border border-slate-300 rounded-lg bg-white overflow-hidden"
+        className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
       >
         <MarkdownEditorView
           editor={editor}
