@@ -12,7 +12,7 @@ function toDatetimeLocal(value) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
-export default function CyclicTaskForm({ open, task = null, lists = [], tags = [], onClose, onSubmit, onStop }) {
+export default function CyclicTaskForm({ open, task = null, lists = [], tags = [], onClose, onSubmit, onStop, onDelete }) {
   const [form, setForm] = useState({ title: '', description: '', deadline: '', cycle_period: 'monthly', cycle_interval: 1, reminder_days: 0 })
   const [amountType, setAmountType] = useState('expense')
   const [amount, setAmount] = useState('')
@@ -140,7 +140,10 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
           </div>
         )}
         <div className="md:col-span-2 flex justify-between items-center mt-2">
-          {task ? <button type="button" onClick={() => onStop?.(task)} className="px-4 py-2 text-red-500 hover:bg-red-50 rounded">Сделать обычной</button> : <span />}
+          <div className="flex gap-2">
+            {task && <button type="button" onClick={() => onStop?.(task)} className="px-4 py-2 text-red-500 hover:bg-red-50 rounded">Сделать обычной</button>}
+            {task && <button type="button" onClick={() => onDelete?.(task)} className="px-4 py-2 text-red-500 hover:bg-red-50 rounded">Удалить</button>}
+          </div>
           <div className="flex gap-2"><button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded">Отмена</button><button type="submit" className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700">{task ? 'Сохранить' : 'Создать задачу'}</button></div>
         </div>
       </form>

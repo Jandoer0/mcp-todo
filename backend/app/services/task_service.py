@@ -690,7 +690,9 @@ def create_task(db: Session, user: User, data: dict) -> Task:
     return task
 
 
-_CHANGELOG_FIELDS = ("start_date", "deadline", "priority", "description", "amount", "list")
+_CHANGELOG_FIELDS = (
+    "start_date", "deadline", "priority", "description", "amount", "list", "completed_at"
+)
 
 
 def _fmt_change(field: str, value) -> str | None:
@@ -699,6 +701,8 @@ def _fmt_change(field: str, value) -> str | None:
         return None
     if field in ("start_date", "deadline"):
         return value.strftime("%Y-%m-%d") if isinstance(value, datetime) else str(value)
+    if field == "completed_at":
+        return value.isoformat(timespec="seconds") if isinstance(value, datetime) else str(value)
     if field == "amount":
         # Signed money: +20000 / -10000 (для истории; в UI форматируется)
         try:
@@ -709,7 +713,7 @@ def _fmt_change(field: str, value) -> str | None:
 
 
 def log_task_changes(db: Session, user: User, task: Task, data: dict) -> None:
-    """Record one row per changed tracked property (dates/priority/description)."""
+    """Record one row per changed tracked property, including completion time."""
     rows = []
     for field in _CHANGELOG_FIELDS:
         if field not in data:
@@ -768,7 +772,13 @@ def update_task(db: Session, user: User, task_id: int, data: dict) -> Task:
         data["list"] = list_name
         data["status"] = list_status
 
+    # Для обычной задачи фиксируем момент первого перехода в done.
+    # Это отдельная запись истории, а не deadline: deadline — плановая дата.
+    if data.get("status") == "done" and old_status != "done" and not task.is_cyclic:
+        data["completed_at"] = utcnow()
+
     log_task_changes(db, user, task, data)
+    data.pop("completed_at", None)
 
     for key, value in data.items():
         setattr(task, key, value)
@@ -874,8 +884,14 @@ def reorder_task(
             raise TaskError("Невозможно выполнить задачу: есть незавершённые блокирующие задачи")
 
     old_status = task.status
+    new_status = status_for_kind(lst.kind)
+    if new_status == "done" and old_status != "done" and not task.is_cyclic:
+        log_task_changes(
+            db, user, task,
+            {"list": list_name, "completed_at": utcnow()},
+        )
     task.list = list_name
-    task.status = status_for_kind(lst.kind)
+    task.status = new_status
     task.position = float(position)
 
     _enforce_regular_list(db, task)

@@ -30,6 +30,9 @@ function fmtLogDateTime(value) {
 
 // Строка истории по записи лога (field, old_value, new_value)
 function describeChange(c) {
+  if (c.field === 'completed_at') {
+    return `Задача выполнена: ${fmtLogDateTime(c.new_value)}`
+  }
   if (c.field === 'description') return 'Описание задания изменено'
   if (c.field === 'priority') {
     return `Приоритет: «${PRIORITY_LABELS[Number(c.old_value)] || '—'}» → «${PRIORITY_LABELS[Number(c.new_value)] || '—'}»`

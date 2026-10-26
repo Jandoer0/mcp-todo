@@ -431,9 +431,9 @@ function BalanceChart({ series, selected, onSelect }) {
     : ''
 
   const todayKey = dayKey(new Date())
-  const splitIndex = series.findIndex(p => p.key >= todayKey)
+  const splitIndex = series.findIndex(p => p.key > todayKey)
 
-  // Зелёный — до текущей даты (не включая сегодня); синий — от сегодня и далее.
+  // Зелёный — до текущей даты включительно; синий — после сегодняшнего дня.
   const pastPoints = splitIndex <= 0
     ? null
     : series.slice(0, splitIndex).map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
@@ -441,6 +441,9 @@ function BalanceChart({ series, selected, onSelect }) {
   const futurePoints = splitIndex === -1
     ? null
     : series.slice(splitIndex).map((p, i) => `${x(splitIndex + i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ')
+  const todayX = splitIndex < 0 ? W - pad.right : x(splitIndex)
+  const pastWidth = Math.max(0, todayX - pad.left)
+  const futureWidth = Math.max(0, W - pad.right - todayX)
 
   const monthBorders = series
     .map((p, i) => ({ i, day: new Date(`${p.key}T00:00:00`).getDate() }))
@@ -469,6 +472,40 @@ function BalanceChart({ series, selected, onSelect }) {
         </linearGradient>
         <clipPath id="posClip"><rect x="0" y="0" width={W} height={zeroY} /></clipPath>
       </defs>
+
+      {/* Фон временной шкалы: историческая часть до сегодняшнего дня — зелёная,
+          прогнозная часть начиная с сегодняшнего дня — синяя. */}
+      {pastWidth > 0 && (
+        <rect
+          x={pad.left}
+          y={pad.top}
+          width={pastWidth}
+          height={H - pad.top - pad.bottom}
+          fill="rgb(34 197 94)"
+          fillOpacity="0.07"
+        />
+      )}
+      {futureWidth > 0 && (
+        <rect
+          x={todayX}
+          y={pad.top}
+          width={futureWidth}
+          height={H - pad.top - pad.bottom}
+          fill="rgb(37 99 235)"
+          fillOpacity="0.08"
+        />
+      )}
+      {splitIndex > 0 && splitIndex < series.length && (
+        <line
+          x1={todayX}
+          x2={todayX}
+          y1={pad.top}
+          y2={H - pad.bottom}
+          stroke="rgb(71 85 105)"
+          strokeDasharray="3 3"
+          strokeWidth="1"
+        />
+      )}
 
       {minV < 0 && (
         <>

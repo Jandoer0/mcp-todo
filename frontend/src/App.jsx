@@ -272,6 +272,17 @@ export default function App() {
     }
   }
 
+  const handleCyclicDelete = async (task) => {
+    if (!confirm(`Удалить циклическую задачу «${task.title}» и всю её историю?`)) return
+    try {
+      await remove(task.id)
+      setCyclicFormOpen(false)
+      setEditingCyclicTask(null)
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Не удалось удалить циклическую задачу')
+    }
+  }
+
   const handleSubmit = async (payload) => {
     try {
       if (payload._action === 'delete') {
@@ -515,6 +526,7 @@ export default function App() {
         }}
         onSubmit={handleCyclicSubmit}
         onStop={handleCyclicStop}
+        onDelete={handleCyclicDelete}
       />
 
       <TaskForm
