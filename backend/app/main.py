@@ -597,8 +597,17 @@ def seed_lists(db) -> None:
     """Ensure every user has their own protected default board lists (now
     including the system «Регулярные» list), and backfill tasks whose list
     does not reference one of the owner's lists."""
-    from .board import ensure_default_lists, status_for_list, status_for_kind
+    from .board import (
+        ensure_default_lists,
+        prune_duplicate_system_lists,
+        status_for_list,
+        status_for_kind,
+    )
     from .models import Board, Task, TaskList, User
+
+    # Дубли системных списков (следствие ранней name-проверки при смене языка)
+    # убираются ДО добора недостающих — иначе дубль занял бы слот.
+    prune_duplicate_system_lists(db)
 
     user_language = {
         u.id: (u.language or "ru") for u in db.query(User).all()

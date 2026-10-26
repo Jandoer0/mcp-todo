@@ -155,32 +155,118 @@ def status_for_kind(kind) -> str:
     return "todo"
 
 
+# Требуемое число системных списков каждого kind на доске: 'done' встречается
+# дважды («Готово» и «Архив»), остальные — по одному.
+DEFAULT_LIST_KINDS = [("regular", 1), ("todo", 2), ("progress", 3), ("done", 4), ("done", 5)]
+
+
+def _detect_board_language(rows) -> str | None:
+    """Language of the board's existing system lists (по их именам). None, если
+    на доске нет ни одного известного системного списка (legacy-доска)."""
+    names = {r.name for r in rows}
+    for lang, lang_names in DEFAULT_LIST_NAMES.items():
+        if names & set(lang_names.values()):
+            return lang
+    return None
+
+
 def ensure_default_lists(db, user_id: int, board_id: int | None = None, language: str | None = None) -> None:
     """Create the protected default lists for a user (or a specific board) if
     they are missing. Called at startup, at registration and when a new board
     is created — lists are strictly per-user and per-board.
-    Имена списков локализуются по языку профиля (language), семантика (kind)
-    одинакова для всех языков."""
+
+    Идемпотентность строится на kind+position, а не на имени: имена зависят от
+    языка, поэтому проверка «есть ли список с таким именем» создавала дубли
+    при смене языка профиля (ru-«В работе» + en-«In Progress» на одной доске).
+
+    Язык пересоздаваемых списков — ЯЗЫК ДОСКИ (по уже существующим системным
+    спискам), а не профиля: доска, созданная на ru, сохраняет ru-имена,
+    даже если пользователь потом переключился на en. Язык профиля применяется
+    только к доскам без единого системного списка (новые/legacy)."""
     from .models import TaskList
 
-    q = db.query(TaskList.name).filter(TaskList.user_id == user_id)
+    q = db.query(TaskList).filter(TaskList.user_id == user_id)
     if board_id is not None:
         q = q.filter(TaskList.board_id == board_id)
-    existing = {r[0] for r in q.all()}
-    for spec in default_lists_for(language):
-        if spec["name"] not in existing:
-            db.add(
-                TaskList(
-                    name=spec["name"],
-                    color=spec["color"],
-                    position=spec["position"],
-                    is_default=True,
-                    kind=spec["kind"],
-                    user_id=user_id,
-                    board_id=board_id,
-                )
+    rows = q.all()
+
+    # Занятые слоты: (kind, position). position приводим к int (legacy-строки).
+    occupied = {(r.kind or "todo", int(r.position or 0)) for r in rows}
+    used_names = {r.name for r in rows}
+
+    # Списки добираются в языке доски (не профиля) — см. докстринг.
+    board_lang = _detect_board_language(rows)
+    specs = default_lists_for(board_lang or language)
+
+    added = False
+    for spec in specs:
+        slot = (spec["kind"], spec["position"])
+        if slot in occupied:
+            continue
+        # На случай legacy-данных: если имя уже занято — не создаём дубль имени.
+        if spec["name"] in used_names:
+            continue
+        db.add(
+            TaskList(
+                name=spec["name"],
+                color=spec["color"],
+                position=spec["position"],
+                is_default=True,
+                kind=spec["kind"],
+                user_id=user_id,
+                board_id=board_id,
             )
-    db.commit()
+        )
+        occupied.add(slot)
+        used_names.add(spec["name"])
+        added = True
+    if added:
+        db.commit()
+
+
+def prune_duplicate_system_lists(db) -> int:
+    """Remove system-list duplicates created by the old name-based check (до
+    локализации дубли появлялись при смене языка: «Регулярные» + «Regular»).
+    Удаляются только пустые дубли (на которые не ссылается ни одна задача);
+    первый (по id) список слота сохраняется. Итерация — по парам
+    (user_id, board_id) из самих списков, чтобы legacy-строки без Board
+    тоже обрабатывались. Возвращает число удалённых."""
+    from sqlalchemy import func
+
+    from .models import Task, TaskList
+
+    pairs = db.query(TaskList.user_id, TaskList.board_id).distinct().all()
+    removed = 0
+    for user_id, board_id in pairs:
+        rows = (
+            db.query(TaskList)
+            .filter(
+                TaskList.user_id == user_id,
+                TaskList.board_id == board_id,
+                TaskList.is_default.is_(True),
+            )
+            .order_by(TaskList.id)
+            .all()
+        )
+        seen: dict[tuple, TaskList] = {}
+        for row in rows:
+            slot = (row.kind or "todo", int(row.position or 0))
+            if slot not in seen:
+                seen[slot] = row
+                continue
+            # Дубль слота: удаляем, только если на имя не ссылается ни одна задача.
+            q = db.query(func.count(Task.id)).filter(
+                Task.user_id == user_id, Task.list == row.name
+            )
+            if board_id is not None:
+                q = q.filter(Task.board_id == board_id)
+            if q.scalar():
+                continue
+            db.delete(row)
+            removed += 1
+    if removed:
+        db.commit()
+    return removed
 
 
 def list_names(db, user_id: int | None = None, board_id: int | None = None) -> set:
