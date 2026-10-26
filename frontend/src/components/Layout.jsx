@@ -86,9 +86,11 @@ export default function Layout({
         <button
           type="button"
           onClick={onPlanner}
-          className="shrink-0 rounded-lg border border-green-400/70 px-2.5 py-1.5 text-xs font-semibold text-green-100 hover:bg-green-600/30"
+          title="Открыть глобальный планировщик"
+          className="shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-1 focus:ring-offset-[#22384d]"
         >
-          Планировщик
+          <span className="hidden sm:inline">Планировщик</span>
+          <span className="sm:hidden">План</span>
         </button>
 
         {/* Переключатель досок — центр хедера */}

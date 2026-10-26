@@ -414,7 +414,19 @@ export default function App() {
 
   return (
     <>
-      <Planner open={plannerOpen} onClose={() => setPlannerOpen(false)} />
+      <Planner
+        open={plannerOpen}
+        onClose={() => setPlannerOpen(false)}
+        onEdit={(task, board) => {
+          setPlannerOpen(false)
+          if (task.board_id === activeBoardId) openEdit(task)
+          else {
+            setActiveBoardId(board.id)
+            setEditingTask(task)
+            setModalOpen(true)
+          }
+        }}
+      />
       <Layout
       isAdmin={isAdmin}
       onAdmin={openAdmin}
