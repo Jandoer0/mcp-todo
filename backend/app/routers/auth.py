@@ -41,9 +41,31 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         "username": current_user.username,
         "role": current_user.role,
         "webhooks_enabled": bool(current_user.webhooks_enabled),
+        "language": current_user.language or "ru",
+        "date_format": current_user.date_format or "eu",
+        "first_day_of_week": current_user.first_day_of_week or "monday",
         "max_boards": get_int(db, "max_boards_per_user", MAX_BOARDS_PER_USER),
         "password_min_length": get_int(db, "password_min_length", 6),
     }
+
+
+@router.put("/profile", response_model=schemas.UserResponse)
+def update_profile(
+    data: schemas.ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Локализация и региональные настройки текущего пользователя.
+    Значения приходят с фронтенда как ключи (см. schemas.DateFormat),
+    поэтому присланный мусор отсекается валидацией Pydantic до записи."""
+    payload = data.model_dump(exclude_unset=True)
+    if not payload:
+        raise HTTPException(status_code=422, detail="Нечего обновлять")
+    for field, value in payload.items():
+        setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.get("/registration-status")

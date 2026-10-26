@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { boardsApi, listsApi, tagsApi, tasksApi } from '../api/client'
+import { useSettings } from '../i18n/settings.jsx'
+import { formatDate, LOCALE_TAG, monthGrid, weekdayKeys } from '../utils/locale'
 
 const pad = (n) => String(n).padStart(2, '0')
 const keyOf = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 const parseDate = (value) => (value ? String(value).slice(0, 10) : '')
-const monthTitle = (date) => date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
-const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 function shiftMonth(date, amount) {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1)
 }
 
 function CalendarMonth({ month, selected, activity, onSelect }) {
+  const { t, i18n } = useTranslation()
+  const { dateFormat, firstDayOfWeek } = useSettings()
   const first = new Date(month.getFullYear(), month.getMonth(), 1)
-  const offset = (first.getDay() + 6) % 7
-  const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+  const { leading: offset, days: count } = monthGrid(first, firstDayOfWeek)
   const cells = []
   for (let i = 0; i < offset; i += 1) cells.push(null)
   for (let day = 1; day <= count; day += 1) cells.push(new Date(month.getFullYear(), month.getMonth(), day))
@@ -22,9 +24,13 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
 
   return (
     <section className="mb-6">
-      <h3 className="mb-2 text-center text-sm font-bold capitalize text-slate-700">{monthTitle(month)}</h3>
+      <h3 className="mb-2 text-center text-sm font-bold capitalize text-slate-700">
+        {first.toLocaleDateString(LOCALE_TAG[i18n.language] || 'ru-RU', { month: 'long', year: 'numeric' })}
+      </h3>
       <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-400">
-        {weekDays.map((day) => <span key={day} className="py-1 font-semibold">{day}</span>)}
+        {weekdayKeys(firstDayOfWeek).map((key) => (
+          <span key={key} className="py-1 font-semibold">{t(`weekdays.short.${key}`)}</span>
+        ))}
         {cells.map((date, index) => {
           if (!date) return <span key={`empty-${index}`} />
           const key = keyOf(date)
@@ -48,7 +54,10 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
 }
 
 function BoardGroup({ board, tasks, allTasks, lists, tags = [], onEdit }) {
+  const { t } = useTranslation()
+  const { dateFormat } = useSettings()
   const listByName = new Map(lists.map((list) => [list.name, list]))
+  const priorityKey = (p) => (p === 3 ? 'high' : p === 2 ? 'medium' : 'low')
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <h3 className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700">{board.name}</h3>
@@ -62,14 +71,14 @@ function BoardGroup({ board, tasks, allTasks, lists, tags = [], onEdit }) {
               <div className="flex items-center gap-2">
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${task.priority === 3 ? 'bg-red-500' : task.priority === 2 ? 'bg-blue-500' : 'bg-slate-400'}`}
-                  title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 2 ? 'Средний приоритет' : 'Низкий приоритет'}
-                  aria-label={task.priority === 3 ? 'Высокий приоритет' : task.priority === 2 ? 'Средний приоритет' : 'Низкий приоритет'}
+                  title={t(`priorities.${priorityKey(task.priority)}`)}
+                  aria-label={t(`priorities.${priorityKey(task.priority)}`)}
                 />
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">{task.title}</span>
                 {(task.tags || []).length > 0 && <div className="ml-auto flex min-w-0 shrink-0 max-w-[48%] items-center justify-end gap-1 overflow-hidden">{task.tags.map((tag, index) => { const name = typeof tag === 'string' ? tag : tag.name; return <span key={`${name}-${index}`} className="max-w-24 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: (typeof tag === 'object' && tag.color) || tags.find((item) => item.name === name)?.color || '#64748b' }} title={name}>{name}</span> })}</div>}
-                <span className="shrink-0 text-xs tabular-nums text-slate-400">{task.deadline ? new Date(task.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : 'без даты'}</span>
+                <span className="shrink-0 text-xs tabular-nums text-slate-400">{task.deadline ? formatDate(task.deadline, dateFormat, t) : t('planner.noDate')}</span>
               </div>
-              {blockers.length > 0 && <div className="mt-2 flex items-center gap-2"><span className="shrink-0 text-[10px] font-semibold text-slate-400">Блокеры</span><div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${percent}%` }} /></div><span className="shrink-0 text-[10px] tabular-nums text-slate-500">{done}/{blockers.length}</span></div>}
+              {blockers.length > 0 && <div className="mt-2 flex items-center gap-2"><span className="shrink-0 text-[10px] font-semibold text-slate-400">{t('planner.blockers')}</span><div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${percent}%` }} /></div><span className="shrink-0 text-[10px] tabular-nums text-slate-500">{done}/{blockers.length}</span></div>}
             </button>
           )
         })}
@@ -91,6 +100,8 @@ function GroupedFeed({ title, tasksByBoard, empty, onEdit, tone = 'slate' }) {
 }
 
 export default function Planner({ open, onClose, onEdit }) {
+  const { t, i18n } = useTranslation()
+  const { dateFormat } = useSettings()
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [selected, setSelected] = useState(() => keyOf(new Date()))
   const [boards, setBoards] = useState([])
@@ -133,26 +144,29 @@ export default function Planner({ open, onClose, onEdit }) {
     <div className="fixed inset-0 z-[40] flex flex-col bg-[#35506b] text-slate-800">
       <header className="shrink-0 border-b border-white/10 bg-[#22384d] px-5 py-3 text-white shadow-lg">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-extrabold leading-tight">Планировщик</h1>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">Закрыть ×</button>
+          <h1 className="text-lg font-extrabold leading-tight">{t('planner.title')}</h1>
+          <button type="button" onClick={onClose} className="shrink-0 rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">{t('planner.close')} ×</button>
         </div>
         {/* Карточка выбранной даты — в хедере: под список задач отдаётся
-            вся оставшаяся высота, а не блок с крупным заголовком. */}
+            вся оставшаяся высота, а не блок с крупным заголовком.
+            Дата форматируется по профилю (ТЗ §5), название дня — по языку. */}
         <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-white/50">Выбранная дата</span>
-          <h2 className="text-base font-extrabold capitalize leading-tight text-white sm:text-lg">{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2>
-          <span className="hidden text-xs text-white/60 sm:inline">Global Daily Focus · все доски</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-white/50">{t('planner.selectedDate')}</span>
+          <h2 className="text-base font-extrabold capitalize leading-tight text-white sm:text-lg">
+            {selectedDate.toLocaleDateString(LOCALE_TAG[i18n.language] || 'ru-RU', { weekday: 'long' })}, {formatDate(selected, dateFormat, t)}
+          </h2>
+          <span className="hidden text-xs text-white/60 sm:inline">{t('planner.subtitle')}</span>
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col md:flex-row bg-[#35506b]">
         <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-200 bg-white p-4 md:w-72 md:border-b-0 md:border-r lg:w-80">
-          <div className="mb-4 flex items-center justify-between gap-2"><button type="button" onClick={() => setMonth((value) => shiftMonth(value, -1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">‹</button><span className="text-xs text-slate-400">Календарь</span><button type="button" onClick={() => setMonth((value) => shiftMonth(value, 1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">›</button></div>
+          <div className="mb-4 flex items-center justify-between gap-2"><button type="button" onClick={() => setMonth((value) => shiftMonth(value, -1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">‹</button><span className="text-xs text-slate-400">{t('planner.calendar')}</span><button type="button" onClick={() => setMonth((value) => shiftMonth(value, 1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">›</button></div>
           <CalendarMonth month={month} selected={selected} activity={activity} onSelect={setSelected} />
           <CalendarMonth month={shiftMonth(month, 1)} selected={selected} activity={activity} onSelect={setSelected} />
         </aside>
         <main className="min-w-0 flex-1 overflow-y-auto bg-[#35506b] p-4 md:p-6">
           <div className="mx-auto max-w-4xl">
-            {loading ? <p className="py-12 text-center text-sm text-slate-400">Загрузка задач со всех досок…</p> : <div className="space-y-8"><GroupedFeed title="Просроченные" tasksByBoard={overdue} onEdit={onEdit} tone="red" empty="Просроченных задач нет" /><GroupedFeed title="Завершить" tasksByBoard={due} onEdit={onEdit} tone="amber" empty="На эту дату задач к завершению нет" /><GroupedFeed title="В работе" tasksByBoard={upcoming} onEdit={onEdit} tone="slate" empty="Нет незавершённых задач с более поздним дедлайном" /></div>}
+            {loading ? <p className="py-12 text-center text-sm text-slate-400">{t('planner.loading')}</p> : <div className="space-y-8"><GroupedFeed title={t('planner.overdue')} tasksByBoard={overdue} onEdit={onEdit} tone="red" empty={t('planner.overdueEmpty')} /><GroupedFeed title={t('planner.due')} tasksByBoard={due} onEdit={onEdit} tone="amber" empty={t('planner.dueEmpty')} /><GroupedFeed title={t('planner.upcoming')} tasksByBoard={upcoming} onEdit={onEdit} tone="slate" empty={t('planner.upcomingEmpty')} /></div>}
           </div>
         </main>
       </div>

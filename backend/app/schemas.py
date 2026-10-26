@@ -1,7 +1,7 @@
 import builtins
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
@@ -90,11 +90,22 @@ class BoardUpdate(BaseModel):
 
     _color_check = field_validator("color")(_check_color)
 
+# Ключи региональных настроек профиля. Значения живут в словарях перевода
+# фронтенда; в БД хранятся именно ключи, чтобы добавление нового языка
+# или формата не требовало миграции данных.
+DateFormat = Literal["eu", "us", "iso", "friendly"]
+FirstDayOfWeek = Literal["monday", "sunday"]
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
     role: str
     webhooks_enabled: bool = True
+    # Локализация и региональные настройки (см. ProfileUpdate ниже).
+    language: Literal["ru", "en"] = "ru"
+    date_format: DateFormat = "eu"
+    first_day_of_week: FirstDayOfWeek = "monday"
     # Stored hashed token is never serialized; only expose whether one is set.
     mcp_token_hash: str | None = Field(default=None, exclude=True)
 
@@ -104,6 +115,15 @@ class UserResponse(BaseModel):
     @property
     def has_mcp_token(self) -> bool:
         return bool(self.mcp_token_hash)
+
+
+class ProfileUpdate(BaseModel):
+    """Локализация и региональные настройки пользователя (ТЗ «Многоязычность»).
+    Все поля опциональны: обновляется только присланное."""
+
+    language: Literal["ru", "en"] | None = None
+    date_format: DateFormat | None = None
+    first_day_of_week: FirstDayOfWeek | None = None
 
 class UserCreate(BaseModel):
     # min password length is enforced in /auth/register (admin updates may

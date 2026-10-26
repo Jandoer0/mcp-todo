@@ -1,5 +1,6 @@
 import { useRef, useState, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 import { compactAmount, currencySymbol, formatAmount } from '../utils/format'
@@ -65,7 +66,7 @@ function BlockersProgress({ blockers }) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={pct}
-      aria-label={`Блокирующие задачи: ${done} из ${total}`}
+      aria-label={t('task.blockersLabel', { done, total })}
       onMouseEnter={show}
       onMouseLeave={() => setPos(null)}
     >
@@ -91,7 +92,7 @@ function BlockersProgress({ blockers }) {
               : { left: pos.left, top: pos.bottom + 8 }
           }
         >
-          <div className="font-semibold mb-1">Блокирующие задачи: {done} из {total}</div>
+          <div className="font-semibold mb-1">{t('task.blockersTitle', { done, total })}</div>
           <ul>
             {blockers.map((b) => (
               <li key={b.id} className="flex items-center gap-1.5">
@@ -139,6 +140,7 @@ function Trash() {
 }
 
 export default function TaskCard({ task, allTasks = [], lists = [], tags = [], currencies = [], onSetList, onEdit, onEditCyclic, onDelete, onRefresh }) {
+  const { t } = useTranslation()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState([])
   // Меню ⋯ на панели цикла (История / Остановить): рендерится порталом,
@@ -184,15 +186,15 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     // Жёсткая связь «циклическая ⇔ Регулярные»: циклическую нельзя вытащить
     // из системного списка, обычную нельзя перетащить в «Регулярные».
     if (task.is_cyclic) {
-      alert('Циклическая задача всегда находится в списке «Регулярные»')
+      alert(t('task.cyclicOnlyInRegular'))
       return
     }
     if (lists.find((l) => l.name === targetName)?.kind === 'regular') {
-      alert('В «Регулярные» попадают только циклические задачи')
+      alert(t('task.regularOnlyCyclic'))
       return
     }
     if (lists.find((l) => l.name === targetName)?.kind === 'done' && task.is_blocked) {
-      alert('Сначала выполните блокирующие задачи')
+      alert(t('task.blockedByOthers'))
       return
     }
     // §5.4: при завершении циклической через done-список передаём
@@ -307,7 +309,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
   }
 
   const handleStop = async () => {
-    if (!confirm(`Остановить цикл задачи «${task.title}»? Новые копии создаваться больше не будут.`)) return
+    if (!confirm(t('task.cycleStopConfirm', { title: task.title }))) return
     try {
       await tasksApi.cycleStop(task.id)
       onRefresh && onRefresh()
@@ -650,7 +652,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
               className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
               onClick={() => { closeCycleMenu(); openHistory() }}
             >
-              История итераций
+              {t('task.cycleHistoryButton')}
             </button>
             <button
               type="button"
@@ -658,14 +660,14 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
               title="Новые копии создаваться больше не будут"
               onClick={() => { closeCycleMenu(); handleStop() }}
             >
-              Остановить цикл
+              {t('task.cycleStopButton')}
             </button>
           </div>,
           document.body
         )}
       </div>
 
-      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={`История: ${task.title}`}>
+      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={t('task.cycleHistoryModalTitle', { title: task.title })}>
         {history.length === 0 ? (
           <p className="text-sm text-slate-500">Записей пока нет — история появляется после выполнения или остановки цикла.</p>
         ) : (

@@ -20,6 +20,8 @@ export const authApi = {
     api.post(`${API_URL}/auth/register`, { username, password }),
   registrationStatus: () => api.get(`${API_URL}/auth/registration-status`),
   me: () => api.get(`${API_URL}/auth/me`),
+  // Локализация и региональные настройки профиля (ТЗ «Многоязычность» §3).
+  updateProfile: (data) => api.put(`${API_URL}/auth/profile`, data),
 }
 
 export const currenciesApi = {

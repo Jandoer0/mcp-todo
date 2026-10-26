@@ -184,6 +184,18 @@ def run_migrations() -> None:
             )
             conn.commit()
 
+    # Локализация и региональные настройки профиля (ТЗ «Многоязычность»).
+    with engine.connect() as conn:
+        user_cols = {c["name"] for c in inspector.get_columns("users")}
+        for col, ddl in (
+            ("language", 'VARCHAR NOT NULL DEFAULT "ru"'),
+            ("date_format", 'VARCHAR NOT NULL DEFAULT "eu"'),
+            ("first_day_of_week", 'VARCHAR NOT NULL DEFAULT "monday"'),
+        ):
+            if col not in user_cols:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+                conn.commit()
+
     # One webhook per board: drop duplicates (keep the lowest id) and add a
     # unique index. A plain index is used because the column is nullable
     # and NULL board_ids (legacy rows) must not collide.

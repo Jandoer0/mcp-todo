@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0.25)'
 
@@ -6,6 +7,7 @@ const TEXT_SHADOW = '0 1px 1px rgba(15, 23, 42, 0.4), 0 0 2px rgba(15, 23, 42, 0
 // помещается — рисуется одна копия без дублей; иначе «бесконечная» лента
 // из трёх копий с якорем в средней, чтобы по краям были соседи.
 export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onReorder }) {
+  const { t } = useTranslation()
   const wrapRef = useRef(null)
   const stripRef = useRef(null)
   const cardRefs = useRef(new Map())
@@ -151,7 +153,7 @@ export default function BoardSwitcher({ boards, activeId, onSwitch, onEdit, onRe
         data-anchor={isActive}
         onClick={() => (isActive ? onEdit() : onSwitch(board.id))}
         {...dragProps(board)}
-        title={isActive ? `${board.name} — нажмите, чтобы редактировать доску` : `Переключиться на «${board.name}»`}
+        title={isActive ? t('board.editHint', { name: board.name }) : t('board.switchHint', { name: board.name })}
         className={`${base} ${isActive ? 'z-10 font-bold text-sm ring-2 ring-white/90 px-4 py-2 -my-0.5' : 'opacity-70 hover:opacity-100 text-xs font-semibold transition-opacity duration-200'}${dropMark}`}
         style={{ backgroundColor: board.color, color: '#ffffff', textShadow: TEXT_SHADOW }}
       >

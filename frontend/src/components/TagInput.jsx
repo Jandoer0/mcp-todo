@@ -1,9 +1,11 @@
 import { useRef, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PALETTE } from '../constants'
 
 const FALLBACK_COLOR = '#64748b'
 
 export default function TagInput({ value = [], availableTags = [], takenColors = [], onChange }) {
+  const { t } = useTranslation()
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -77,7 +79,7 @@ export default function TagInput({ value = [], availableTags = [], takenColors =
                 type="button"
                 onClick={() => removeTag(name)}
                 className="text-white/80 hover:text-white leading-none text-xs"
-                aria-label={`Удалить тег ${name}`}
+                aria-label={t('tag.remove', { name })}
               >
                 ×
               </button>
@@ -98,7 +100,7 @@ export default function TagInput({ value = [], availableTags = [], takenColors =
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          placeholder={value.length ? '' : 'Введите тег и нажмите Enter'}
+          placeholder={value.length ? '' : t('tag.placeholder')}
           className="flex-1 min-w-[8rem] bg-transparent outline-none py-0.5"
         />
         {/* Explicit add button: on mobile the virtual keyboard's "done" key
@@ -112,7 +114,7 @@ export default function TagInput({ value = [], availableTags = [], takenColors =
             }}
             className="shrink-0 px-2 py-1 rounded bg-[#22384d] text-white text-xs font-semibold"
           >
-            + Добавить
+            {t('tag.add')}
           </button>
         )}
       </div>

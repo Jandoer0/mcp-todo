@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import TaskCard from './TaskCard'
 
 // Плейсхолдер-«дырка» размером с перетаскиваемую карточку: открывается на
@@ -43,6 +44,7 @@ export default function Board({
   currencies = [], // валюта по умолчанию — первая в пользовательском порядке
   onEditCyclic,
 }) {
+  const { t } = useTranslation()
   // List semantics are user-editable (kind: todo | progress | done).
   const kindOf = (name) => lists.find((l) => l.name === name)?.kind || 'todo'
 
@@ -95,7 +97,7 @@ export default function Board({
   // Tasks whose list is not in the configured lists (safety net).
   const orphan = sortTasks(visible.filter((t) => !lists.some((l) => l.name === t.list)))
   if (orphan.length) {
-    groups.push({ id: -1, name: 'Прочее', color: '#64748b', is_default: false, items: orphan })
+    groups.push({ id: -1, name: t('board.otherList'), color: '#64748b', is_default: false, items: orphan })
   }
 
   // ---- Collapsed columns (dnd does not apply to collapsed ones) ----
@@ -374,7 +376,7 @@ export default function Board({
                 type="button"
                 onClick={() => toggleGroup(group)}
                 className="flex items-center gap-2 min-w-0 text-left group"
-                title={collapsedState ? 'Развернуть колонку' : 'Свернуть колонку'}
+                title={collapsedState ? t('board.expandColumn') : t('board.collapseColumn')}
               >
                 <span className="text-white/60 text-xs transition-transform">
                   {collapsedState ? '▶' : '▼'}
@@ -393,7 +395,7 @@ export default function Board({
                   type="button"
                   onClick={() => onManageLists && onManageLists()}
                   className="w-6 h-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center text-sm leading-none"
-                  title="Настроить списки (имя, цвет, удаление)"
+                  title={t('lists.manageHint')}
                 >
                   ⋯
                 </button>
@@ -425,7 +427,7 @@ export default function Board({
                     type="button"
                     onClick={() => toggleGroup(group)}
                     className="hidden md:flex w-full shrink-0 flex-col items-center gap-2 py-2 rounded-lg bg-white/5 hover:bg-white/15 transition-colors"
-                    title={`Развернуть «${group.name}»`}
+                    title={t('board.expand', { name: group.name })}
                   >
                     <span className="text-white/70 text-xs">▶</span>
                     <span

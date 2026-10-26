@@ -79,6 +79,14 @@ class User(Base):
     # Admin toggle: when False the user cannot configure webhooks, their
     # existing webhooks are wiped and none of their events are dispatched.
     webhooks_enabled = Column(Boolean, nullable=False, default=True, server_default="1")
+    # Локализация и региональные настройки (ТЗ «Многоязычность»). Строковые
+    # ключи, а не числа: у «первого дня недели» разные нумерации в Python
+    # (0=пн) и JS (0=вс) — строка исключает этот класс ошибок.
+    language = Column(String, nullable=False, default="ru", server_default="ru")
+    date_format = Column(String, nullable=False, default="eu", server_default="eu")
+    first_day_of_week = Column(
+        String, nullable=False, default="monday", server_default="monday"
+    )
 
 
 # Self-referential many-to-many: a row (blocker_id, blocked_id) means the task

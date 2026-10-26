@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from './hooks/useAuth'
+import { useSettings } from './i18n/settings.jsx'
 import { useTasks } from './hooks/useTasks'
 import { adminApi, authApi, boardsApi, currenciesApi, tagsApi, tasksApi } from './api/client'
 import Login from './components/Login'
@@ -16,6 +18,8 @@ import Planner from './components/Planner'
 import { PALETTE } from './constants'
 
 export default function App() {
+  const { t } = useTranslation()
+  const prefs = useSettings()
   const { token, isAdmin, view, ready, login, register, logout, checkAdmin, allowRegistration, passwordMin } =
     useAuth()
 
@@ -86,6 +90,9 @@ export default function App() {
         setWebhooksEnabled(res.data?.webhooks_enabled !== false)
         // /me also carries UI policy values (board cap, password hint).
         setProfile(res.data)
+        // Язык и региональные настройки едины на всех устройствах: профиль
+        // с сервера перезаписывает локальный выбор (см. i18n/settings.jsx).
+        prefs.applyProfile(res.data)
       })
       .catch(() => setWebhooksEnabled(true))
   }, [ready, token])
@@ -121,7 +128,7 @@ export default function App() {
     try {
       await Promise.all(updated.map((u) => boardsApi.update(u.id, { position: u.position })))
     } catch {
-      alert('Не удалось изменить порядок досок')
+      alert(t('errors.reorderFailed'))
     }
     await loadBoards()
   }
@@ -153,6 +160,9 @@ export default function App() {
     try {
       const res = await authApi.me()
       setProfile(res.data)
+      // Профиль — источник истины после входа: применяем язык и региональные
+      // настройки с сервера, чтобы они совпадали на любом устройстве.
+      prefs.applyProfile(res.data)
     } catch {
       setProfile(null)
     }
@@ -191,7 +201,7 @@ export default function App() {
       setAuthError('')
       await login(u, p)
     } catch (err) {
-      setAuthError(err?.response?.data?.detail || 'Неверный логин или пароль')
+      setAuthError(err?.response?.data?.detail || t('errors.loginFailed'))
     }
   }
 
@@ -200,7 +210,7 @@ export default function App() {
       setAuthError('')
       await register(u, p)
     } catch (err) {
-      setAuthError(err?.response?.data?.detail || 'Ошибка регистрации')
+      setAuthError(err?.response?.data?.detail || t('errors.registerFailed'))
     }
   }
 
@@ -258,18 +268,18 @@ export default function App() {
       setCyclicFormOpen(false)
       setEditingCyclicTask(null)
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось сохранить циклическую задачу')
+      alert(err?.response?.data?.detail || t('errors.saveCyclicFailed'))
     }
   }
 
   const handleCyclicDelete = async (task) => {
-    if (!confirm(`Удалить циклическую задачу «${task.title}» и всю её историю?`)) return
+    if (!confirm(t('errors.deleteCyclicConfirm', { title: task.title }))) return
     try {
       await remove(task.id)
       setCyclicFormOpen(false)
       setEditingCyclicTask(null)
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось удалить циклическую задачу')
+      alert(err?.response?.data?.detail || t('errors.deleteCyclicFailed'))
     }
   }
 
@@ -290,7 +300,7 @@ export default function App() {
       }
       setModalOpen(false)
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Произошла ошибка при сохранении задачи')
+      alert(err?.response?.data?.detail || t('errors.saveTaskFailed'))
     }
   }
 
@@ -300,7 +310,7 @@ export default function App() {
       await load()
       // если задача ушла с активной доски — она исчезнет из текущего списка
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось перенести задачу')
+      alert(err?.response?.data?.detail || t('errors.transferFailed'))
     }
   }
 
@@ -309,7 +319,7 @@ export default function App() {
       await setList(task.id, listName, extra)
     } catch (err) {
       if (err?.response?.status === 400) {
-        alert(err?.response?.data?.detail || 'Действие невозможно')
+        alert(err?.response?.data?.detail || t('errors.actionFailed'))
       }
     }
   }
@@ -319,7 +329,7 @@ export default function App() {
     try {
       await reorder(task.id, listName, position)
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось переместить задачу')
+      alert(err?.response?.data?.detail || t('errors.moveTaskFailed'))
     }
   }
 
@@ -327,7 +337,7 @@ export default function App() {
     try {
       await remove(task.id)
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось удалить задачу')
+      alert(err?.response?.data?.detail || t('errors.deleteTaskFailed'))
     }
   }
 
@@ -352,7 +362,7 @@ export default function App() {
       await tagsApi.update(activeBoardId, tag.id, { color })
       await load()
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Не удалось изменить цвет тега')
+      alert(err?.response?.data?.detail || t('errors.changeTagColorFailed'))
     }
   }
 
@@ -595,35 +605,78 @@ export default function App() {
             className="bg-white rounded-lg shadow-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold mb-4">Профиль</h2>
+            <h2 className="text-lg font-bold mb-4">{t('profile.title')}</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Имя пользователя</span>
+                <span className="text-gray-500">{t('profile.username')}</span>
                 <span className="font-medium">{profile?.username ?? '—'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">ID</span>
+                <span className="text-gray-500">{t('profile.userId')}</span>
                 <span className="font-medium">{profile?.id ?? '—'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Роль</span>
+                <span className="text-gray-500">{t('profile.role')}</span>
                 <span className="font-medium">
-                  {profile?.role === 'admin' ? 'Администратор' : 'Пользователь'}
+                  {profile?.role === 'admin' ? t('profile.roleAdmin') : t('profile.roleUser')}
                 </span>
               </div>
               {activeBoard && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Текущая доска</span>
+                  <span className="text-gray-500">{t('profile.currentBoard')}</span>
                   <span className="font-medium">{activeBoard.name}</span>
                 </div>
               )}
             </div>
+
+            {/* Локализация и региональные настройки (ТЗ «Многоязычность» §3):
+                применяются сразу, сохраняются в профиле на сервере. */}
+            <div className="mt-5 border-t border-slate-200 pt-4 space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                {t('profile.settings')}
+              </div>
+              <label className="block text-sm">
+                <span className="text-gray-500">{t('profile.language')}</span>
+                <select
+                  value={prefs.language}
+                  onChange={(e) => prefs.setLanguage(e.target.value)}
+                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-slate-800"
+                >
+                  <option value="ru">{t('languages.ru')}</option>
+                  <option value="en">{t('languages.en')}</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-gray-500">{t('profile.dateFormat')}</span>
+                <select
+                  value={prefs.dateFormat}
+                  onChange={(e) => prefs.setDateFormat(e.target.value)}
+                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-slate-800"
+                >
+                  {['eu', 'us', 'iso', 'friendly'].map((key) => (
+                    <option key={key} value={key}>{t(`dateFormats.${key}`)}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-gray-500">{t('profile.firstDayOfWeek')}</span>
+                <select
+                  value={prefs.firstDayOfWeek}
+                  onChange={(e) => prefs.setFirstDayOfWeek(e.target.value)}
+                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-slate-800"
+                >
+                  <option value="monday">{t('weekStarts.monday')}</option>
+                  <option value="sunday">{t('weekStarts.sunday')}</option>
+                </select>
+              </label>
+            </div>
+
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setProfileOpen(false)}
                 className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded"
               >
-                Закрыть
+                {t('profile.close')}
               </button>
             </div>
           </div>

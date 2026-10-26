@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
-const MONTHS = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
-]
+import { useSettings } from '../i18n/settings.jsx'
+import { formatDateTime, LOCALE_TAG, monthGrid, weekdayKeys } from '../utils/locale'
 
 function pad(n) {
   return String(n).padStart(2, '0')
@@ -14,16 +12,12 @@ function toLocalValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-function formatLabel(value) {
-  if (!value) return ''
-  const [d, t] = value.split('T')
-  return `${d.split('-').reverse().join('.')} ${t}`
-}
-
 const PANEL_HEIGHT = 350 // approximate rendered height in px
 const PANEL_WIDTH = 286
 
 export default function DateTimePicker({ id, name, value, onChange, placeholder }) {
+  const { t, i18n } = useTranslation()
+  const { dateFormat, firstDayOfWeek } = useSettings()
   const [open, setOpen] = useState(false)
   const [dropUp, setDropUp] = useState(false)
   const [view, setView] = useState(() => {
@@ -95,9 +89,10 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
 
   const [curH, curM] = value && value.includes('T') ? value.split('T')[1].split(':').map(Number) : [12, 0]
 
-  // Calendar grid: Monday-first, 6 rows.
+  // Сетка месяца: первый день недели берётся из профиля (ТЗ §2.Б) —
+  // та же настройка, что и в глобальном Планировщике.
   const first = new Date(view.year, view.month, 1)
-  const startOffset = (first.getDay() + 6) % 7
+  const { leading: startOffset } = monthGrid(first, firstDayOfWeek)
   const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
   const cells = []
   for (let i = 0; i < startOffset; i++) cells.push(null)
@@ -127,7 +122,9 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
           open ? 'border-blue-500 ring-1 ring-blue-400' : ''
         }`}
       >
-        <span className={value ? '' : 'text-slate-400'}>{value ? formatLabel(value) : placeholder}</span>
+        <span className={value ? '' : 'text-slate-400'}>
+          {value ? formatDateTime(value, dateFormat, t) : placeholder}
+        </span>
         <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
@@ -159,7 +156,7 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
             : undefined
           }
           role="dialog"
-          aria-label="Выбор даты и времени"
+          aria-label={t('datePicker.label')}
         >
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-2">
@@ -167,28 +164,31 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
               type="button"
               onClick={() => shiftMonth(-1)}
               className="w-7 h-7 rounded hover:bg-slate-100 text-slate-600"
-              aria-label="Предыдущий месяц"
+              aria-label={t('datePicker.prevMonth')}
             >
               ‹
             </button>
             <div className="text-sm font-semibold text-slate-700">
-              {MONTHS[view.month]} {view.year}
+              {first.toLocaleDateString(LOCALE_TAG[i18n.language] || 'ru-RU', {
+                month: 'long',
+                year: 'numeric',
+              })}
             </div>
             <button
               type="button"
               onClick={() => shiftMonth(1)}
               className="w-7 h-7 rounded hover:bg-slate-100 text-slate-600"
-              aria-label="Следующий месяц"
+              aria-label={t('datePicker.nextMonth')}
             >
               ›
             </button>
           </div>
 
-          {/* Weekday header */}
+          {/* Weekday header: порядок — из настройки «первый день недели» */}
           <div className="grid grid-cols-7 mb-1">
-            {WEEKDAYS.map((w) => (
-              <div key={w} className="text-center text-[11px] font-semibold text-slate-400 py-1">
-                {w}
+            {weekdayKeys(firstDayOfWeek).map((key) => (
+              <div key={key} className="text-center text-[11px] font-semibold text-slate-400 py-1">
+                {t(`weekdays.short.${key}`)}
               </div>
             ))}
           </div>
@@ -218,12 +218,12 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
 
           {/* Time row */}
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200">
-            <span className="text-xs font-semibold text-slate-500">Время</span>
+            <span className="text-xs font-semibold text-slate-500">{t('datePicker.time')}</span>
             <select
               value={curH}
               onChange={(e) => setTime(Number(e.target.value), curM)}
               className="border rounded px-1 py-1 text-sm bg-white"
-              aria-label="Час"
+              aria-label={t('datePicker.hour')}
             >
               {Array.from({ length: 24 }, (_, h) => (
                 <option key={h} value={h}>{pad(h)}</option>
@@ -234,7 +234,7 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
               value={curM}
               onChange={(e) => setTime(curH, Number(e.target.value))}
               className="border rounded px-1 py-1 text-sm bg-white"
-              aria-label="Минуты"
+              aria-label={t('datePicker.minute')}
             >
               {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
                 <option key={m} value={m}>{pad(m)}</option>
@@ -248,7 +248,7 @@ export default function DateTimePicker({ id, name, value, onChange, placeholder 
               }}
               className="ml-auto text-xs text-red-500 hover:underline"
             >
-              Очистить
+              {t('datePicker.clear')}
             </button>
           </div>
         </div>

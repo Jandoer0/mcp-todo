@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 
 const CLOSE_MS = 180 // matches .modal-panel-out duration
 
@@ -12,6 +13,7 @@ const CLOSE_MS = 180 // matches .modal-panel-out duration
  * - Body scroll is locked while the dialog is open.
  */
 export default function Modal({ open, onClose, title, children, wide, dismissible = true }) {
+  const { t } = useTranslation()
   const [visible, setVisible] = useState(open)
   const [closing, setClosing] = useState(false)
   // After the open animation finishes we drop the animation class: a lingering
@@ -105,7 +107,7 @@ export default function Modal({ open, onClose, title, children, wide, dismissibl
           <button
             onClick={requestClose}
             className="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xl leading-none shrink-0"
-            aria-label="Закрыть"
+            aria-label={t('common.close')}
           >
             ×
           </button>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import BoardSwitcher from './BoardSwitcher'
 
 function UserIcon() {
@@ -28,6 +29,7 @@ export default function Layout({
   maxBoards,
   children,
 }) {
+  const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuClosing, setMenuClosing] = useState(false)
   const menuRef = useRef(null)
@@ -74,7 +76,7 @@ export default function Layout({
         <button
           type="button"
           onClick={() => window.location.reload()}
-          title="Обновить страницу"
+          title={t('layout.refresh')}
           className="hidden md:flex shrink-0 items-center gap-2 rounded px-1 py-0.5 hover:bg-white/10 transition-colors cursor-pointer"
         >
           <img src="/ico.png" alt="OmniTask" className="w-7 h-7 rounded" />
@@ -88,10 +90,10 @@ export default function Layout({
         <button
           type="button"
           onClick={onPlanner}
-          title="Открыть глобальный планировщик"
+          title={t('layout.openPlanner')}
           className="hidden md:block shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-1 focus:ring-offset-[#22384d]"
         >
-          Планировщик
+          {t('layout.planner')}
         </button>
 
         {/* Переключатель досок — центр хедера */}
@@ -112,18 +114,18 @@ export default function Layout({
           type="button"
           onClick={onCreateBoard}
           disabled={boards.length >= (maxBoards ?? Infinity)}
-          title="Создать новую доску"
+          title={t('layout.newBoard')}
           className="shrink-0 rounded-lg border border-dashed border-white/40 px-2.5 py-1.5 text-xs font-semibold text-white/80 hover:border-white/70 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <span className="sm:hidden">+ Доска</span>
-          <span className="hidden sm:inline">+ Создать доску</span>
+          <span className="sm:hidden">{t('layout.newBoardShort')}</span>
+          <span className="hidden sm:inline">{t('layout.newBoardFull')}</span>
         </button>
 
         {/* Профиль: иконка пользователя в стиле иконки «Корзины» + dropdown */}
         <div className="relative shrink-0" ref={menuRef}>
           <button
             onClick={() => (menuOpen ? closeMenu() : (clearTimeout(menuTimer.current), setMenuClosing(false), setMenuOpen(true)))}
-            title="Профиль"
+            title={t('layout.profile')}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
           >
             <UserIcon />
@@ -137,7 +139,7 @@ export default function Layout({
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
               >
-                <UserIcon /> Профиль
+                <UserIcon /> {t('layout.profile')}
               </button>
               {isAdmin && (
                 <button
@@ -147,7 +149,7 @@ export default function Layout({
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                 >
-                  Панель администрирования
+                  {t('layout.adminPanel')}
                 </button>
               )}
               <button
@@ -157,7 +159,7 @@ export default function Layout({
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
               >
-                Параметры валют
+                {t('layout.currencySettings')}
               </button>
               <div className="border-t border-gray-100 my-1" />
               <button

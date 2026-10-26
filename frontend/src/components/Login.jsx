@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function Login({ onLogin, onRegister, error, allowRegistration = true, passwordMin = 6 }) {
+  const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState('login')
@@ -23,13 +25,13 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
         className="bg-white p-8 rounded shadow-md w-full max-w-md"
       >
         <h2 className="text-2xl font-bold mb-6 text-gray-800">
-          {mode === 'login' ? 'Вход' : 'Регистрация'}
+          {mode === 'login' ? t('auth.login') : t('auth.register')}
         </h2>
         <input
           type="text"
           id="username"
           name="username"
-          placeholder="Имя пользователя"
+          placeholder={t('auth.username')}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoCapitalize="none"
@@ -41,36 +43,36 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
           type="password"
           id="password"
           name="password"
-          placeholder="Пароль"
+          placeholder={t('auth.password')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-2 mb-4 border rounded"
         />
         {mode === 'register' && (
           <p className="-mt-2 mb-4 text-xs text-gray-500">
-            Пароль — минимум {passwordMin} символов
+            {t('auth.passwordMin', { min: passwordMin })}
           </p>
         )}
         <button
           type="submit"
           className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
         >
-          {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
+          {mode === 'login' ? t('auth.loginButton') : t('auth.registerButton')}
         </button>
         {error && <p className="mt-4 text-center text-red-500 text-sm">{error}</p>}
         {allowRegistration ? (
           <p className="mt-4 text-center text-gray-600 text-sm">
-            {mode === 'login' ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
+            {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')} 
             <span
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
               className="text-blue-500 cursor-pointer"
             >
-              {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
+              {mode === 'login' ? t('auth.registerLink') : t('auth.loginLink')}
             </span>
           </p>
         ) : (
           <p className="mt-4 text-center text-gray-600 text-sm">
-            Регистрация новых пользователей отключена администратором.
+            {t('auth.registrationClosed')}
           </p>
         )}
       </form>

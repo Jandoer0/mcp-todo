@@ -1,12 +1,9 @@
 import { useState, useMemo } from 'react'
-
-const STATUS_LABEL = {
-  todo: 'Не начато',
-  in_progress: 'В работе',
-  done: 'Готово',
-}
+import { useTranslation } from 'react-i18next'
 
 export default function TaskLinkInput({ value = [], tasks = [], excludeId, onChange }) {
+  // `tr`, а не `t`: ниже в списках `t` — это переменная задачи.
+  const { t: tr } = useTranslation()
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -74,7 +71,7 @@ export default function TaskLinkInput({ value = [], tasks = [], excludeId, onCha
                 type="button"
                 onClick={() => removeTask(id)}
                 className="text-slate-400 hover:text-red-500 leading-none text-xs shrink-0"
-                aria-label={`Убрать блокирующую задачу ${t.title}`}
+                aria-label={tr('task.removeBlocker', { title: t.title })}
               >
                 ×
               </button>
@@ -91,7 +88,7 @@ export default function TaskLinkInput({ value = [], tasks = [], excludeId, onCha
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={onKeyDown}
-          placeholder={value.length ? '' : 'Введите название задачи'}
+          placeholder={value.length ? '' : tr('task.titlePlaceholder')}
           className="flex-1 min-w-[8rem] bg-transparent outline-none py-0.5"
         />
       </div>
@@ -109,7 +106,7 @@ export default function TaskLinkInput({ value = [], tasks = [], excludeId, onCha
               >
                 <span className="truncate">{t.title}</span>
                 <span className="text-[11px] text-gray-500 flex-shrink-0">
-                  {STATUS_LABEL[t.status] || t.list || ''}
+                  {tr(`status.${t.status}`) || t.list || ''}
                 </span>
               </button>
             </li>
