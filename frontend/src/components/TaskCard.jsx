@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 import { compactAmount, currencySymbol, formatAmount } from '../utils/format'
+import { toWallClock } from '../utils/datetime'
 
 // "12 окт." when the year matches the current one, "12 окт. 2027" otherwise.
 function formatDate(value) {
@@ -197,9 +198,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     // §5.4: при завершении циклической через done-список передаём
     // локальную дату клиента вместо utcnow() сервера (иначе для не-UTC
     // таймзон фактическая дата попадает в чужой день).
+    // actual_date — плановая дата (календарный день), поэтому строка
+    // БЕЗ пояса, в местном времени — см. utils/datetime.js.
     const extra =
       task.is_cyclic && lists.find((l) => l.name === targetName)?.kind === 'done'
-        ? { actual_date: new Date().toISOString() }
+        ? { actual_date: toWallClock(new Date()) }
         : {}
     onSetList(task, targetName, extra)
   }

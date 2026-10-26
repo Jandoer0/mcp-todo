@@ -5,32 +5,25 @@ import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
 import { GravityEditor } from './editor/GravityEditor'
+import { fmtInstant } from '../utils/datetime'
 
 const LISTS_FALLBACK = ['Входящие', 'В планах', 'В работе', 'На проверке', 'Готово']
 
 const PRIORITY_LABELS = { 1: 'Низкий', 2: 'Средний', 3: 'Высокий' }
 const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.']
 
-// «2025-10-12» → «12 окт. 2025»
+// «2025-10-12» → «12 окт. 2025». Плановые даты (start_date / deadline)
+// читаются как есть — без сдвига по часовому поясу (см. utils/datetime.js).
 function fmtLogDate(value) {
   if (!value) return '—'
   const [y, m, d] = String(value).slice(0, 10).split('-').map(Number)
   return `${d} ${MONTHS_SHORT[m - 1]} ${y}`
 }
 
-// «2025-10-12T14:30» → «12.10.2025 14:30»
-function fmtLogDateTime(value) {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return '—'
-  const p = (n) => String(n).padStart(2, '0')
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
-
 // Строка истории по записи лога (field, old_value, new_value)
 function describeChange(c) {
   if (c.field === 'completed_at') {
-    return `Задача выполнена: ${fmtLogDateTime(c.new_value)}`
+    return `Задача выполнена: ${fmtInstant(c.new_value)}`
   }
   if (c.field === 'description') return 'Описание задания изменено'
   if (c.field === 'priority') {
@@ -489,7 +482,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
               {[...changes].reverse().map((c) => (
                 <div key={c.id} className="px-2 py-1.5 text-xs text-slate-600 flex justify-between gap-2">
                   <span>{describeChange(c)}</span>
-                  <span className="text-slate-400 shrink-0">{fmtLogDateTime(c.changed_at)}</span>
+                  <span className="text-slate-400 shrink-0">{fmtInstant(c.changed_at)}</span>
                 </div>
               ))}
             </div>
