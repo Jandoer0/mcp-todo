@@ -3,8 +3,16 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
+import i18n from '../i18n/index.js'
 import { compactAmount, currencySymbol, formatAmount } from '../utils/format'
+import { dateParts } from '../utils/locale'
 import { toWallClock } from '../utils/datetime'
+
+// Ключи коротких месяцев в словаре (порядок = календарный).
+const MONTH_SHORT_KEYS = [
+  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+]
 
 // «12 окт.» / «Oct 12» — карточка даты. Месяц — из словаря (months.short),
 // формат числовой части фиксированный. Плановые даты — календарный день,
