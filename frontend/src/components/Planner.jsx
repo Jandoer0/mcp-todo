@@ -50,7 +50,7 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
 function BoardGroup({ board, tasks, allTasks, lists, tags = [], onEdit }) {
   const listByName = new Map(lists.map((list) => [list.name, list]))
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <h3 className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700">{board.name}</h3>
       <div className="divide-y divide-slate-100">
         {tasks.map((task) => {
@@ -59,11 +59,16 @@ function BoardGroup({ board, tasks, allTasks, lists, tags = [], onEdit }) {
           const percent = blockers.length ? Math.round((done / blockers.length) * 100) : 0
           return (
             <button key={task.id} type="button" onClick={() => onEdit(task, board)} className="block w-full px-4 py-3 text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500">
-              <div className="flex items-start justify-between gap-3">
-                <span className="min-w-0 truncate text-sm font-semibold text-slate-700">{task.title}</span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${task.priority === 3 ? 'bg-red-500' : task.priority === 2 ? 'bg-blue-500' : 'bg-slate-400'}`}
+                  title={task.priority === 3 ? 'Высокий приоритет' : task.priority === 2 ? 'Средний приоритет' : 'Низкий приоритет'}
+                  aria-label={task.priority === 3 ? 'Высокий приоритет' : task.priority === 2 ? 'Средний приоритет' : 'Низкий приоритет'}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">{task.title}</span>
+                {(task.tags || []).length > 0 && <div className="ml-auto flex min-w-0 shrink-0 max-w-[48%] items-center justify-end gap-1 overflow-hidden">{task.tags.map((tag, index) => { const name = typeof tag === 'string' ? tag : tag.name; return <span key={`${name}-${index}`} className="max-w-24 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: (typeof tag === 'object' && tag.color) || tags.find((item) => item.name === name)?.color || '#64748b' }} title={name}>{name}</span> })}</div>}
                 <span className="shrink-0 text-xs tabular-nums text-slate-400">{task.deadline ? new Date(task.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : 'без даты'}</span>
               </div>
-              {(task.tags || []).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{task.tags.map((tag, index) => { const name = typeof tag === 'string' ? tag : tag.name; return <span key={`${name}-${index}`} className="max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: (typeof tag === 'object' && tag.color) || tags.find((item) => item.name === name)?.color || '#64748b' }}>{name}</span> })}</div>}
               {blockers.length > 0 && <div className="mt-2 flex items-center gap-2"><span className="shrink-0 text-[10px] font-semibold text-slate-400">Блокеры</span><div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${percent}%` }} /></div><span className="shrink-0 text-[10px] tabular-nums text-slate-500">{done}/{blockers.length}</span></div>}
             </button>
           )
