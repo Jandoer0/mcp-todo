@@ -148,7 +148,7 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
           onTouchStart={startResize}
           onMouseUp={resizeUp.current}
           onTouchEnd={resizeUp.current}
-          className="absolute left-0 right-0 h-1.5 cursor-ns-resize hover:bg-blue-400/40 active:bg-blue-500/70 bg-blue-300/30 transition-colors"
+          className="h-1.5 w-full cursor-ns-resize hover:bg-blue-400/40 active:bg-blue-500/70 bg-blue-300/30 transition-colors"
           title="Перетащите, чтобы изменить высоту окна описания"
         />
         <MarkdownEditorView
