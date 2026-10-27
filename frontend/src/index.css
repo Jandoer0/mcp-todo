@@ -193,22 +193,23 @@ html {
   min-height: 32px;
 }
 
-/* Отключаем sticky-режим тулбара Gravity UI. В редакторе фиксированной
-   высоты с внутренним скроллом (ProseMirror) sticky бесполезен, но вреден:
-   sticky-элемент «прилипает» к ближайшему скроллящемуся родителю, может
-   вырваться за пределы wrapper'а с overflow:hidden и исчезнуть/уехать вверх.
-   Принудительный static — тулбар остаётся в потоке, прижат к верху окна ввода
-   и всегда виден. */
+/* Тулбар Gravity UI помечен как sticky (position: sticky + top). В нашем
+   редакторе это не нужно и вредно: sticky «прилипает» к ближайшему
+   скроллящемуся предку, а им оказывается вся модалка, из-за чего при прокрутке
+   длинного описания тулбар уезжает вверх вместе с текстом. Делаем тулбар
+   обычным потоковым элементом (relative) — он жёстко стоит наверху контейнера
+   ввода, а скроллится только область текста ниже него. Непрозрачный фон
+   гарантирует, что кнопки не сливаются с текстом. */
 .g-markdown-editor-own-wrapper .g-md-editor-sticky,
 .g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky,
 .g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky-active {
-  position: static !important;
+  position: relative !important;
   top: auto !important;
   left: auto !important;
   transform: none !important;
-  z-index: auto !important;
+  z-index: 2 !important;
   background-color: #ffffff !important;
-  border: none !important;
+  border-bottom: 1px solid #e2e8f0;
   visibility: visible !important;
 }
 
@@ -224,19 +225,37 @@ html {
   display: none;
 }
 
-/* Область ввода (ProseMirror-контейнер): занимает всё место под тулбаром.
-   Фон — белый (гарантия, если Gravity UI вернёт ему прозрачность).
-
-   overflow: visible (не auto) — иначе этот flex-контейнер становится
-   скроллящимся, и тулбар «уезжает» вместе с прокруткой, а sticky-режим
-   Gravity UI приклеивает его к верху wrapper, из-за чего он может
-   исчезнуть за верхней границей окна описания. Реальный скролл текста
-   работает внутри g-md-wysiwyg-editor__editor (overflow-y: auto), поэтому
-   здесь скролл не нужен. */
+/* Контейнер редактора (toolbar + область ввода). Занимает всю высоту wrapper'а
+   и ОБЯЗАН быть ограничен (min-height: 0 + overflow: hidden), иначе он растёт
+   по содержимому, переполняет wrapper и скроллится вся модалка целиком — тогда
+   тулбар уезжает, а полоса прокрутки текста исчезает. При ограниченной высоте
+   внутренний g-md-wysiwyg-editor__editor (flex-grow:1, overflow-y:auto)
+   корректно скроллит текст с видимой полосой. */
 .g-markdown-editor-own-wrapper .g-md-wysiwyg-editor {
   flex: 1 1 auto;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
   background-color: #ffffff;
+}
+
+/* Уголок drag-resize высоты редактора (правый нижний угол окна описания).
+   Три диагональные штриховые полоски — привычный визуальный маркер «тяни за
+   угол», как у нативного textarea. При наведении подсвечивается. */
+.g-md-resize-handle {
+  background-image: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    #94a3b8 45% 55%,
+    transparent 55% 65%,
+    #94a3b8 65% 75%,
+    transparent 75% 85%,
+    #94a3b8 85% 95%,
+    transparent 95%
+  );
+  border-bottom-right-radius: 0.375rem;
+}
+.g-md-resize-handle:hover {
+  background-color: rgba(148, 163, 184, 0.2);
 }
 
 /* Включая sticky-вариант тулбара, если он подключился. */

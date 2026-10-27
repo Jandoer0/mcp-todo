@@ -85,40 +85,44 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
-  // Ручка изменения высоты (drag-resize): тасовать вниз/вверх за нижнюю границу
-  // wrapper редактора, удерживая высоту в пределах [minHeight, maxHeight].
-  // resizeRef — сама полоска-ручка (чтобы курсор был ns-resize), wrapperRef —
-  // wrapper редактора: именно его высоту мы меняем. Работает и по мыши, и по
-  // касанию (touch — важно для мобильной версии).
-  const resizeMove = useRef(null)
-  const resizeUp = useRef(null)
+  // Drag-resize высоты редактора за уголок в правом нижнем углу.
+  // Меняем высоту wrapper'а (у него minHeight/maxHeight) в этих пределах;
+  // toolbar остаётся жёстко сверху, скроллится только текст внутри.
+  // Обработчики move/up навешиваются на window во время перетаскивания и
+  // снимаются на pointerup — так drag не «залипает» и работает мышью и пальцем.
   const resizeRef = useRef(null)
+  const dragState = useRef(null) // { startY, startH } | null
 
   const startResize = (e) => {
     if (e.type === 'mousedown' && e.button !== 0) return
     e.preventDefault()
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    const startH = wrapperRef.current.getBoundingClientRect().height
-    resizeMove.current = (ev) => {
-      if (!resizeRef.current) return
+    const point = e.touches ? e.touches[0] : e
+    dragState.current = {
+      startY: point.clientY,
+      startH: wrapperRef.current.getBoundingClientRect().height,
+    }
+    const onMove = (ev) => {
+      if (!dragState.current || !wrapperRef.current) return
       ev.preventDefault()
-      const clientY2 = ev.touches ? ev.touches[0].clientY : ev.clientY
+      const p = ev.touches ? ev.touches[0] : ev
+      const dy = p.clientY - dragState.current.startY
       const next = Math.max(
         computedMinHeight,
-        Math.min(computedMaxHeight, startH + clientY2 - clientY),
+        Math.min(computedMaxHeight, dragState.current.startH + dy),
       )
       wrapperRef.current.style.height = next + 'px'
     }
-    resizeUp.current = () => {
-      window.removeEventListener('mousemove', resizeMove.current)
-      window.removeEventListener('mouseup', resizeUp.current)
-      window.removeEventListener('touchmove', resizeMove.current)
-      window.removeEventListener('touchend', resizeUp.current)
+    const onUp = () => {
+      dragState.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
     }
-    window.addEventListener('mousemove', resizeMove.current)
-    window.addEventListener('mouseup', resizeUp.current)
-    window.addEventListener('touchmove', resizeMove.current, { passive: false })
-    window.addEventListener('touchend', resizeUp.current)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
   }
 
   useEffect(() => {
@@ -141,7 +145,7 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
       <div
         ref={wrapperRef}
         className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
-        style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
+        style={{ height: computedMinHeight, minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
       >
         {/* Ручка изменения высоты: уголок в правом нижнем углу.
             Перетаскивание меняет высоту wrapper редактора в пределах
@@ -150,10 +154,9 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
           ref={resizeRef}
           onMouseDown={startResize}
           onTouchStart={startResize}
-          onMouseUp={resizeUp.current}
-          onTouchEnd={resizeUp.current}
-          className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize bg-white border border-slate-400 hover:bg-slate-100 active:bg-slate-200 shadow rounded-sm flex items-center justify-center"
-          title="Перетащите уголок, чтобы изменить высоту окна описания"
+          className="g-md-resize-handle absolute bottom-0 right-0 z-10 w-5 h-5 cursor-se-resize"
+          title="Потяните за уголок, чтобы изменить высоту окна описания"
+          aria-hidden="true"
         />
         <MarkdownEditorView
           editor={editor}
