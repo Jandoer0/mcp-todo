@@ -407,6 +407,8 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
             <GravityEditor
               initialValue={form.description || ''}
               onChange={(markdown) => setEditorMarkdown(markdown)}
+              minHeight={150}
+              maxHeight={450}
             />
           </div>
           <div className="md:col-span-2">

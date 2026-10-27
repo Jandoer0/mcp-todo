@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useImperativeHandle, forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { boardsApi, listsApi, tagsApi, tasksApi } from '../api/client'
 import { useSettings } from '../i18n/settings.jsx'
@@ -6,8 +7,6 @@ import { formatDate, LOCALE_TAG, monthGrid, weekdayKeys } from '../utils/locale'
 
 const pad = (n) => String(n).padStart(2, '0')
 const keyOf = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-// Индекс Date.getDay() → ключ перевода weekdays.short.
-const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 const parseDate = (value) => (value ? String(value).slice(0, 10) : '')
 
 function shiftMonth(date, amount) {
@@ -171,7 +170,42 @@ function GroupedFeed({ title, tasksByBoard, empty, onEdit, tone = 'slate' }) {
   )
 }
 
-export default function Planner({ open, onClose, onEdit, reloadToken = 0 }) {
+// Загрузить актуальные данные для всех досок пользователя.
+const fetchPlannerData = async () => {
+  const loaded = (await boardsApi.list()).data || []
+  return Promise.all(
+    loaded.map(async (board) => {
+      const [tasksResponse, listsResponse, tagsResponse] = await Promise.all([
+        tasksApi.list(board.id),
+        listsApi.list(board.id),
+        tagsApi.list(board.id),
+      ])
+      const listRows = listsResponse.data || []
+      const progressNames = new Set(listRows.filter((list) => list.kind === 'progress').map((list) => list.name))
+      const regularNames = new Set(listRows.filter((list) => list.kind === 'regular').map((list) => list.name))
+      const allTasks = tasksResponse.data || []
+      return {
+        board,
+        lists: listRows,
+        tags: tagsResponse.data || [],
+        allTasks,
+        tasks: allTasks.filter((task) => progressNames.has(task.list)),
+        regularTasks: allTasks.filter((task) => regularNames.has(task.list)),
+      }
+    }),
+  )
+}
+
+// forwardRef + useImperativeHandle — App получает `refreshPlanner()`,
+// чтобы сразу подгрузить актуальные задачи ПОСЛЕ удаления задачи:
+// через useTasks они обновятся на доске, но Planning — отдельный fetch.
+// fetch вызывается только при первом открытии (без моргания): данные
+// загружаются из актуального fetch, который запускается синхронно
+// с закрытием модального окна (App.jsx).
+const PlannerWithImperative = forwardRef(function Planner(
+  { open, onClose, onEdit },
+  ref,
+) {
   const { t, i18n } = useTranslation()
   const { dateFormat } = useSettings()
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
@@ -180,35 +214,33 @@ export default function Planner({ open, onClose, onEdit, reloadToken = 0 }) {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(false)
 
-  // Данные перезагружаются при открытии И при каждом изменении reloadToken
-  // (App инкрементирует его после create/update/delete) — правки задачи
-  // видны в Планировщике сразу, без закрытия/открытия.
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
+  const opened = useRef(false)
+
+  const fetchData = async () => {
     setLoading(true)
-    boardsApi.list().then(async (boardResponse) => {
-      const loaded = boardResponse.data || []
-      const data = await Promise.all(loaded.map(async (board) => {
-        const [tasksResponse, listsResponse] = await Promise.all([tasksApi.list(board.id), listsApi.list(board.id)])
-        const listRows = listsResponse.data || []
-        const progressNames = new Set(listRows.filter((list) => list.kind === 'progress').map((list) => list.name))
-        const regularNames = new Set(listRows.filter((list) => list.kind === 'regular').map((list) => list.name))
-        const tagsResponse = await tagsApi.list(board.id)
-        const allTasks = tasksResponse.data || []
-        return {
-          board,
-          lists: listRows,
-          tags: tagsResponse.data || [],
-          allTasks,
-          tasks: allTasks.filter((task) => progressNames.has(task.list)),
-          regularTasks: allTasks.filter((task) => regularNames.has(task.list)),
-        }
-      }))
-      if (!cancelled) { setBoards(loaded); setRecords(data) }
-    }).catch(() => { if (!cancelled) { setBoards([]); setRecords([]) } }).finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [open, reloadToken])
+    try {
+      const data = await fetchPlannerData()
+      setBoards(data.map((r) => r.board))
+      setRecords(data)
+    } catch {
+      setBoards([])
+      setRecords([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open && !opened.current) {
+      opened.current = true
+      fetchData()
+    }
+    return () => { opened.current = false }
+  }, [open])
+
+  useImperativeHandle(ref, () => ({
+    refreshPlanner: fetchData,
+  }), [])
 
   const activity = useMemo(() => new Set(records.flatMap(({ tasks }) => tasks.filter((task) => task.deadline).map((task) => parseDate(task.deadline)))), [records])
   const grouped = (predicate, key = 'tasks') =>
@@ -270,4 +302,6 @@ export default function Planner({ open, onClose, onEdit, reloadToken = 0 }) {
       </div>
     </div>
   )
-}
+})
+
+export default PlannerWithImperative

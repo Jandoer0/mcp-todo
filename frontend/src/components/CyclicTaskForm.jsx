@@ -130,6 +130,8 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
           <GravityEditor
             initialValue={form.description || ''}
             onChange={(markdown) => setEditorMarkdown(markdown)}
+            minHeight={150}
+            maxHeight={450}
           />
         </div>
         <div className="md:col-span-2"><label className="field-label">{t('cyclic.tags')}</label><TagInput value={selectedTags} availableTags={tags} onChange={setSelectedTags} /></div>

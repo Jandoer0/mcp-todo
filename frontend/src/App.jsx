@@ -37,6 +37,7 @@ export default function App() {
   const [cyclicFormOpen, setCyclicFormOpen] = useState(false)
   const [editingCyclicTask, setEditingCyclicTask] = useState(null)
   const [plannerOpen, setPlannerOpen] = useState(false)
+  const plannerRef = useRef(null)
 
   const loadCurrencies = () =>
     currenciesApi
@@ -63,8 +64,6 @@ export default function App() {
     setList,
     reorder,
     load,
-    mutationTick,
-    markMutated,
   } = useTasks(ready, activeBoardId)
 
   const loadBoards = async () => {
@@ -269,6 +268,9 @@ export default function App() {
       else await create(payload)
       setCyclicFormOpen(false)
       setEditingCyclicTask(null)
+      // Актуальные задачи для открытого Планировщика подгружаются сразу,
+      // чтобы не было «моргания» при закрытии модального окна.
+      if (plannerOpen) await plannerRef.current?.refreshPlanner()
     } catch (err) {
       alert(err?.response?.data?.detail || t('errors.saveCyclicFailed'))
     }
@@ -280,6 +282,7 @@ export default function App() {
       await remove(task.id)
       setCyclicFormOpen(false)
       setEditingCyclicTask(null)
+      if (plannerOpen) await plannerRef.current?.refreshPlanner()
     } catch (err) {
       alert(err?.response?.data?.detail || t('errors.deleteCyclicFailed'))
     }
@@ -291,6 +294,7 @@ export default function App() {
         if (editingTask) {
           await remove(editingTask.id)
           setModalOpen(false)
+          if (plannerOpen) await plannerRef.current?.refreshPlanner()
         }
         return
       }
@@ -301,6 +305,7 @@ export default function App() {
         await create(payload)
       }
       setModalOpen(false)
+      if (plannerOpen) await plannerRef.current?.refreshPlanner()
     } catch (err) {
       alert(err?.response?.data?.detail || t('errors.saveTaskFailed'))
     }
@@ -310,7 +315,7 @@ export default function App() {
     try {
       await tasksApi.move(task.id, targetBoardId)
       await load()
-      markMutated()
+      if (plannerOpen) await plannerRef.current?.refreshPlanner()
       // если задача ушла с активной доски — она исчезнет из текущего списка
     } catch (err) {
       alert(err?.response?.data?.detail || t('errors.transferFailed'))
@@ -416,9 +421,9 @@ export default function App() {
   return (
     <>
       <Planner
+        ref={(el) => (plannerRef.current = el)}
         open={plannerOpen}
         onClose={() => setPlannerOpen(false)}
-        reloadToken={mutationTick}
         onEdit={(task) => {
           // Планировщик остаётся под модальным окном: доска не переключается,
           // пользователь возвращается к той же дате после закрытия редактора.
@@ -473,8 +478,8 @@ export default function App() {
         onRefresh={async () => {
           await load()
           // Циклические операции (skip/stop/complete/корректировка истории)
-          // мутируют задачи — толкаем токен для Планировщика.
-          markMutated()
+          // мутируют задачи — подгрузить актуальные для открытого Planning.
+          if (plannerOpen) await plannerRef.current?.refreshPlanner()
         }}
         onAddTask={(listName) => {
           setEditingTask(null)

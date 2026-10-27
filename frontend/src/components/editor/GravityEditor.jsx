@@ -39,13 +39,19 @@ removedActionNamesSet.forEach((actionName) => {
 // она дублирует кнопки основной панели и закрывает текст.
 toolbarsPreset.orders[ToolbarName.wysiwygSelection] = []
 
+/**
+ * Markdown-редактор @gravity-ui/markdown-editor. Отличается от TaskForm: получает
+ // minHeight/maxHeight — высота окна ввода описания «растягивается» (ограничена
+ // maxHeight). minHeight/minHeight (ТЗ): окно не меньше 120px, не больше 400px.
+ */
+export function GravityEditor({ initialValue = '', onChange, minHeight = 120, maxHeight = 400 }) {
+
 const commandMenuActions = toolbarsPreset.items.wCommandMenu
   ? toolbarsPreset.items.wCommandMenu.filter(
       (action) => !removedActionNamesSet.has(action.id),
     )
   : []
 
-export function GravityEditor({ initialValue = '', onChange }) {
   const wrapperRef = useRef(null)
 
   const editor = useMarkdownEditor({
@@ -75,6 +81,9 @@ export function GravityEditor({ initialValue = '', onChange }) {
     onChange(editor.getValue() || '')
   }, [onChange, editor])
 
+  const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
+  const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
+
   useEffect(() => {
     editor.on('change', handleChange)
     return () => {
@@ -95,6 +104,7 @@ export function GravityEditor({ initialValue = '', onChange }) {
       <div
         ref={wrapperRef}
         className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
+        style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight }}
       >
         <MarkdownEditorView
           editor={editor}
