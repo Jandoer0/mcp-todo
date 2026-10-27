@@ -85,29 +85,37 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
-  // Ручка изменения высоты (drag-resize): таскать вниз/вверх за нижнюю границу,
-  // удерживая высоту в пределах [minHeight, maxHeight].
-  const [resizeStart, setResizeStart] = useState(null) // {y, startY, startH}
+  // Ручка изменения высоты (drag-resize): тасовать вниз/вверх за нижнюю границу,
+  // удерживая высоту в пределах [minHeight, maxHeight]. Работает и по мыши, и по
+  // касанию (touch — важно для мобильной версии).
+  const resizeMove = useRef(null)
+  const resizeUp = useRef(null)
   const resizeRef = useRef(null)
 
-  const onResizeDown = (e) => {
+  const startResize = (e) => {
     if (e.button !== 0) return
     e.preventDefault()
-    const r = resizeRef.current.getBoundingClientRect()
-    setResizeStart({ y: e.clientY, startY: e.clientY, startH: r.height })
-    const onMove = (ev) => {
-      const d = ev.clientY - resizeStart.y
-      const r2 = resizeRef.current.getBoundingClientRect()
-      const next = Math.max(computedMinHeight, Math.min(computedMaxHeight, r2.height + d))
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const startH = resizeRef.current.getBoundingClientRect().height
+    resizeMove.current = (ev) => {
+      ev.preventDefault()
+      const clientY2 = ev.touches ? ev.touches[0].clientY : ev.clientY
+      const next = Math.max(
+        computedMinHeight,
+        Math.min(computedMaxHeight, startH + clientY2 - clientY),
+      )
       resizeRef.current.style.height = next + 'px'
     }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      setResizeStart(null)
+    resizeUp.current = () => {
+      window.removeEventListener('mousemove', resizeMove.current)
+      window.removeEventListener('mouseup', resizeUp.current)
+      window.removeEventListener('touchmove', resizeMove.current)
+      window.removeEventListener('touchend', resizeUp.current)
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('mousemove', resizeMove.current)
+    window.addEventListener('mouseup', resizeUp.current)
+    window.addEventListener('touchmove', resizeMove.current, { passive: false })
+    window.addEventListener('touchend', resizeUp.current)
   }
 
   useEffect(() => {
@@ -132,12 +140,16 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
         className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
         style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
       >
-        {/* Ручка растягивания высоты */}
+        {/* Ручка изменения высоты: тонкая полоска внизу окна описания.
+            Перетаскивание меняет высоту в пределах minHeight/maxHeight. */}
         <div
           ref={resizeRef}
-          onMouseDown={onResizeDown}
-          className="h-2 w-full cursor-ns-resize hover:bg-blue-400/50 active:bg-blue-500/70 transition-colors"
-          title="Растянуть окно описания по высоте"
+          onMouseDown={startResize}
+          onTouchStart={startResize}
+          onMouseUp={resizeUp.current}
+          onTouchEnd={resizeUp.current}
+          className="absolute left-0 right-0 h-1.5 cursor-ns-resize hover:bg-blue-400/40 active:bg-blue-500/70 bg-blue-300/30 transition-colors"
+          title="Перетащите, чтобы изменить высоту окна описания"
         />
         <MarkdownEditorView
           editor={editor}

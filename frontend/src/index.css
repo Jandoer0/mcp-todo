@@ -190,6 +190,35 @@ html {
   min-height: 32px;
 }
 
+/* Отключаем sticky-режим тулбара Gravity UI. В редакторе фиксированной
+   высоты с внутренним скроллом sticky бесполезен, но вреден: при прокрутке
+   тулбар «прилипает» к верху своего контейнера и исчезает за верхней границей
+   wrapper'а (overflow-hidden). Принудительно относительное позиционирование —
+   тулбар остаётся в потоке и всегда виден. */
+.g-markdown-editor-own-wrapper .g-md-editor-sticky,
+.g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky,
+.g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky-active {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  z-index: auto !important;
+  background-color: #ffffff !important;
+  border: none !important;
+}
+
+.g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky-active:not(
+    .g-md-editor-sticky_clear
+) {
+  padding: 0;
+}
+
+.g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky-active:not(
+    .g-md-editor-sticky_clear
+)::before {
+  display: none;
+}
+
 /* Область ввода (ProseMirror-контейнер): занимает всё место под тулбаром,
    скроллится, если текст превышает maxHeight. Фон — белый (гарантия, если
    Gravity UI вернёт ему прозрачность). */
