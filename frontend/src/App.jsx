@@ -63,6 +63,8 @@ export default function App() {
     setList,
     reorder,
     load,
+    mutationTick,
+    markMutated,
   } = useTasks(ready, activeBoardId)
 
   const loadBoards = async () => {
@@ -308,6 +310,7 @@ export default function App() {
     try {
       await tasksApi.move(task.id, targetBoardId)
       await load()
+      markMutated()
       // если задача ушла с активной доски — она исчезнет из текущего списка
     } catch (err) {
       alert(err?.response?.data?.detail || t('errors.transferFailed'))
@@ -415,6 +418,7 @@ export default function App() {
       <Planner
         open={plannerOpen}
         onClose={() => setPlannerOpen(false)}
+        reloadToken={mutationTick}
         onEdit={(task) => {
           // Планировщик остаётся под модальным окном: доска не переключается,
           // пользователь возвращается к той же дате после закрытия редактора.
@@ -525,7 +529,12 @@ export default function App() {
         onReorder={handleReorder}
         onEdit={openEdit}
         onDelete={handleDelete}
-        onRefresh={load}
+        onRefresh={async () => {
+          await load()
+          // Циклические операции (skip/stop/complete/корректировка истории)
+          // мутируют задачи — толкаем токен для Планировщика.
+          markMutated()
+        }}
         onAddTask={(listName) => {
           setEditingTask(null)
           setPresetList(listName)

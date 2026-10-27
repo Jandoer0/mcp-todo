@@ -293,7 +293,9 @@
     "upcomingEmpty": "No unfinished tasks with a later deadline",
     "noDate": "no date",
     "blockers": "Blockers",
-    "close": "Close"
+    "close": "Close",
+    "regular": "Recurring",
+    "regularEmpty": "No active recurring tasks"
   },
   "budget": {
     "reportCurrency": "Report currency",

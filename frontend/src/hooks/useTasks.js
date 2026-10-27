@@ -10,6 +10,12 @@ export function useTasks(ready, boardId) {
   const [activeTag, setActiveTag] = useState(null)
   // 'manual' — порядок канбан-доски (position с сервера, ТЗv2 §1.4).
   const [sortBy, setSortBy] = useState('manual')
+  // Счётчик мутаций задач: внешние потребители (Планировщик) узнают о
+  // create/update/delete и перезагружают свои данные сразу.
+  const [mutationTick, setMutationTick] = useState(0)
+  // Ручной бамп для мутаций вне хука (move через tasksApi в App,
+  // циклические операции через onRefresh).
+  const markMutated = useCallback(() => setMutationTick((n) => n + 1), [])
 
   const load = useCallback(async () => {
     // All four requests in parallel — first render is 3-4x faster.
@@ -54,6 +60,7 @@ export function useTasks(ready, boardId) {
     async (data) => {
       await tasksApi.create({ ...data, board_id: boardId })
       await load()
+      setMutationTick((n) => n + 1)
     },
     [load, boardId],
   )
@@ -62,6 +69,7 @@ export function useTasks(ready, boardId) {
     async (id) => {
       await tasksApi.remove(id)
       await load()
+      setMutationTick((n) => n + 1)
     },
     [load],
   )
@@ -70,6 +78,7 @@ export function useTasks(ready, boardId) {
     async (id, data) => {
       await tasksApi.update(id, data)
       await load()
+      setMutationTick((n) => n + 1)
     },
     [load],
   )
@@ -92,6 +101,7 @@ export function useTasks(ready, boardId) {
       )
       try {
         await tasksApi.reorder(id, listName, position)
+        setMutationTick((n) => n + 1)
       } catch {
         await load()
       }
@@ -110,6 +120,8 @@ export function useTasks(ready, boardId) {
     setActiveTag,
     sortBy,
     setSortBy,
+    mutationTick,
+    markMutated,
     load,
     create,
     update,

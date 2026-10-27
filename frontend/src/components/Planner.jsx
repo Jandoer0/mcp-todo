@@ -139,18 +139,26 @@ function BoardGroup({ board, tasks, allTasks, lists, tags = [], onEdit }) {
 }
 
 function GroupedFeed({ title, tasksByBoard, empty, onEdit, tone = 'slate' }) {
+  const toneTitle =
+    tone === 'red' ? 'text-red-100' : tone === 'amber' ? 'text-amber-100' : tone === 'teal' ? 'text-teal-100' : 'text-white'
+  const toneBadge =
+    tone === 'red' ? 'bg-red-200 text-red-800' : tone === 'amber' ? 'bg-amber-200 text-amber-800' : tone === 'teal' ? 'bg-teal-500/30 text-teal-100' : 'bg-white/20 text-white'
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
-        <h2 className={`text-base font-extrabold ${tone === 'red' ? 'text-red-100' : tone === 'amber' ? 'text-amber-100' : 'text-white'}`}>{title}</h2>
-        <span className={`rounded-full px-2 py-0.5 text-xs ${tone === 'red' ? 'bg-red-200 text-red-800' : tone === 'amber' ? 'bg-amber-200 text-amber-800' : 'bg-white/20 text-white'}`}>{tasksByBoard.reduce((sum, item) => sum + item.tasks.length, 0)}</span>
+        <h2 className={`text-base font-extrabold ${toneTitle}`}>{title}</h2>
+        <span className={`rounded-full px-2 py-0.5 text-xs ${toneBadge}`}>{tasksByBoard.reduce((sum, item) => sum + item.tasks.length, 0)}</span>
       </div>
-      {tasksByBoard.length ? <div className="space-y-3">{tasksByBoard.map((item) => <BoardGroup key={item.board.id} {...item} onEdit={onEdit} />)}</div> : <p className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-4 py-6 text-center text-sm text-slate-400">{empty}</p>}
+      {tasksByBoard.length ? <div className="space-y-3">{tasksByBoard.map((item) => <BoardGroup key={item.board.id} {...item} onEdit={onEdit} />)}</div> : (
+        /* Пустая зона — в стиле кнопки «+ Добавить задачу»: полупрозрачная
+           подложка на тёмном фоне, пунктирная рамка, светлый текст. */
+        <p className="w-full rounded bg-white/5 border border-dashed border-white/20 px-4 py-6 text-center text-xs text-white/60">{empty}</p>
+      )}
     </section>
   )
 }
 
-export default function Planner({ open, onClose, onEdit }) {
+export default function Planner({ open, onClose, onEdit, reloadToken = 0 }) {
   const { t, i18n } = useTranslation()
   const { dateFormat } = useSettings()
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
@@ -159,6 +167,9 @@ export default function Planner({ open, onClose, onEdit }) {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(false)
 
+  // Данные перезагружаются при открытии И при каждом изменении reloadToken
+  // (App инкрементирует его после create/update/delete) — правки задачи
+  // видны в Планировщике сразу, без закрытия/открытия.
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -167,20 +178,36 @@ export default function Planner({ open, onClose, onEdit }) {
       const loaded = boardResponse.data || []
       const data = await Promise.all(loaded.map(async (board) => {
         const [tasksResponse, listsResponse] = await Promise.all([tasksApi.list(board.id), listsApi.list(board.id)])
-        const progressNames = new Set((listsResponse.data || []).filter((list) => list.kind === 'progress').map((list) => list.name))
+        const listRows = listsResponse.data || []
+        const progressNames = new Set(listRows.filter((list) => list.kind === 'progress').map((list) => list.name))
+        const regularNames = new Set(listRows.filter((list) => list.kind === 'regular').map((list) => list.name))
         const tagsResponse = await tagsApi.list(board.id)
-        return { board, lists: listsResponse.data || [], tags: tagsResponse.data || [], allTasks: tasksResponse.data || [], tasks: (tasksResponse.data || []).filter((task) => progressNames.has(task.list)) }
+        const allTasks = tasksResponse.data || []
+        return {
+          board,
+          lists: listRows,
+          tags: tagsResponse.data || [],
+          allTasks,
+          tasks: allTasks.filter((task) => progressNames.has(task.list)),
+          regularTasks: allTasks.filter((task) => regularNames.has(task.list)),
+        }
       }))
       if (!cancelled) { setBoards(loaded); setRecords(data) }
     }).catch(() => { if (!cancelled) { setBoards([]); setRecords([]) } }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [open])
+  }, [open, reloadToken])
 
   const activity = useMemo(() => new Set(records.flatMap(({ tasks }) => tasks.filter((task) => task.deadline).map((task) => parseDate(task.deadline)))), [records])
-  const grouped = (predicate) => records.map(({ board, lists, tags, allTasks, tasks }) => ({ board, lists, tags, allTasks, tasks: tasks.filter(predicate) })).filter(({ tasks }) => tasks.length)
+  const grouped = (predicate, key = 'tasks') =>
+    records
+      .map((record) => ({ ...record, tasks: record[key].filter(predicate) }))
+      .filter(({ tasks }) => tasks.length)
   const overdue = useMemo(() => grouped((task) => parseDate(task.deadline) && parseDate(task.deadline) < selected), [records, selected])
   const due = useMemo(() => grouped((task) => parseDate(task.deadline) === selected), [records, selected])
   const upcoming = useMemo(() => grouped((task) => parseDate(task.deadline) > selected), [records, selected])
+  // Регулярные задачи: без фильтра по дате — активная итерация видна всегда
+  // (как в колонке «Регулярные» на доске).
+  const regular = useMemo(() => grouped(() => true, 'regularTasks'), [records])
   const selectedDate = new Date(`${selected}T12:00:00`)
 
   useEffect(() => {
@@ -222,7 +249,7 @@ export default function Planner({ open, onClose, onEdit }) {
         </aside>
         <main className="min-w-0 flex-1 overflow-y-auto bg-[#35506b] p-4 md:p-6">
           <div className="mx-auto max-w-4xl">
-            {loading ? <p className="py-12 text-center text-sm text-slate-400">{t('planner.loading')}</p> : <div className="space-y-8"><GroupedFeed title={t('planner.overdue')} tasksByBoard={overdue} onEdit={onEdit} tone="red" empty={t('planner.overdueEmpty')} /><GroupedFeed title={t('planner.due')} tasksByBoard={due} onEdit={onEdit} tone="amber" empty={t('planner.dueEmpty')} /><GroupedFeed title={t('planner.upcoming')} tasksByBoard={upcoming} onEdit={onEdit} tone="slate" empty={t('planner.upcomingEmpty')} /></div>}
+            {loading ? <p className="py-12 text-center text-sm text-slate-400">{t('planner.loading')}</p> : <div className="space-y-8"><GroupedFeed title={t('planner.overdue')} tasksByBoard={overdue} onEdit={onEdit} tone="red" empty={t('planner.overdueEmpty')} /><GroupedFeed title={t('planner.due')} tasksByBoard={due} onEdit={onEdit} tone="amber" empty={t('planner.dueEmpty')} /><GroupedFeed title={t('planner.upcoming')} tasksByBoard={upcoming} onEdit={onEdit} tone="slate" empty={t('planner.upcomingEmpty')} /><GroupedFeed title={t('planner.regular')} tasksByBoard={regular} onEdit={onEdit} tone="teal" empty={t('planner.regularEmpty')} /></div>}
           </div>
         </main>
       </div>
