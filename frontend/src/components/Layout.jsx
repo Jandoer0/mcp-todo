@@ -20,12 +20,6 @@ export default function Layout({
   // board carousel props
   boards = [],
   activeBoardId = null,
-  onSwitchBoard,
-  onReorderBoard,
-  onEditBoard,
-  onCreateBoard,
-  onPlanner,
-  onFilterChange,
   activeBoard = null,
   maxBoards,
   children,
@@ -36,35 +30,22 @@ export default function Layout({
   const menuRef = useRef(null)
   const menuTimer = useRef(null)
 
-  // Мобильный селектор фильтров (перенесён в хедер из App.jsx).
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
-  const [filterMenuClosing, setFilterMenuClosing] = useState(false)
-  const filterMenuTimer = useRef(null)
-  const closeFilterMenu = () => {
-    if (!filterMenuOpen || filterMenuClosing) return
+  // Animated close: play the leave animation, then unmount.
+  const closeMenu = () => {
+    if (!menuOpen || menuClosing) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setFilterMenuOpen(false)
+      setMenuOpen(false)
       return
     }
-    setFilterMenuClosing(true)
-    filterMenuTimer.current = setTimeout(() => {
-      setFilterMenuClosing(false)
-      setFilterMenuOpen(false)
+    setMenuClosing(true)
+    menuTimer.current = setTimeout(() => {
+      setMenuClosing(false)
+      setMenuOpen(false)
     }, 140)
   }
-  useEffect(() => () => clearTimeout(filterMenuTimer.current), [])
 
-  // Мобильный селектор фильтров — тот же набор, что в App.jsx: counts из summary.
-  const FILTERS = summary
-    ? [
-        { id: 'all', label: t('filters.all'), count: summary.total },
-        { id: 'todo', label: t('filters.todo'), count: summary.todo },
-        { id: 'in_progress', label: t('filters.in_progress'), count: summary.in_progress },
-        { id: 'done', label: t('filters.done'), count: summary.done },
-        { id: 'overdue', label: t('filters.overdue'), count: summary.overdue },
-        { id: 'planned', label: t('filters.planned'), count: summary.planned ?? 0 },
-      ]
-    : []
+  useEffect(() => () => clearTimeout(menuTimer.current), [])
+
 
   // Close the dropdown on any click outside of it.
   useEffect(() => {
@@ -136,44 +117,6 @@ export default function Layout({
           <span className="hidden sm:inline">{t('layout.newBoardFull')}</span>
         </button>
 
-        {/* Селектор фильтров: справа — мобильный dropdown; десктопные фильтры
-            остаются на дашборде. */}
-        <div className="md:hidden relative shrink-0">
-          <button
-            onClick={() => (filterMenuOpen ? closeFilterMenu() : (clearTimeout(filterMenuTimer.current), setFilterMenuClosing(false), setFilterMenuOpen(true)))}
-            className="bg-card text-slate-700 px-3 py-2 rounded shadow-sm text-sm flex items-center gap-1 whitespace-nowrap"
-          >
-            {FILTERS.find((f) => f.id === activeFilter)?.label || 'Фильтры'}
-            <span className={`text-[10px] transition-transform ${filterMenuOpen ? 'rotate-180' : ''}`}>▼</span>
-          </button>
-          {/* Full-screen invisible overlay: closes the menu on any tap
-              outside of it and blocks the dashboard underneath. */}
-          {(filterMenuOpen || filterMenuClosing) && (
-            <div
-              className="fixed inset-0 z-30"
-              onClick={closeFilterMenu}
-            />
-          )}
-          {(filterMenuOpen || filterMenuClosing) && (
-            <div className={`absolute left-0 top-full mt-1 z-40 bg-white rounded shadow-lg py-1 min-w-[12rem] ${filterMenuClosing ? 'dropdown-out' : 'dropdown-in'}`}>
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    onFilterChange(f.id)
-                    closeFilterMenu()
-                  }}
-                  className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center hover:bg-slate-100 ${
-                    activeFilter === f.id ? 'font-semibold text-[#22384d] bg-slate-100' : 'text-slate-700'
-                  }`}
-                >
-                  <span>{f.label}</span>
-                  <span className="text-xs text-slate-400">{f.count}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Профиль: иконка пользователя в стиле иконки «Корзины» + dropdown */}
         <div className="relative shrink-0" ref={menuRef}>
@@ -229,13 +172,6 @@ export default function Layout({
           )}
         </div>
       </header>
-      {/* Канбан (ТЗv2 §1): рабочая область — во всю ширину окна браузера.
-          Ограничение max-w осталось бы узким горлышком для горизонтального
-          ряда колонок; единственное исключение — очень широкие экраны (2xl),
-          где строки текста становятся слишком длинными. */}
-      {/* На десктопе main — колонка на остаток высоты экрана: канбан-колонки
-          растягиваются до низа вьюпорта, горизонтальная прокрутка списка
-          оказывается внизу экрана, а не под самым длинным списком. */}
       <main className="p-4 w-full max-w-none xl:max-w-none 2xl:max-w-[2400px] 2xl:mx-auto md:flex md:flex-col md:flex-1 md:min-h-0">{children}</main>
     </div>
   )
