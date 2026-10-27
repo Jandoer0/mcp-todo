@@ -99,19 +99,32 @@ def test_cyclic_task_lands_in_localized_regular_list():
     assert r.json()["list"] == "Regular"
 
 
-def test_legacy_ru_board_keeps_names_after_language_switch():
-    # Смена языка профиля НЕ переименовывает уже существующие списки:
-    # имя фиксируется при создании списка/доски.
+def test_language_switch_renames_regular_list():
+    # Смена языка профиля ПЕРЕИМЕНОВЫВАЕТ системный «Регулярные» во всех
+    # досках пользователя (ТЗ «Многоязычность»). Остальные списки — как есть.
     _register("li_legacy", language="en")
     h = _login("li_legacy")
     bid = _first_board(h)  # дефолтная доска была создана ещё при ru
+    names = {l["name"] for l in client.get("/api/lists", params={"board_id": bid}, headers=h).json()}
+    assert "Regular" in names and "Регулярные" not in names
     r = client.post(
         "/api/tasks",
         headers=h,
         json={"title": "Rent", "is_cyclic": True, "cycle_period": "monthly", "board_id": bid},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["list"] == "Регулярные"
+    assert r.json()["list"] == "Regular"
+
+
+def test_language_switch_back_renames_regular_again():
+    # Туда-обратно: en → ru возвращает русское имя, задачи переезжают за ним.
+    _register("li_legacy2", language=None)
+    h = _login("li_legacy2")
+    bid = _first_board(h)
+    client.put("/api/auth/profile", headers=h, json={"language": "en"})
+    client.put("/api/auth/profile", headers=h, json={"language": "ru"})
+    names = {l["name"] for l in client.get("/api/lists", params={"board_id": bid}, headers=h).json()}
+    assert "Регулярные" in names and "Regular" not in names
 
 
 def test_regular_list_rename_still_blocked_for_localized_name():

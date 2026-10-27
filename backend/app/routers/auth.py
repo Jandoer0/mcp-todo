@@ -61,9 +61,20 @@ def update_profile(
     payload = data.model_dump(exclude_unset=True)
     if not payload:
         raise HTTPException(status_code=422, detail="Нечего обновлять")
+
+    old_lang = current_user.language or "ru"
     for field, value in payload.items():
         setattr(current_user, field, value)
     db.commit()
+
+    # При смене языка переименовываем системный «Регулярные» во всех досках
+    # пользователя (ТЗ «Многоязычность»). Остальные списки не трогаем.
+    new_lang = current_user.language or "ru"
+    if new_lang != old_lang:
+        from ..board import rename_regular_lists
+
+        rename_regular_lists(db, current_user.id, old_lang, new_lang)
+
     db.refresh(current_user)
     return current_user
 

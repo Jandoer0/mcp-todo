@@ -75,8 +75,9 @@ def test_language_switch_does_not_duplicate_system_lists():
         db.close()
 
     names = _list_names(h, bid)
-    # Дефолтная доска создана при регистрации (ru) — её список имён не растёт
-    assert names == sorted(["Регулярные", "Не начато", "В работе", "Готово", "Архив"]), names
+    # Дублей нет: 5 системных списков; «Регулярные» при смене языка
+    # переименован в «Regular» (rename_regular_lists), остальные — как есть.
+    assert names == sorted(["Regular", "Не начато", "В работе", "Готово", "Архив"]), names
 
 
 def test_missing_list_recreated_in_board_language():

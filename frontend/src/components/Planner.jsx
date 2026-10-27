@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { boardsApi, listsApi, tagsApi, tasksApi } from '../api/client'
 import { useSettings } from '../i18n/settings.jsx'
@@ -50,6 +50,57 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
         })}
       </div>
     </section>
+  )
+}
+
+// Горизонтальная лента дат для мобильных: свайп влево/вправо прокручивает
+// числа, тап выбирает дату. Активность (есть задачи с дедлайном) — точка.
+function DateStrip({ selected, activity, onSelect }) {
+  const { t } = useTranslation()
+  const stripRef = useRef(null)
+  // Диапазон: текущий месяц + следующий (как в десктопном календаре).
+  const now = new Date()
+  const days = useMemo(() => {
+    const out = []
+    for (let m = 0; m < 2; m += 1) {
+      const first = new Date(now.getFullYear(), now.getMonth() + m, 1)
+      const count = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
+      for (let d = 1; d <= count; d += 1) out.push(new Date(first.getFullYear(), first.getMonth(), d))
+    }
+    return out
+  }, [now.getFullYear(), now.getMonth()])
+
+  // Прокрутить выбранную дату в центр при открытии/смене месяца.
+  useEffect(() => {
+    if (!stripRef.current || !selected) return
+    const el = stripRef.current.querySelector(`[data-date="${selected}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [selected])
+
+  return (
+    <div
+      ref={stripRef}
+      className="flex gap-1 overflow-x-auto pb-1"
+      style={{ scrollbarWidth: 'none' }}
+    >
+      {days.map((date) => {
+        const key = keyOf(date)
+        const active = key === selected
+        const today = key === keyOf(new Date())
+        return (
+          <button
+            key={key}
+            data-date={key}
+            type="button"
+            onClick={() => onSelect(key)}
+            className={`relative flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg text-xs transition-colors ${active ? 'bg-green-600 font-bold text-white shadow' : 'text-slate-700 hover:bg-green-50'} ${today && !active ? 'ring-1 ring-green-500' : ''}`}
+          >
+            <span>{date.getDate()}</span>
+            {activity.has(key) && <span className={`absolute bottom-0.5 h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-green-500'}`} />}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -155,7 +206,16 @@ export default function Planner({ open, onClose, onEdit }) {
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col md:flex-row bg-[#35506b]">
-        <aside className="w-full shrink-0 overflow-y-auto border-b border-slate-200 bg-white p-4 md:w-72 md:border-b-0 md:border-r lg:w-80">
+        {/* Мобильный: горизонтальная лента дат (свайп влево/вправо, тап = выбор).
+            Десктоп: боковая колонка с календарём на два месяца. */}
+        <div className="md:hidden shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+          <DateStrip
+            selected={selected}
+            activity={activity}
+            onSelect={(key) => setSelected(key)}
+          />
+        </div>
+        <aside className="hidden w-full shrink-0 overflow-y-auto border-slate-200 bg-white p-4 md:block md:w-72 md:border-r lg:w-80">
           <div className="mb-4 flex items-center justify-between gap-2"><button type="button" onClick={() => setMonth((value) => shiftMonth(value, -1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">‹</button><span className="text-xs text-slate-400">{t('planner.calendar')}</span><button type="button" onClick={() => setMonth((value) => shiftMonth(value, 1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">›</button></div>
           <CalendarMonth month={month} selected={selected} activity={activity} onSelect={setSelected} />
           <CalendarMonth month={shiftMonth(month, 1)} selected={selected} activity={activity} onSelect={setSelected} />

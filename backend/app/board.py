@@ -224,6 +224,43 @@ def ensure_default_lists(db, user_id: int, board_id: int | None = None, language
         db.commit()
 
 
+def rename_regular_lists(db, user_id: int, old_lang: str, new_lang: str) -> None:
+    """Переименовать системный список «Регулярные» во всех досках
+    пользователя при смене языка профиля (ТЗ «Многоязычность»). Остальные
+    списки не трогаем — пользователь может переименовать их сам."""
+    from .models import Task, TaskList
+
+    if old_lang == new_lang:
+        return
+    old_name = DEFAULT_LIST_NAMES.get(old_lang, DEFAULT_LIST_NAMES["ru"])["regular"]
+    new_name = DEFAULT_LIST_NAMES[new_lang]["regular"]
+    rows = (
+        db.query(TaskList)
+        .filter(TaskList.user_id == user_id, TaskList.name == old_name)
+        .all()
+    )
+    for row in rows:
+        # Не создаём дубль имени на той же доске.
+        taken = (
+            db.query(TaskList)
+            .filter(
+                TaskList.user_id == user_id,
+                TaskList.board_id == row.board_id,
+                TaskList.name == new_name,
+            )
+            .first()
+        )
+        if taken:
+            continue
+        db.query(Task).filter(
+            Task.user_id == user_id,
+            Task.board_id == row.board_id,
+            Task.list == old_name,
+        ).update({Task.list: new_name}, synchronize_session=False)
+        row.name = new_name
+    db.commit()
+
+
 def prune_duplicate_system_lists(db) -> int:
     """Remove system-list duplicates created by the old name-based check (до
     локализации дубли появлялись при смене языка: «Регулярные» + «Regular»).

@@ -459,7 +459,17 @@ export default function App() {
 
       <div className="flex justify-between items-center mb-4 gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          {/* Mobile: фильтры — дропдауном, рядом кнопка Планировщика */}
+          {/* Mobile: кнопка Планировщика (на десктопе он остаётся в шапке) */}
+          <button
+            type="button"
+            onClick={() => setPlannerOpen(true)}
+            title={t('planner.title')}
+            className="md:hidden shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700"
+          >
+            {t('planner.title')}
+          </button>
+
+          {/* Mobile: фильтры — дропдауном, справа от Планировщика */}
           <div className="md:hidden relative">
             <button
               onClick={() => (filterMenuOpen ? closeFilterMenu() : (clearTimeout(filterMenuTimer.current), setFilterMenuClosing(false), setFilterMenuOpen(true)))}
@@ -496,16 +506,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {/* Mobile: кнопка Планировщика (на десктопе он остаётся в шапке) */}
-          <button
-            type="button"
-            onClick={() => setPlannerOpen(true)}
-            title="Открыть глобальный планировщик"
-            className="md:hidden shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700"
-          >
-            Планировщик
-          </button>
         </div>
 
         {/* Tag Cloud Filter — desktop: inside the buttons row */}
