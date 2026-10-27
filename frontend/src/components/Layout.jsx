@@ -54,7 +54,7 @@ export default function Layout({
   }
   useEffect(() => () => clearTimeout(filterMenuTimer.current), [])
 
-  const summary = summary || {}
+  // Мобильный селектор фильтров — тот же набор, что в App.jsx: counts из summary.
   const FILTERS = summary
     ? [
         { id: 'all', label: t('filters.all'), count: summary.total },
