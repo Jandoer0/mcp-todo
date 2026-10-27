@@ -8,6 +8,8 @@ import { formatDate, LOCALE_TAG, monthGrid, weekdayKeys } from '../utils/locale'
 const pad = (n) => String(n).padStart(2, '0')
 const keyOf = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 const parseDate = (value) => (value ? String(value).slice(0, 10) : '')
+// Индекс Date.getDay() → ключ перевода weekdays.short.
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
 function shiftMonth(date, amount) {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1)

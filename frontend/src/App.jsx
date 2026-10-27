@@ -458,7 +458,8 @@ export default function App() {
         onFilterChange={setActiveFilter} 
       />
 
-      {/* Облако тегов — мобильное: между хедером и кнопкой «+ Новая» */}
+      {/* Облако тегов — мобильное: над строкой с кнопкой Планировщика
+          и селектором фильтров; десктоп — внутри панели «+ Новая задача» / «Действия» */}
       <div className="md:hidden flex flex-wrap gap-2 items-center mb-3">
         {tagCloud}
       </div>
@@ -511,6 +512,11 @@ export default function App() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Десктоп: облако тегов — внутри панели «+ Новая задача» / «Действия» */}
+      <div className="hidden md:flex flex-wrap gap-2 items-center justify-center flex-1">
+        {tagCloud}
       </div>
 
       <Board
