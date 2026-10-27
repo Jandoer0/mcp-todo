@@ -85,8 +85,10 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
-  // Ручка изменения высоты (drag-resize): тасовать вниз/вверх за нижнюю границу,
-  // удерживая высоту в пределах [minHeight, maxHeight]. Работает и по мыши, и по
+  // Ручка изменения высоты (drag-resize): тасовать вниз/вверх за нижнюю границу
+  // wrapper редактора, удерживая высоту в пределах [minHeight, maxHeight].
+  // resizeRef — сама полоска-ручка (чтобы курсор был ns-resize), wrapperRef —
+  // wrapper редактора: именно его высоту мы меняем. Работает и по мыши, и по
   // касанию (touch — важно для мобильной версии).
   const resizeMove = useRef(null)
   const resizeUp = useRef(null)
@@ -96,15 +98,16 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
     if (e.button !== 0) return
     e.preventDefault()
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    const startH = resizeRef.current.getBoundingClientRect().height
+    const startH = wrapperRef.current.getBoundingClientRect().height
     resizeMove.current = (ev) => {
+      if (!resizeRef.current) return
       ev.preventDefault()
       const clientY2 = ev.touches ? ev.touches[0].clientY : ev.clientY
       const next = Math.max(
         computedMinHeight,
         Math.min(computedMaxHeight, startH + clientY2 - clientY),
       )
-      resizeRef.current.style.height = next + 'px'
+      wrapperRef.current.style.height = next + 'px'
     }
     resizeUp.current = () => {
       window.removeEventListener('mousemove', resizeMove.current)
@@ -141,14 +144,15 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
         style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
       >
         {/* Ручка изменения высоты: тонкая полоска внизу окна описания.
-            Перетаскивание меняет высоту в пределах minHeight/maxHeight. */}
+            Перетаскивание меняет высоту wrapper редактора в пределах
+            minHeight/maxHeight. */}
         <div
           ref={resizeRef}
           onMouseDown={startResize}
           onTouchStart={startResize}
           onMouseUp={resizeUp.current}
           onTouchEnd={resizeUp.current}
-          className="h-1.5 w-full cursor-ns-resize hover:bg-blue-400/40 active:bg-blue-500/70 bg-blue-300/30 transition-colors"
+          className="h-1.5 w-full cursor-ns-resize hover:bg-slate-500 active:bg-slate-600 bg-slate-400/40 transition-colors"
           title="Перетащите, чтобы изменить высоту окна описания"
         />
         <MarkdownEditorView
