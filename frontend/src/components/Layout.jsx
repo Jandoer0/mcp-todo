@@ -20,6 +20,11 @@ export default function Layout({
   // board carousel props
   boards = [],
   activeBoardId = null,
+  onSwitchBoard,
+  onReorderBoard,
+  onEditBoard,
+  onCreateBoard,
+  onPlanner,
   activeBoard = null,
   maxBoards,
   children,
