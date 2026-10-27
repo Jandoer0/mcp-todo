@@ -27,10 +27,10 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
 
   return (
     <section className="mb-6">
-      <h3 className="mb-2 text-center text-sm font-bold capitalize text-slate-700">
+      <h3 className="mb-2 text-center text-sm font-bold capitalize text-white">
         {first.toLocaleDateString(LOCALE_TAG[i18n.language] || 'ru-RU', { month: 'long', year: 'numeric' })}
       </h3>
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-white/70">
         {weekdayKeys(firstDayOfWeek).map((key) => (
           <span key={key} className="py-1 font-semibold">{t(`weekdays.short.${key}`)}</span>
         ))}
@@ -291,8 +291,12 @@ const PlannerWithImperative = forwardRef(function Planner(
             onSelect={(key) => setSelected(key)}
           />
         </div>
-        <aside className="hidden w-full shrink-0 overflow-y-auto border-slate-200 bg-white p-4 md:block md:w-72 md:border-r lg:w-80">
-          <div className="mb-4 flex items-center justify-between gap-2"><button type="button" onClick={() => setMonth((value) => shiftMonth(value, -1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">‹</button><span className="text-xs text-slate-400">{t('planner.calendar')}</span><button type="button" onClick={() => setMonth((value) => shiftMonth(value, 1))} className="rounded-lg px-3 py-1 text-lg hover:bg-slate-100">›</button></div>
+        <aside className="hidden w-full shrink-0 overflow-y-auto border-white/10 bg-[#2c4359] p-4 md:block md:w-72 md:border-r lg:w-80">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <button type="button" onClick={() => setMonth((value) => shiftMonth(value, -1))} className="rounded-lg px-3 py-1 text-lg text-white/80 hover:bg-white/10 hover:text-white transition-colors">‹</button>
+            <span className="text-xs text-white/60">{t('planner.calendar')}</span>
+            <button type="button" onClick={() => setMonth((value) => shiftMonth(value, 1))} className="rounded-lg px-3 py-1 text-lg text-white/80 hover:bg-white/10 hover:text-white transition-colors">›</button>
+          </div>
           <CalendarMonth month={month} selected={selected} activity={activity} onSelect={setSelected} />
           <CalendarMonth month={shiftMonth(month, 1)} selected={selected} activity={activity} onSelect={setSelected} />
         </aside>
