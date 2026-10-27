@@ -171,9 +171,40 @@ html {
   background-color: #f1f5f9;
 }
 
+.g-markdown-editor-own-wrapper {
+  /* Растягиваем wrapper на всю заявленную высоту: тулбар прижат к верху,
+     область ввода занимает всё оставшееся место (flex-колонка). Это гарантирует,
+     что при заданных minHeight/maxHeight текст не будет «уезжать» под тулбар. */
+  display: flex;
+  flex-direction: column;
+}
+
 .g-markdown-editor-own-wrapper .g-md-toolbar,
-.g-markdown-editor-own-wrapper .g-md-flex-toolbar {
+.g-markdown-editor-own-wrapper .g-md-flex-toolbar,
+.g-markdown-editor-own-wrapper .g-md-wysiwyg-editor__toolbar,
+.g-markdown-editor-own-wrapper .g-md-sticky-toolbar {
+  /* Явный непрозрачный фон + рамка — тулбар всегда виден над текстом, даже если
+     Gravity UI переопределит цвета. */
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0;
+  min-height: 32px;
+}
+
+/* Область ввода (ProseMirror-контейнер): занимает всё место под тулбаром,
+   скроллится, если текст превышает maxHeight. Фон — белый (гарантия, если
+   Gravity UI вернёт ему прозрачность). */
+.g-markdown-editor-own-wrapper .g-md-wysiwyg-editor {
+  flex: 1 1 auto;
+  overflow: auto;
   background-color: #ffffff;
+  position: relative;
+}
+
+/* Включая sticky-вариант тулбара, если он подключился. */
+.g-markdown-editor-own-wrapper .g-md-sticky-toolbar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0;
+  min-height: 32px;
 }
 
 /* Tailwind preflight убирает маркеры у ul/ol глобально. Внутри

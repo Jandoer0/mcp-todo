@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ThemeProvider, ToasterProvider } from '@gravity-ui/uikit'
 import { toaster as sharedToaster } from '@gravity-ui/uikit/toaster-singleton'
 import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-editor'
@@ -40,9 +40,10 @@ removedActionNamesSet.forEach((actionName) => {
 toolbarsPreset.orders[ToolbarName.wysiwygSelection] = []
 
 /**
- * Markdown-редактор @gravity-ui/markdown-editor. Отличается от TaskForm: получает
- // minHeight/maxHeight — высота окна ввода описания «растягивается» (ограничена
- // maxHeight). minHeight/minHeight (ТЗ): окно не меньше 120px, не больше 400px.
+ * Markdown-редактор @gravity-ui/markdown-editor. Wrapper с явными
+ * minHeight/maxHeight растягивается/сжимается в этих пределах (drag-resize
+ * ручка внизу), тулбар имеет непрозрачный фон. Конкретные значения задаёт
+ * вызывающая форма (TaskForm: 150..450px, CyclicTaskForm: то же).
  */
 export function GravityEditor({ initialValue = '', onChange, minHeight = 120, maxHeight = 400 }) {
 
@@ -84,6 +85,31 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
+  // Ручка изменения высоты (drag-resize): таскать вниз/вверх за нижнюю границу,
+  // удерживая высоту в пределах [minHeight, maxHeight].
+  const [resizeStart, setResizeStart] = useState(null) // {y, startY, startH}
+  const resizeRef = useRef(null)
+
+  const onResizeDown = (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const r = resizeRef.current.getBoundingClientRect()
+    setResizeStart({ y: e.clientY, startY: e.clientY, startH: r.height })
+    const onMove = (ev) => {
+      const d = ev.clientY - resizeStart.y
+      const r2 = resizeRef.current.getBoundingClientRect()
+      const next = Math.max(computedMinHeight, Math.min(computedMaxHeight, r2.height + d))
+      resizeRef.current.style.height = next + 'px'
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      setResizeStart(null)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   useEffect(() => {
     editor.on('change', handleChange)
     return () => {
@@ -104,8 +130,15 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
       <div
         ref={wrapperRef}
         className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
-        style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight }}
+        style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
       >
+        {/* Ручка растягивания высоты */}
+        <div
+          ref={resizeRef}
+          onMouseDown={onResizeDown}
+          className="h-2 w-full cursor-ns-resize hover:bg-blue-400/50 active:bg-blue-500/70 transition-colors"
+          title="Растянуть окно описания по высоте"
+        />
         <MarkdownEditorView
           editor={editor}
           toolbarsPreset={toolbarsPreset}
