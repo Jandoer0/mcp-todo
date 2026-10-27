@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { boardsApi, listsApi, tagsApi, tasksApi } from '../api/client'
 import { useSettings } from '../i18n/settings.jsx'
@@ -6,6 +6,8 @@ import { formatDate, LOCALE_TAG, monthGrid, weekdayKeys } from '../utils/locale'
 
 const pad = (n) => String(n).padStart(2, '0')
 const keyOf = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+// Индекс Date.getDay() → ключ перевода weekdays.short.
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 const parseDate = (value) => (value ? String(value).slice(0, 10) : '')
 
 function shiftMonth(date, amount) {
@@ -54,9 +56,14 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
 }
 
 // Горизонтальная лента дат для мобильных: свайп влево/вправо прокручивает
-// числа, тап выбирает дату. Активность (есть задачи с дедлайном) — точка.
+// дни, тап выбирает дату. Активность (есть задачи с дедлайном) — точка.
+// Каждая ячейка: день недели (микро-подпись) + число; между концом недели
+// (по настройке «первый день недели») и началом новой — тонкий разделитель.
+// Тёмная тема ленты: она часть «хрома» экрана и не сливается с белыми
+// карточками задач ниже.
 function DateStrip({ selected, activity, onSelect }) {
   const { t } = useTranslation()
+  const { firstDayOfWeek } = useSettings()
   const stripRef = useRef(null)
   // Диапазон: текущий месяц + следующий (как в десктопном календаре).
   const now = new Date()
@@ -70,6 +77,9 @@ function DateStrip({ selected, activity, onSelect }) {
     return out
   }, [now.getFullYear(), now.getMonth()])
 
+  // Последний день недели: monday → воскресенье (0), sunday → суббота (6).
+  const weekEndDay = firstDayOfWeek === 'sunday' ? 6 : 0
+
   // Прокрутить выбранную дату в центр при открытии/смене месяца.
   useEffect(() => {
     if (!stripRef.current || !selected) return
@@ -80,7 +90,7 @@ function DateStrip({ selected, activity, onSelect }) {
   return (
     <div
       ref={stripRef}
-      className="flex gap-1 overflow-x-auto pb-1"
+      className="flex gap-1.5 overflow-x-auto px-4 py-2.5"
       style={{ scrollbarWidth: 'none' }}
     >
       {days.map((date) => {
@@ -88,16 +98,19 @@ function DateStrip({ selected, activity, onSelect }) {
         const active = key === selected
         const today = key === keyOf(new Date())
         return (
-          <button
-            key={key}
-            data-date={key}
-            type="button"
-            onClick={() => onSelect(key)}
-            className={`relative flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg text-xs transition-colors ${active ? 'bg-green-600 font-bold text-white shadow' : 'text-slate-700 hover:bg-green-50'} ${today && !active ? 'ring-1 ring-green-500' : ''}`}
-          >
-            <span>{date.getDate()}</span>
-            {activity.has(key) && <span className={`absolute bottom-0.5 h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-green-500'}`} />}
-          </button>
+          <Fragment key={key}>
+            <button
+              data-date={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              className={`relative flex h-12 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors ${active ? 'bg-green-500 font-bold text-white shadow-md' : 'bg-white/10 text-white/90 hover:bg-white/20'} ${today && !active ? 'ring-2 ring-amber-300/80' : ''}`}
+            >
+              <span className="text-[9px] leading-none opacity-70">{t(`weekdays.short.${DAY_KEYS[date.getDay()]}`)}</span>
+              <span className="text-sm font-semibold leading-none">{date.getDate()}</span>
+              {activity.has(key) && <span className={`absolute bottom-1 h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-amber-300'}`} />}
+            </button>
+            {date.getDay() === weekEndDay && <span className="my-1 w-px shrink-0 bg-white/20" aria-hidden="true" />}
+          </Fragment>
         )
       })}
     </div>
@@ -226,7 +239,9 @@ export default function Planner({ open, onClose, onEdit, reloadToken = 0 }) {
             по профилю (ТЗ §5), название дня — по языку интерфейса. */}
         <div className="flex items-center justify-between gap-3">
           <h1 className="shrink-0 text-lg font-extrabold leading-tight">{t('planner.title')}</h1>
-          <h2 className="min-w-0 truncate text-center text-base font-extrabold capitalize leading-tight text-white sm:text-lg">
+          {/* Дата выбранного дня — только на десктопе (в календаре-сайдбаре
+              она и так видна); на мобильном в хедере — название и «Закрыть». */}
+          <h2 className="hidden min-w-0 truncate text-center text-base font-extrabold capitalize leading-tight text-white md:block lg:text-lg">
             {selectedDate.toLocaleDateString(LOCALE_TAG[i18n.language] || 'ru-RU', { weekday: 'long' })}, {formatDate(selected, dateFormat, t)}
           </h2>
           <button type="button" onClick={onClose} className="shrink-0 rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">{t('planner.close')} ×</button>
@@ -235,7 +250,7 @@ export default function Planner({ open, onClose, onEdit, reloadToken = 0 }) {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row bg-[#35506b]">
         {/* Мобильный: горизонтальная лента дат (свайп влево/вправо, тап = выбор).
             Десктоп: боковая колонка с календарём на два месяца. */}
-        <div className="md:hidden shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+        <div className="md:hidden shrink-0 border-b border-white/10 bg-[#2c4359]">
           <DateStrip
             selected={selected}
             activity={activity}
