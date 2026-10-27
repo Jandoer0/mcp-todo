@@ -264,12 +264,11 @@ def rename_regular_lists(db, user_id: int, old_lang: str, new_lang: str) -> None
 def prune_duplicate_system_lists(db) -> int:
     """Remove system-list duplicates created by the old name-based check (до
     локализации дубли появлялись при смене языка: «Регулярные» + «Regular»).
-    Удаляются только пустые дубли (на которые не ссылается ни одна задача);
-    первый (по id) список слота сохраняется. Итерация — по парам
-    (user_id, board_id) из самих списков, чтобы legacy-строки без Board
-    тоже обрабатывались. Возвращает число удалённых."""
-    from sqlalchemy import func
-
+    Дубли непустые тоже сливаются: задачи ссылаются на список по ИМЕНИ,
+    поэтому имена всех удалённых дублей переносятся в канонический список
+    слота (имя = язык профиля). Первый (по id) список слота сохраняется.
+    Итерация — по парам (user_id, board_id) из самих списков, чтобы
+    legacy-строки без Board тоже обрабатывались. Возвращает число удалённых."""
     from .models import Task, TaskList
 
     pairs = db.query(TaskList.user_id, TaskList.board_id).distinct().all()
@@ -291,14 +290,14 @@ def prune_duplicate_system_lists(db) -> int:
             if slot not in seen:
                 seen[slot] = row
                 continue
-            # Дубль слота: удаляем, только если на имя не ссылается ни одна задача.
-            q = db.query(func.count(Task.id)).filter(
-                Task.user_id == user_id, Task.list == row.name
-            )
-            if board_id is not None:
-                q = q.filter(Task.board_id == board_id)
-            if q.scalar():
-                continue
+            # Дубль слота: остаётся первый (по id). Задачи с имени дубля
+            # переносятся на имя канонического списка.
+            keeper = seen[slot]
+            db.query(Task).filter(
+                Task.user_id == user_id,
+                Task.list == row.name,
+                (Task.board_id == board_id) if board_id is not None else True,
+            ).update({Task.list: keeper.name}, synchronize_session=False)
             db.delete(row)
             removed += 1
     if removed:

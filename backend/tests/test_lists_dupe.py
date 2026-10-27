@@ -104,9 +104,11 @@ def test_missing_list_recreated_in_board_language():
     assert "In Progress" not in names, names
 
 
-def test_prune_removes_empty_duplicates_only():
-    """prune удаляет пустые дубли слотов (прод-следствие бага), но не трогает
-    дубли, на которые ссылаются задачи."""
+def test_prune_merges_duplicates_and_moves_tasks():
+    """prune схлопывает дубли слотов ВСЕГДА: пустые просто удаляются,
+    с задачами — задачи переносятся на канонический список (первый по id).
+    Так лечится прод-случай Tubular: «Regular» с 9 циклическими задачами
+    рядом с «Регулярные»."""
     _register("dupe_prune")
     h = _login("dupe_prune")
     bid = _first_board(h)
@@ -116,7 +118,7 @@ def test_prune_removes_empty_duplicates_only():
         # Пустой EN-дубль регулярного списка (как создал старый ensure)
         db.add(TaskList(name="Regular", color="#14b8a6", position=1, is_default=True,
                         kind="regular", user_id=user.id, board_id=bid))
-        # Дубль todo-слота, на который ссылается задача — удаляться не должен
+        # Дубль todo-слота, на который ссылается задача
         db.add(TaskList(name="To Do", color="#64748b", position=2, is_default=True,
                         kind="todo", user_id=user.id, board_id=bid))
         db.commit()
@@ -124,16 +126,17 @@ def test_prune_removes_empty_duplicates_only():
         db.commit()
 
         removed = prune_duplicate_system_lists(db)
-        assert removed == 1, removed  # удалён только пустой Regular
+        assert removed == 2, removed  # оба дубля слотов удалены
 
         left = sorted(
             r.name for r in db.query(TaskList)
             .filter(TaskList.user_id == user.id, TaskList.board_id == bid,
                     TaskList.is_default.is_(True)).all()
         )
-        # «Regular» удалён, «To Do» (с задачей) сохранён
-        assert "Regular" not in left, left
-        assert "To Do" in left, left
+        assert "Regular" not in left and "To Do" not in left, left
+        # Задача перенесена на канонический todo-список доски
+        task = db.query(Task).filter(Task.user_id == user.id, Task.title == "Attached").first()
+        assert task.list == "Не начато", task.list
     finally:
         db.close()
 
