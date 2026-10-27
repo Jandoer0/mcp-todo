@@ -174,9 +174,12 @@ html {
 .g-markdown-editor-own-wrapper {
   /* Растягиваем wrapper на всю заявленную высоту: тулбар прижат к верху,
      область ввода занимает всё оставшееся место (flex-колонка). Это гарантирует,
-     что при заданных minHeight/maxHeight текст не будет «уезжать» под тулбар. */
+     что при заданных minHeight/maxHeight текст не будет «уезжать» под тулбар.
+     position: relative нужен, чтобы абсолютный resize-уголок привязывался к
+     этому wrapper'у, а не к body. */
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .g-markdown-editor-own-wrapper .g-md-toolbar,
@@ -206,6 +209,7 @@ html {
   z-index: auto !important;
   background-color: #ffffff !important;
   border: none !important;
+  visibility: visible !important;
 }
 
 .g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky-active:not(

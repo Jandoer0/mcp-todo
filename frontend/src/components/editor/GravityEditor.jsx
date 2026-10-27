@@ -143,7 +143,7 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
         className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
         style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
       >
-        {/* Ручка изменения высоты: тонкая полоска внизу окна описания.
+        {/* Ручка изменения высоты: уголок в правом нижнем углу.
             Перетаскивание меняет высоту wrapper редактора в пределах
             minHeight/maxHeight. */}
         <div
@@ -152,8 +152,8 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
           onTouchStart={startResize}
           onMouseUp={resizeUp.current}
           onTouchEnd={resizeUp.current}
-          className="h-1.5 w-full cursor-ns-resize hover:bg-slate-400 active:bg-slate-500 bg-slate-300/70 transition-colors"
-          title="Перетащите, чтобы изменить высоту окна описания"
+          className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize bg-white border border-slate-400 hover:bg-slate-100 active:bg-slate-200 shadow rounded-sm flex items-center justify-center"
+          title="Перетащите уголок, чтобы изменить высоту окна описания"
         />
         <MarkdownEditorView
           editor={editor}
