@@ -95,7 +95,7 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const resizeRef = useRef(null)
 
   const startResize = (e) => {
-    if (e.button !== 0) return
+    if (e.type === 'mousedown' && e.button !== 0) return
     e.preventDefault()
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     const startH = wrapperRef.current.getBoundingClientRect().height
@@ -152,7 +152,7 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
           onTouchStart={startResize}
           onMouseUp={resizeUp.current}
           onTouchEnd={resizeUp.current}
-          className="h-1.5 w-full cursor-ns-resize hover:bg-slate-500 active:bg-slate-600 bg-slate-400/40 transition-colors"
+          className="h-1.5 w-full cursor-ns-resize hover:bg-slate-400 active:bg-slate-500 bg-slate-300/70 transition-colors"
           title="Перетащите, чтобы изменить высоту окна описания"
         />
         <MarkdownEditorView

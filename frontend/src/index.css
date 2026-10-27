@@ -220,14 +220,19 @@ html {
   display: none;
 }
 
-/* Область ввода (ProseMirror-контейнер): занимает всё место под тулбаром,
-   скроллится, если текст превышает maxHeight. Фон — белый (гарантия, если
-   Gravity UI вернёт ему прозрачность). */
+/* Область ввода (ProseMirror-контейнер): занимает всё место под тулбаром.
+   Фон — белый (гарантия, если Gravity UI вернёт ему прозрачность).
+
+   overflow: visible (не auto) — иначе этот flex-контейнер становится
+   скроллящимся, и тулбар «уезжает» вместе с прокруткой, а sticky-режим
+   Gravity UI приклеивает его к верху wrapper, из-за чего он может
+   исчезнуть за верхней границей окна описания. Реальный скролл текста
+   работает внутри g-md-wysiwyg-editor__editor (overflow-y: auto), поэтому
+   здесь скролл не нужен. */
 .g-markdown-editor-own-wrapper .g-md-wysiwyg-editor {
   flex: 1 1 auto;
-  overflow: auto;
+  overflow: visible;
   background-color: #ffffff;
-  position: relative;
 }
 
 /* Включая sticky-вариант тулбара, если он подключился. */
