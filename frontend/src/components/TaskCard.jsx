@@ -165,6 +165,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
   // Swipe right/left moves the card to a NEIGHBOURING list — cyclic tasks
   // are pinned to the system «Регулярные» list and must not be draggable.
   const isRegular = task.is_cyclic || task.list === 'Регулярные'
+  const isRegularList = (list) => !list ? false : list.kind === 'regular' || list.name === 'Регулярные'
   const ordered = isRegular ? [] : [...lists].sort((a, b) => a.position - b.position)
   const idx = ordered.findIndex((l) => l.name === task.list)
   const nextList = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null
@@ -248,6 +249,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
   const swipeTarget = (dx, limit = MAX_DRAG) => {
     // Циклические задачи не перетаскиваются (жёсткая связь со списком).
     if (isRegular) return null
+    // Swipe Guard: обычная задача не может оказаться в системном «Регулярные».
+    // Если целевой соседний список — системный, жест блокируется полностью
+    // (даже кратче порога — ничего не происходит).
+    const rightTarget = dx > 0 ? nextList : (dx < 0 ? prevList : null)
+    if (rightTarget && isRegularList(rightTarget)) return null
     // Swipe right = move FORWARD (to the next list); on the last list — delete.
     // Swipe left = move BACKWARD (to the previous list); on the first — delete.
     if (dx > SWIPE_THRESHOLD) return { dir: 'right', list: nextList, del: isLast }
@@ -277,6 +283,16 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     if (!d) return
     const dx = e.clientX - d.x
     const dy = e.clientY - d.y
+    // Swipe Guard на движении: если свайп направлен к системному «Регулярные»,
+    // запрещаем физическое смещение карточки (предотвращаем анимацию
+    // переноса/«примагничивания») — вертикальная прокрутка страницы остаётся.
+    if (!d.axis && Math.abs(dx) > 10) {
+      const towardRegular = dx > 0 ? isRegularList(nextList) : isRegularList(prevList)
+      if (towardRegular) {
+        e.preventDefault()
+        return
+      }
+    }
     if (!d.axis) {
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
       // Lock the axis once: horizontal → swipe, vertical → let the page scroll.
@@ -469,11 +485,11 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
     dragX > 0
       ? isLast
         ? { text: '', del: true, committed: dragX > SWIPE_THRESHOLD }
-        : nextList && { text: nextList.name, color: nextList.color, committed: dragX > SWIPE_THRESHOLD }
+        : nextList && !isRegularList(nextList) && { text: nextList.name, color: nextList.color, committed: dragX > SWIPE_THRESHOLD }
       : dragX < 0
         ? isFirst
           ? { text: '', del: true, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
-          : prevList && { text: prevList.name, color: prevList.color, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
+          : prevList && !isRegularList(prevList) && { text: prevList.name, color: prevList.color, committed: Math.abs(dragX) > SWIPE_THRESHOLD }
         : null
 
   // Measure after `hint` is computed (declared above).

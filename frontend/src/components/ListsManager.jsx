@@ -28,9 +28,13 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   const [newColor, setNewColor] = useState(PALETTE[0])
   const [editingColor, setEditingColor] = useState(null)
 
-  // Системный список «Регулярные» не удаляется, не переименовывается и
-  // сохраняет постоянный статус (ТЗv2: циклические задачи ⇔ Регулярные).
+  // Системный список «Регулярные» не удаляется, не переименовывается, сохраняет
+  // постоянный статус и всегда занимает позицию 0 (ТЗv2: циклические задачи
+  // ⇔ Регулярные).
   const isRegular = (list) => list.kind === 'regular' || list.name === 'Регулярные'
+  // Есть ли в доске системный «Регулярные»: блокирует перемещение других списков
+  // на позицию 0.
+  const hasRegular = lists.some(isRegular)
 
   if (!open) return null
 
@@ -86,9 +90,12 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
   const setKind = (list, kind) => refresh(listsApi.update(boardId, list.id, { kind }))
 
   const reorder = (list, dir) => {
+    // Системный «Регулярные» — всегда первый (позиция 0): кнопка «Выше» для него
+    // не имеет смысла, а «Ниже» не должна позволять другим спискам занять позицию 0.
     const idx = sorted.findIndex((l) => l.id === list.id)
     const target = dir === 'up' ? idx - 1 : idx + 1
     if (target < 0 || target >= sorted.length) return
+    if (isRegular(list) && dir === 'down') return
     const order = [...sorted]
     ;[order[idx], order[target]] = [order[target], order[idx]]
     // Полная перенумерация позиций (1..n): устраняет дубликаты, из-за которых
@@ -146,17 +153,17 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
                 />
                 <button
                   onClick={() => reorder(list, 'up')}
-                  disabled={sorted[0].id === list.id}
+                  disabled={isRegular(list) || sorted[0].id === list.id}
                   className="px-2 text-gray-500 disabled:opacity-30"
-                  title={t('lists.up')}
+                  title={isRegular(list) ? t('lists.upRegularFixed') : t('lists.up')}
                 >
                   ↑
                 </button>
                 <button
                   onClick={() => reorder(list, 'down')}
-                  disabled={sorted[sorted.length - 1].id === list.id}
+                  disabled={isRegular(list) || sorted[sorted.length - 1].id === list.id}
                   className="px-2 text-gray-500 disabled:opacity-30"
-                  title={t('lists.down')}
+                  title={isRegular(list) ? t('lists.downRegularFixed') : t('lists.down')}
                 >
                   ↓
                 </button>

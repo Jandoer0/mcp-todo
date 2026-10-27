@@ -853,16 +853,11 @@ def reorder_task(
     is_regular = task.is_cyclic or task.list == REGULAR_LIST_NAME
     target_is_regular = lst.kind == "regular" or lst.name == REGULAR_LIST_NAME
     if is_regular != target_is_regular:
-        # Целевая колонка недоступна: остаёмся в текущей, меняем только позицию.
-        list_name = task.list
-        lst = (
-            db.query(TaskList)
-            .filter(
-                TaskList.user_id == user.id,
-                TaskList.board_id == task.board_id,
-                TaskList.name == list_name,
-            )
-            .first()
+        # Инвариант «циклическая ⇔ Регулярные»: целевая колонка недоступна.
+        # Отклоняем запрос явно (Frontend блокирует свайп/DnD — Swipe Guard),
+        # но сервер дополнительно гарантирует запрет.
+        raise TaskError(
+            "Нельзя переместить задачу в системный список «Регулярные» или из него"
         )
 
     if lst.kind == "done":

@@ -130,7 +130,31 @@ def update_list(
         if data.color not in PALETTE:
             raise HTTPException(status_code=400, detail="Цвет должен быть из палитры")
         lst.color = data.color
-    if data.position is not None:
+    if data.position is not None and lst.position != data.position:
+        # Системный список «Регулярные» всегда занимает первую позицию (минимальный
+        # position): его нельзя сдвигать, и другой список не может занять место
+        # перед ним.
+        if is_regular_system and data.position != lst.position:
+            raise HTTPException(
+                status_code=400,
+                detail="«Регулярные» — системный список, его позиция зафиксирована",
+            )
+        regular_position = (
+            lst.position
+            if is_regular_system
+            else next(
+                (l.position for l in db.query(TaskList)
+                 .filter(TaskList.user_id == current_user.id, TaskList.board_id == board_id)
+                 .order_by(TaskList.position)
+                 .limit(1)),
+                None,
+            )
+        )
+        if regular_position is not None and data.position < regular_position:
+            raise HTTPException(
+                status_code=400,
+                detail="Системный список «Регулярные» уже занимает первую позицию",
+            )
         lst.position = data.position
     if data.kind is not None:
         if data.kind not in ("todo", "progress", "done"):

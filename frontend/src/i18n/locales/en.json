@@ -123,6 +123,8 @@
     "colorTitle": "List color",
     "up": "Move up",
     "down": "Move down",
+    "upRegularFixed": "System list «Regular» occupies the first position",
+    "downRegularFixed": "System list «Regular» occupies the first position",
     "regularProtected": "System list — renaming unavailable",
     "regularTitle": "System list \"Regular\"",
     "kindTitle": "List status: tasks in a list marked \"Done\" count as completed",
@@ -531,7 +533,9 @@
     "actionFailed": "Action failed",
     "moveTaskFailed": "Failed to move task",
     "deleteTaskFailed": "Failed to delete task",
-    "changeTagColorFailed": "Failed to change tag color"
+    "changeTagColorFailed": "Failed to change tag color",
+    "swipeBlockedRegular": "Only cyclic tasks can be moved into Regular",
+    "moveListToFirstBlocked": "The first position is occupied by the system list Regular"
   },
   "datePicker": {
     "label": "Date and time picker",

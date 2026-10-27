@@ -86,7 +86,8 @@ def test_reorder_between_and_within():
 
 
 def test_reorder_regular_invariant():
-    """Циклическую нельзя увезти из «Регулярных», обычную нельзя вложить туда."""
+    """Циклическую нельзя увезти из «Регулярных», обычную нельзя вложить туда
+    — сервер отклоняет такие переносы явно (400), а не молча."""
     h = _register("kanban_c")
     board = _first_board(h)
     reg = client.post(
@@ -96,17 +97,17 @@ def test_reorder_regular_invariant():
     ).json()
     plain = client.post("/api/tasks", json={"title": "Простая", "board_id": board, "list": "Не начато"}, headers=h).json()
 
-    # циклическая -> «Не начато» : инвариант возвращает её в «Регулярные»
+    # циклическая -> «Не начато» : запрещённый перенос отклоняется
     r = client.patch(f"/api/tasks/{reg['id']}/reorder", json={"list": "Не начато", "position": 1.0}, headers=h)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["list"] == "Регулярные" and body["is_cyclic"] is True
+    assert r.status_code == 400, r.text
 
-    # обычная -> «Регулярные» : инвариант выталкивает в fallback
+    # обычная -> «Регулярные» : запрещённый перенос отклоняется
     r = client.patch(f"/api/tasks/{plain['id']}/reorder", json={"list": "Регулярные", "position": 1.0}, headers=h)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["list"] != "Регулярные" and body["is_cyclic"] is False
+    assert r.status_code == 400, r.text
+    # задача остаётся в исходном списке
+    t = client.get(f"/api/tasks?board_id={board}", headers=h).json()
+    assert any(ts["id"] == plain['id'] and ts["list"] == "Не начато" for ts in t)
+    assert any(ts["id"] == reg['id'] and ts["list"] == "Регулярные" for ts in t)
 
 
 def test_reorder_into_done_with_blockers():
@@ -136,3 +137,67 @@ def test_mcp_create_appends_position():
     r1 = client.post("/api/tasks", json={"title": "m1", "board_id": board, "list": "Не начато"}, headers=h).json()
     r2 = client.post("/api/tasks", json={"title": "m2", "board_id": board, "list": "Не начато"}, headers=h).json()
     assert r2["position"] > r1["position"] > 0
+
+
+def test_list_position_zero_locked_system_regular():
+    """Системный «Регулярные» всегда первый: его position минимальный,
+    нельзя сдвинуть его и нельзя занять у него место другим списком."""
+    h = _register("pos_locked")
+    board = _first_board(h)
+    # найти системный список (kind='regular' или name='Регулярные')
+    lists = client.get(f"/api/lists?board_id={board}", headers=h).json()
+    reg = next(l for l in lists if l["kind"] == "regular" or l["name"] == "Регулярные")
+    min_pos = min(l["position"] for l in lists)
+    assert reg["position"] == min_pos, "regular must occupy the first position" + str(reg)
+    # попытка сдвинуть «Регулярные» — отклоняется
+    r = client.put(f"/api/lists/{board}/{reg['id']}", json={"position": 5}, headers=h)
+    assert r.status_code == 400, f"pos={reg['position']} reg={reg} lists={lists} err={r.text}"
+
+    # попытка занять место перед «Регулярные» другим списком — отклоняется
+    user_lists = [l for l in lists if l["kind"] != "regular"]
+    assert user_lists, "need a non-regular list"
+    other = user_lists[0]
+    r = client.put(f"/api/lists/{board}/{other['id']}", json={"position": min_pos - 1}, headers=h)
+    assert r.status_code == 400, r.text
+    # перемещение «Регулярные» обратно на его позицию — валидно
+    r = client.put(f"/api/lists/{board}/{reg['id']}", json={"position": min_pos}, headers=h)
+    assert r.status_code == 200, r.text
+    r = client.get(f"/api/lists?board_id={board}", headers=h).json()
+    assert r[0]["name"] == "Регулярные" and r[0]["position"] == min_pos, r[0]
+
+
+def test_move_task_into_regular_blocked():
+    """Обычная задача не может попасть в «Регулярные» через reorder (сервер
+    возвращает ошибку вместо молчаливого переноса)."""
+    h = _register("regular_blocked")
+    board = _first_board(h)
+    r = client.post("/api/tasks", json={"title": "ordinary", "board_id": board, "list": "Не начато"}, headers=h)
+    assert r.status_code == 200, r.text
+    task_id = r.json()["id"]
+    lists = client.get(f"/api/lists?board_id={board}", headers=h).json()
+    reg = next(l for l in lists if l["kind"] == "regular" or l["name"] == "Регулярные")
+    r = client.patch(f"/api/tasks/{task_id}/reorder",
+                     json={"list": reg["name"], "position": 1}, headers=h)
+    assert r.status_code == 400, r.text
+    # после попытки задача осталась в исходном списке
+    t = client.get(f"/api/tasks?board_id={board}", headers=h).json()
+    assert any(tsk["id"] == task_id and tsk["list"] != reg["name"] for tsk in t), "task must stay out of Regular"
+
+
+def test_move_cyclic_out_of_regular_blocked():
+    """Циклическая задача не может уйти из «Регулярные»."""
+    h = _register("cyclic_out")
+    board = _first_board(h)
+    r = client.post("/api/tasks", json={
+        "title": "cyclic task", "board_id": board, "list": "Регулярные",
+        "is_cyclic": True, "cycle_period": "weekly",
+    }, headers=h)
+    assert r.status_code == 200, r.text
+    task_id = r.json()["id"]
+    lists = client.get(f"/api/lists?board_id={board}", headers=h).json()
+    todo = next(l for l in lists if l["kind"] == "todo")
+    r = client.patch(f"/api/tasks/{task_id}/reorder",
+                     json={"list": todo["name"], "position": 1}, headers=h)
+    assert r.status_code == 400, r.text
+    t = client.get(f"/api/tasks?board_id={board}", headers=h).json()
+    assert any(tsk["id"] == task_id and tsk["list"] == "Регулярные" for tsk in t), "cyclic must stay in Regular"
