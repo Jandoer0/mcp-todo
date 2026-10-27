@@ -463,6 +463,56 @@ export default function App() {
         {tagCloud}
       </div>
 
+      {/* Мобильная панель: кнопка Планировщика слева, селектор фильтров справа
+          (десктопные фильтры — на дашборде, Planning — в шапке). */}
+      <div className="md:hidden flex items-center justify-between mb-4 gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => setPlannerOpen(true)}
+          title={t('planner.title')}
+          className="shrink-0 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-green-700"
+        >
+          {t('planner.title')}
+        </button>
+
+        <div className="relative shrink-0">
+          <button
+            onClick={() => (filterMenuOpen ? closeFilterMenu() : (clearTimeout(filterMenuTimer.current), setFilterMenuClosing(false), setFilterMenuOpen(true)))}
+            className="bg-card text-slate-700 px-3 py-2 rounded shadow-sm text-sm flex items-center gap-1 whitespace-nowrap"
+          >
+            {FILTERS.find((f) => f.id === activeFilter)?.label || 'Фильтры'}
+            <span className={`text-[10px] transition-transform ${filterMenuOpen ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {/* Full-screen invisible overlay: closes the menu on any tap
+              outside of it and blocks the dashboard underneath. */}
+          {(filterMenuOpen || filterMenuClosing) && (
+            <div
+              className="fixed inset-0 z-30"
+              onClick={closeFilterMenu}
+            />
+          )}
+          {(filterMenuOpen || filterMenuClosing) && (
+            <div className={`absolute left-0 top-full mt-1 z-40 bg-white rounded shadow-lg py-1 min-w-[12rem] ${filterMenuClosing ? 'dropdown-out' : 'dropdown-in'}`}>
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setActiveFilter(f.id)
+                    closeFilterMenu()
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center hover:bg-slate-100 ${
+                    activeFilter === f.id ? 'font-semibold text-[#22384d] bg-slate-100' : 'text-slate-700'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className="text-xs text-slate-400">{f.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <Board
         tasks={tasks}
         lists={lists}
