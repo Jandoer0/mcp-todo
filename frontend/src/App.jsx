@@ -431,7 +431,6 @@ export default function App() {
         }}
       />
       <Layout
-        summary={summary}
         isAdmin={isAdmin}
       onAdmin={openAdmin}
       onLogout={logout}
