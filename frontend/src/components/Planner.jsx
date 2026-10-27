@@ -44,10 +44,10 @@ function CalendarMonth({ month, selected, activity, onSelect }) {
               key={key}
               type="button"
               onClick={() => onSelect(key)}
-              className={`relative flex h-9 flex-col items-center justify-center rounded-lg text-xs transition-colors ${active ? 'bg-green-600 font-bold text-white shadow' : 'text-slate-700 hover:bg-green-50'} ${today && !active ? 'ring-1 ring-green-500' : ''}`}
+              className={`relative flex h-9 flex-col items-center justify-center rounded-lg text-xs transition-colors ${active ? 'bg-green-600 font-bold text-white shadow' : 'text-white/80 hover:bg-white/10'} ${today && !active ? 'ring-1 ring-green-400' : ''}`}
             >
               <span>{date.getDate()}</span>
-              {activity.has(key) && <span className={`absolute bottom-1 h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-green-500'}`} />}
+              {activity.has(key) && <span className={`absolute bottom-1 h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-amber-300'}`} />}
             </button>
           )
         })}
