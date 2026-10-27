@@ -54,7 +54,7 @@ export default function Layout({
   }
   useEffect(() => () => clearTimeout(filterMenuTimer.current), [])
 
-  const summary = summaryProp || {}
+  const summary = summary || {}
   const FILTERS = summary
     ? [
         { id: 'all', label: t('filters.all'), count: summary.total },
