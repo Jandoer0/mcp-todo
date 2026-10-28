@@ -68,7 +68,8 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
         )}
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          disabled={!username.trim() || !password}
+          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {mode === 'login' ? t('auth.loginButton') : t('auth.registerButton')}
         </button>
