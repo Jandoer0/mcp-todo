@@ -166,29 +166,36 @@ html {
 }
 
 /* Компактный тулбар вместо transform:scale — scale укорачивал полосу и
-   оставлял пустое справа (кнопка таблицы «не влезала»). Реальные размеры:
-   уменьшаем padding/gap/иконки нативных элементов Radix+MDXEditor. */
+   оставлял пустое справа (кнопка таблицы «не влезала»). Реальные размеры
+   кнопок/иконок — без наложений: gap с запасом, кнопки/селекты не сжимаются
+   (flex-shrink: 0), чтобы flex не перекрывал элементы друг на друга. */
 .omni-md-wrapper .mdxeditor-toolbar {
   gap: 0.125rem;
   padding: 0.25rem 0.375rem;
 }
-.omni-md-wrapper .mdxeditor-toolbar button svg,
-.omni-md-wrapper .mdxeditor-toolbar [role='separator'] + *,
-.omni-md-wrapper .mdxeditor-toolbar svg {
-  width: 0.875rem;
-  height: 0.875rem;
+.omni-md-wrapper .mdxeditor-toolbar button,
+.omni-md-wrapper .mdxeditor-toolbar select,
+.omni-md-wrapper .mdxeditor-toolbar [class*='selectTrigger'],
+.omni-md-wrapper .mdxeditor-toolbar div[role='separator'] {
+  flex-shrink: 0;
+}
+.omni-md-wrapper .mdxeditor-toolbar button svg {
+  width: 1rem;
+  height: 1rem;
 }
 .omni-md-wrapper .mdxeditor-toolbar button {
-  padding: 0.1875rem;
+  padding: 0.125rem 0.25rem;
 }
 .omni-md-wrapper .mdxeditor-toolbar div[role='separator'] {
   margin: 0 0.125rem;
-  height: 1rem;
+  height: 1.25rem;
 }
 .omni-md-wrapper .mdxeditor-toolbar select,
 .omni-md-wrapper .mdxeditor-toolbar [class*='selectTrigger'] {
   font-size: 0.75rem;
   padding: 0.125rem 0.25rem;
+  width: auto;
+  min-width: 4.5rem;
 }
 
 /* Типографика внутри поля ввода — как в нашем UI. */
@@ -294,29 +301,29 @@ html {
   font-size: 0.8125rem;
 }
 
-/* Уголок drag-resize (правый нижний угол окна описания): белый фон, две
-   диагональные чёрточки в углу — компактно и аккуратно.
-   Важно: позиционировать fixed относительно viewport, иначе при вертикальном
-   скролле textarea уголок «уезжает» вместе с текстом. */
+/* Уголок drag-resize (правый нижний угол окна описания): белый фон,
+   контрастные диагональные чёрточки в углу — заметны, но не кричащие.
+   position: absolute относительно wrapper (relative + overflow hidden),
+   скроллится только contenteditable внутри — уголок остаётся на месте. */
 .omni-md-resize {
-  position: fixed;
-  bottom: 8px;
-  right: 8px;
-  z-index: 1000;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 20;
   pointer-events: auto;
-  background-color: #ffffff;
+  background-color: #f8fafc;
   background-image: linear-gradient(
     135deg,
-    transparent 0 55%,
-    #94a3b8 55% 62%,
-    transparent 62% 72%,
-    #94a3b8 72% 79%,
-    transparent 79%
+    transparent 40%,
+    #64748b 40% 52%,
+    transparent 52% 62%,
+    #64748b 62% 74%,
+    transparent 74%
   );
-  border-top: 1px solid #e2e8f0;
-  border-left: 1px solid #e2e8f0;
+  border-top: 1px solid #94a3b8;
+  border-left: 1px solid #94a3b8;
   border-bottom-right-radius: 0.375rem;
 }
 .omni-md-resize:hover {
-  background-color: #f1f5f9;
+  background-color: #e2e8f0;
 }
