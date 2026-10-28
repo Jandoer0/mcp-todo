@@ -174,22 +174,93 @@ html {
   outline: none;
 }
 
-/* Уголок drag-resize (правый нижний угол окна описания): три диагональные
-   штриховые полоски — привычный маркер «тяни за угол», как у textarea. */
+/* Попапы и диалоги MDXEditor рендерятся в наш портал внутри wrapper'а
+   (overlayContainer). pointer-events по умолчанию none — включаем его для
+   содержимого Radix. Селектор блока (popper) поднимаем над полем ввода. */
+.omni-md-overlay > * {
+  pointer-events: auto;
+}
+.omni-md-overlay [data-radix-popper-content-wrapper] {
+  z-index: 40 !important;
+}
+/* Диалог создания таблицы/ссылки: Radix Dialog рендерит overlay (fixed,
+   z-index 51) + content (fixed, выше) — они позиционируются относительно
+   viewport и перекрывают форму задачи целиком. Поднимаем их над модалкой
+   (z-[120]), чтобы диалог был кликабелен и не «тонул» под формой. */
+.omni-md-overlay [class*='dialogOverlay'],
+.mdxeditor-popup-container [class*='dialogOverlay'] {
+  z-index: 160 !important;
+}
+.omni-md-overlay [role='dialog'],
+.mdxeditor-popup-container [role='dialog'] {
+  z-index: 170 !important;
+  background-color: #ffffff;
+}
+
+/* Маркеры списков: Tailwind preflight сбрасывает list-style глобально, а
+   contenteditable отрисовывает буллеты снаружи li — при нулевом отступе они
+   режутся левой границей окна. Возвращаем стили и отступ. */
+.omni-md-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+.omni-md-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+.omni-md-content li {
+  display: list-item;
+}
+.omni-md-content blockquote {
+  border-left: 3px solid #cbd5e1;
+  margin: 0.5rem 0;
+  padding-left: 0.75rem;
+  color: #475569;
+}
+
+/* Ссылки в тексте: подчёркивание и цвет, чтобы были видны без hover. */
+.omni-md-content a {
+  color: #0d74ce;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Таблицы внутри редактора: рамки читаемы на белом фоне. */
+.omni-md-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.omni-md-content th,
+.omni-md-content td {
+  border: 1px solid #cbd5e1;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+}
+
+/* Масштаб тулбара: −15% от нативного размера MDXEditor. */
+.omni-md-wrapper .mdxeditor-toolbar {
+  transform: scale(0.85);
+  transform-origin: left center;
+}
+
+/* Уголок drag-resize (правый нижний угол окна описания): белый фон, две
+   диагональные чёрточки в углу — компактно и аккуратно. */
 .omni-md-resize {
   background-color: #ffffff;
   background-image: linear-gradient(
     135deg,
-    transparent 0 45%,
-    #64748b 45% 55%,
-    transparent 55% 65%,
-    #64748b 65% 75%,
-    transparent 75% 85%,
-    #64748b 85% 95%,
-    transparent 95%
+    transparent 0 55%,
+    #94a3b8 55% 62%,
+    transparent 62% 72%,
+    #94a3b8 72% 79%,
+    transparent 79%
   );
-  border-top: 1px solid #cbd5e1;
-  border-left: 1px solid #cbd5e1;
+  border-top: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
   border-bottom-right-radius: 0.375rem;
 }
 .omni-md-resize:hover {

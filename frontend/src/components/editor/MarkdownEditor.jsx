@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   MDXEditor,
@@ -8,6 +8,8 @@ import {
   headingsPlugin,
   linkPlugin,
   linkDialogPlugin,
+  tablePlugin,
+  InsertTable,
   markdownShortcutPlugin,
   BoldItalicUnderlineToggles,
   StrikeThroughSupSubToggles,
@@ -44,6 +46,7 @@ const ruDictionary = {
   'toolbar.numberedList': 'Нумерованный список',
   'toolbar.checkList': 'Чек-лист',
   'toolbar.link': 'Вставить ссылку',
+  'toolbar.table': 'Вставить таблицу',
   'toolbar.undo': 'Отменить',
   'toolbar.redo': 'Вернуть',
   'toolbar.blockTypeSelect.placeholder': 'Блок',
@@ -63,6 +66,11 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
   const editorRef = useRef(null)
   const wrapperRef = useRef(null)
   const dragState = useRef(null)
+  // Контейнер для попапов/диалогов MDXEditor (Radix Portal). По умолчанию
+  // библиотека рендерит их в document.body — под нашей модалкой задачи
+  // (z-[120]) и вне её границ. Пробрасываем свой div внутри wrapper'а:
+  // селектор блоков открывается над тулбаром, диалог ссылки — поверх формы.
+  const [overlayEl, setOverlayEl] = useState(null)
 
   // Сброс содержимого при открытии другой задачи (markdown controlled извне).
   useEffect(() => {
@@ -107,6 +115,8 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
       className="relative border border-slate-300 rounded-lg bg-white flex flex-col overflow-hidden omni-md-wrapper"
       style={{ height: minHeight, minHeight, maxHeight }}
     >
+      {/* Портал попапов/диалогов: внутри wrapper'а, над тулбаром и полем. */}
+      <div ref={setOverlayEl} className="omni-md-overlay absolute inset-0 pointer-events-none" />
       <MDXEditor
         ref={editorRef}
         markdown={initialValue || ''}
@@ -124,6 +134,7 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
           }
           return s
         }}
+        overlayContainer={overlayEl}
         contentEditableClassName="omni-md-content"
         placeholder={t('editor.placeholder')}
         plugins={[
@@ -132,6 +143,7 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
           quotePlugin(),
           linkPlugin(),
           linkDialogPlugin(),
+          tablePlugin(),
           markdownShortcutPlugin(),
           toolbarPlugin({
             toolbarContents: () => (
@@ -146,6 +158,8 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
                 <ListsToggle />
                 <Separator />
                 <CreateLink />
+                <Separator />
+                <InsertTable />
               </>
             ),
           }),
