@@ -134,33 +134,61 @@ html {
   background-clip: padding-box;
 }
 
-/* --- OmniTask: редактор описания задачи (@mdxeditor/editor) ---
+/* --- OmniTask: редактор описания задачи (@mdxeditor/editor)
    Layout полностью наш: wrapper фиксированной высоты (flex-колонка),
-   тулбар MDXEditor прижат к верху и НЕ участвует в прокрутке,
-   область редактирования скроллится сама — полоса прокрутки видна. */
+   тулбар прижат к верху и НЕ участвует в прокрутке, область редактирования
+   скроллится сама. */
 
-/* Корень MDXEditor: растягиваем на всю высоту wrapper'а колонкой. */
-.omni-md-wrapper .mdxeditor-root-contenteditable,
-.omni-md-wrapper > div:first-child {
+/* Корень MDXEditor: колонка на всю высоту wrapper'а. */
+.omni-md-wrapper .mdxeditor {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* Область редактирования: собственный вертикальный скролл. */
-.omni-md-wrapper .mdxeditor-root-contenteditable > div,
-.omni-md-wrapper [contenteditable] {
-  overflow-y: auto;
+/* Обёртка contenteditable: тянется на остаток высоты и скроллится сама. */
+.omni-md-wrapper .mdxeditor-root-contenteditable {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* Тулбар: непрозрачный белый фон, не уезжает при прокрутке. */
+/* Тулбар: непрозрачный белый фон, прижат сверху, не участвует в скролле. */
 .omni-md-wrapper .mdxeditor-toolbar {
   background-color: #ffffff;
   border-bottom: 1px solid #d1d5db;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* Компактный тулбар вместо transform:scale — scale укорачивал полосу и
+   оставлял пустое справа (кнопка таблицы «не влезала»). Реальные размеры:
+   уменьшаем padding/gap/иконки нативных элементов Radix+MDXEditor. */
+.omni-md-wrapper .mdxeditor-toolbar {
+  gap: 0.125rem;
+  padding: 0.25rem 0.375rem;
+}
+.omni-md-wrapper .mdxeditor-toolbar button svg,
+.omni-md-wrapper .mdxeditor-toolbar [role='separator'] + *,
+.omni-md-wrapper .mdxeditor-toolbar svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.omni-md-wrapper .mdxeditor-toolbar button {
+  padding: 0.1875rem;
+}
+.omni-md-wrapper .mdxeditor-toolbar div[role='separator'] {
+  margin: 0 0.125rem;
+  height: 1rem;
+}
+.omni-md-wrapper .mdxeditor-toolbar select,
+.omni-md-wrapper .mdxeditor-toolbar [class*='selectTrigger'] {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.25rem;
 }
 
 /* Типографика внутри поля ввода — как в нашем UI. */
@@ -172,6 +200,31 @@ html {
 }
 .omni-md-content:focus {
   outline: none;
+}
+
+/* Заголовки: Tailwind preflight сбрасывает font-size/margin у h1–h6,
+   а HeadingNode рендерит нативные теги — возвращаем типографику, чтобы
+   выбор «Заголовок» в селекторе блоков был виден. */
+.omni-md-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0.5rem 0 0.25rem;
+}
+.omni-md-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0.5rem 0 0.25rem;
+}
+.omni-md-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0.4rem 0 0.2rem;
+}
+.omni-md-content p {
+  margin: 0.25rem 0;
 }
 
 /* Попапы и диалоги MDXEditor рендерятся в наш портал внутри wrapper'а
@@ -241,15 +294,16 @@ html {
   font-size: 0.8125rem;
 }
 
-/* Масштаб тулбара: −15% от нативного размера MDXEditor. */
-.omni-md-wrapper .mdxeditor-toolbar {
-  transform: scale(0.85);
-  transform-origin: left center;
-}
-
 /* Уголок drag-resize (правый нижний угол окна описания): белый фон, две
-   диагональные чёрточки в углу — компактно и аккуратно. */
+   диагональные чёрточки в углу — компактно и аккуратно.
+   Важно: позиционировать fixed относительно viewport, иначе при вертикальном
+   скролле textarea уголок «уезжает» вместе с текстом. */
 .omni-md-resize {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  z-index: 1000;
+  pointer-events: auto;
   background-color: #ffffff;
   background-image: linear-gradient(
     135deg,
