@@ -174,9 +174,9 @@ html {
 .g-markdown-editor-own-wrapper .g-md-toolbar,
 .g-markdown-editor-own-wrapper .g-md-flex-toolbar,
 .g-markdown-editor-own-wrapper .g-md-wysiwyg-editor__toolbar,
-.g-markdown-editor-own-wrapper .g-md-sticky-toolbar {
-  /* Тулбар редактора описания задачи должен быть непрозрачным: иначе при
-     прокрутке длинного текста кнопки сливаются с ним в «общую кашу». */
+.g-markdown-editor-own-wrapper .g-md-editor-sticky {
+  /* Непрозрачный белый фон — при прокрутке длинного описания кнопки тулбара
+     не сливаются с текстом. */
   background-color: #ffffff !important;
 }
 

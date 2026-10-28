@@ -85,10 +85,9 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
   // Drag-resize высоты редактора за уголок в правом нижнем углу окна описания.
-  // Меняем высоту wrapper'а в пределах [minHeight, maxHeight]. Тулбар при этом
-  // остаётся прижатым к верху (как в исходной вёрстке), скроллится текст ниже.
-  // Обработчики move/up навешиваются на window на время перетаскивания и
-  // снимаются на pointerup — drag не «залипает», работает мышью и пальцем.
+  // Меняем высоту wrapper'а в пределах [minHeight, maxHeight]. Обработчики
+  // move/up навешиваются на window на время перетаскивания и снимаются при
+  // отпускании — drag не «залипает», работает мышью и пальцем.
   const resizeRef = useRef(null)
   const dragState = useRef(null) // { startY, startH } | null
 
