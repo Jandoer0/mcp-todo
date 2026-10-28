@@ -5,6 +5,7 @@ import WebhookTab from './WebhookTab'
 import TransferTab from './TransferTab'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatApiError } from '../api/errors'
 
 // Edit/create dialog for a board (name, multiline description, color).
 // In edit mode extra tabs show the board's financial summary («Бюджет» —
@@ -45,7 +46,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
         color,
       })
     } catch (err) {
-      setError(err?.response?.data?.detail || t('boards.saveError'))
+      setError(formatApiError(err, t('boards.saveError')))
     }
   }
 
@@ -54,7 +55,7 @@ export default function BoardForm({ open, board, boardsCount, tasks = [], lists 
     try {
       await onDelete(board)
     } catch (err) {
-      setError(err?.response?.data?.detail || t('boards.deleteError'))
+      setError(formatApiError(err, t('boards.deleteError')))
     }
   }
 

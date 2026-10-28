@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatApiError } from '../api/errors'
 import { currenciesApi } from '../api/client'
 
 const FIELDS = [
@@ -52,7 +53,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       setForm(EMPTY)
       onChanged?.()
     } catch (err) {
-      setCreateError(err?.response?.data?.detail || t('currency.createFailed'))
+      setCreateError(formatApiError(err, t('currency.createFailed')))
     } finally {
       setBusy(false)
     }
@@ -95,7 +96,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       setEditingId(null)
       onChanged?.()
     } catch (err) {
-      setEditError(err?.response?.data?.detail || t('currency.saveFailed'))
+      setEditError(formatApiError(err, t('currency.saveFailed')))
     }
   }
 
@@ -107,7 +108,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       if (editingId === c.id) cancelEdit()
       onChanged?.()
     } catch (err) {
-      setEditError(err?.response?.data?.detail || t('currency.deleteFailed'))
+      setEditError(formatApiError(err, t('currency.deleteFailed')))
     }
   }
 
@@ -122,7 +123,7 @@ export default function CurrencyManager({ currencies = [], onChanged }) {
       await currenciesApi.reorder(ids)
       onChanged?.()
     } catch (err) {
-      setEditError(err?.response?.data?.detail || t('currency.reorderFailed'))
+      setEditError(formatApiError(err, t('currency.reorderFailed')))
     }
   }
 

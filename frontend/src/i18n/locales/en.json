@@ -17,7 +17,9 @@
     "registerLink": "Sign up",
     "loginLink": "Sign in",
     "registrationClosed": "Registration is closed by administrator",
-    "passwordHint": "At least {{min}} characters"
+    "passwordHint": "At least {{min}} characters",
+    "fieldsRequired": "Please fill in username and password",
+    "passwordTooShort": "Password must be at least {{min}} characters"
   },
   "profile": {
     "title": "Profile",
@@ -674,7 +676,9 @@
     "resultHistory": ", history records — {{count}}",
     "resultSkipped": " (duplicate history skipped — {{count}})",
     "tasksCount_one": "{{count}} task",
-    "tasksCount_other": "{{count}} tasks"
+    "tasksCount_other": "{{count}} tasks",
+    "tasksCount_few": "{{count}} tasks",
+    "tasksCount_many": "{{count}} tasks"
   },
   "chart": {
     "loading": "Loading chart…",

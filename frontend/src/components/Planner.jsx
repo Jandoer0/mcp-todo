@@ -245,9 +245,18 @@ const PlannerWithImperative = forwardRef(function Planner(
   }), [])
 
   const activity = useMemo(() => new Set(records.flatMap(({ tasks }) => tasks.filter((task) => task.deadline).map((task) => parseDate(task.deadline)))), [records])
+  // Сортировка внутри группы: ближайшие к дедлайну сверху; без даты — в конец.
+  const sortByDeadline = (a, b) => {
+    const da = parseDate(a.deadline)
+    const db = parseDate(b.deadline)
+    if (!da && !db) return 0
+    if (!da) return 1
+    if (!db) return -1
+    return da < db ? -1 : da > db ? 1 : 0
+  }
   const grouped = (predicate, key = 'tasks') =>
     records
-      .map((record) => ({ ...record, tasks: record[key].filter(predicate) }))
+      .map((record) => ({ ...record, tasks: record[key].filter(predicate).sort(sortByDeadline) }))
       .filter(({ tasks }) => tasks.length)
   const overdue = useMemo(() => grouped((task) => parseDate(task.deadline) && parseDate(task.deadline) < selected), [records, selected])
   const due = useMemo(() => grouped((task) => parseDate(task.deadline) === selected), [records, selected])

@@ -12,10 +12,23 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
     if (!allowRegistration) setMode('login')
   }, [allowRegistration])
 
+  const [localError, setLocalError] = useState('')
+
   const submit = (e) => {
     e.preventDefault()
-    if (mode === 'login') onLogin(username.trim(), password)
-    else onRegister(username.trim(), password)
+    setLocalError('')
+    const u = username.trim()
+    const p = password
+    if (!u || !p) {
+      setLocalError(t('auth.fieldsRequired'))
+      return
+    }
+    if (mode === 'register' && p.length < passwordMin) {
+      setLocalError(t('auth.passwordTooShort', { min: passwordMin }))
+      return
+    }
+    if (mode === 'login') onLogin(u, p)
+    else onRegister(u, p)
   }
 
   return (
@@ -59,7 +72,7 @@ export default function Login({ onLogin, onRegister, error, allowRegistration = 
         >
           {mode === 'login' ? t('auth.loginButton') : t('auth.registerButton')}
         </button>
-        {error && <p className="mt-4 text-center text-red-500 text-sm">{error}</p>}
+        {(error || localError) && <p className="mt-4 text-center text-red-500 text-sm">{error || localError}</p>}
         {allowRegistration ? (
           <p className="mt-4 text-center text-gray-600 text-sm">
             {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')} 

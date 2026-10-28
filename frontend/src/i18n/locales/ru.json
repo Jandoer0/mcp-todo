@@ -17,7 +17,9 @@
     "registerLink": "Зарегистрируйтесь",
     "loginLink": "Войдите",
     "registrationClosed": "Регистрация закрыта администратором",
-    "passwordHint": "Минимум {{min}} символов"
+    "passwordHint": "Минимум {{min}} символов",
+    "fieldsRequired": "Заполните имя пользователя и пароль",
+    "passwordTooShort": "Пароль — минимум {{min}} символов"
   },
   "profile": {
     "title": "Профиль",

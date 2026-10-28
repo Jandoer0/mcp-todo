@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatApiError } from '../api/errors'
 import { boardsApi, currenciesApi } from '../api/client'
 import BudgetTab from './BudgetTab'
 import ChartTab from './ChartTab'
@@ -72,7 +73,7 @@ export default function BudgetView({ board, tasks = [], lists = [], onChanged })
       reload()
       onChanged?.()
     } catch (err) {
-      setSaveError(err?.response?.data?.detail || t('budget.saveCurrencyError'))
+      setSaveError(formatApiError(err, t('budget.saveCurrencyError')))
     }
   }
 

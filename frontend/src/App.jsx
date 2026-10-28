@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { useSettings } from './i18n/settings.jsx'
 import { useTasks } from './hooks/useTasks'
 import { adminApi, authApi, boardsApi, currenciesApi, tagsApi, tasksApi } from './api/client'
+import { formatApiError } from './api/errors'
 import Login from './components/Login'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
@@ -202,7 +203,7 @@ export default function App() {
       setAuthError('')
       await login(u, p)
     } catch (err) {
-      setAuthError(err?.response?.data?.detail || t('errors.loginFailed'))
+      setAuthError(formatApiError(err, t('errors.loginFailed')))
     }
   }
 
@@ -211,7 +212,7 @@ export default function App() {
       setAuthError('')
       await register(u, p)
     } catch (err) {
-      setAuthError(err?.response?.data?.detail || t('errors.registerFailed'))
+      setAuthError(formatApiError(err, t('errors.registerFailed')))
     }
   }
 
@@ -272,7 +273,7 @@ export default function App() {
       // чтобы не было «моргания» при закрытии модального окна.
       if (plannerOpen) await plannerRef.current?.refreshPlanner()
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.saveCyclicFailed'))
+      alert(formatApiError(err, t('errors.saveCyclicFailed')))
     }
   }
 
@@ -284,7 +285,7 @@ export default function App() {
       setEditingCyclicTask(null)
       if (plannerOpen) await plannerRef.current?.refreshPlanner()
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.deleteCyclicFailed'))
+      alert(formatApiError(err, t('errors.deleteCyclicFailed')))
     }
   }
 
@@ -307,7 +308,7 @@ export default function App() {
       setModalOpen(false)
       if (plannerOpen) await plannerRef.current?.refreshPlanner()
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.saveTaskFailed'))
+      alert(formatApiError(err, t('errors.saveTaskFailed')))
     }
   }
 
@@ -318,7 +319,7 @@ export default function App() {
       if (plannerOpen) await plannerRef.current?.refreshPlanner()
       // если задача ушла с активной доски — она исчезнет из текущего списка
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.transferFailed'))
+      alert(formatApiError(err, t('errors.transferFailed')))
     }
   }
 
@@ -327,7 +328,7 @@ export default function App() {
       await setList(task.id, listName, extra)
     } catch (err) {
       if (err?.response?.status === 400) {
-        alert(err?.response?.data?.detail || t('errors.actionFailed'))
+        alert(formatApiError(err, t('errors.actionFailed')))
       }
     }
   }
@@ -337,7 +338,7 @@ export default function App() {
     try {
       await reorder(task.id, listName, position)
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.moveTaskFailed'))
+      alert(formatApiError(err, t('errors.moveTaskFailed')))
     }
   }
 
@@ -345,7 +346,7 @@ export default function App() {
     try {
       await remove(task.id)
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.deleteTaskFailed'))
+      alert(formatApiError(err, t('errors.deleteTaskFailed')))
     }
   }
 
@@ -370,7 +371,7 @@ export default function App() {
       await tagsApi.update(activeBoardId, tag.id, { color })
       await load()
     } catch (err) {
-      alert(err?.response?.data?.detail || t('errors.changeTagColorFailed'))
+      alert(formatApiError(err, t('errors.changeTagColorFailed')))
     }
   }
 

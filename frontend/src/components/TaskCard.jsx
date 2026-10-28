@@ -1,6 +1,7 @@
 import { useRef, useState, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { formatApiError } from '../api/errors'
 import { tasksApi } from '../api/client'
 import Modal from './Modal'
 import i18n from '../i18n/index.js'
@@ -333,7 +334,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       await tasksApi.cycleSkip(task.id)
       onRefresh && onRefresh()
     } catch (e) {
-      alert(e?.response?.data?.detail || t('task.skipFailed'))
+      alert(formatApiError(e, t('task.skipFailed')))
     }
   }
 
@@ -343,7 +344,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       await tasksApi.cycleStop(task.id)
       onRefresh && onRefresh()
     } catch (e) {
-      alert(e?.response?.data?.detail || t('task.stopFailed'))
+      alert(formatApiError(e, t('task.stopFailed')))
     }
   }
 
@@ -386,7 +387,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       setCompleteOpen(false)
       onRefresh && onRefresh()
     } catch (e) {
-      setCompleteError(e?.response?.data?.detail || t('task.completeError'))
+      setCompleteError(formatApiError(e, t('task.completeError')))
     }
   }
 
@@ -471,7 +472,7 @@ export default function TaskCard({ task, allTasks = [], lists = [], tags = [], c
       } catch {}
       onRefresh && onRefresh()
     } catch (e) {
-      setEditError(e?.response?.data?.detail || t('task.editLogError'))
+      setEditError(formatApiError(e, t('task.editLogError')))
     } finally {
       setEditSaving(false)
     }

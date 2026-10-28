@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatApiError } from '../api/errors'
 import { listsApi } from '../api/client'
 import Modal from './Modal'
 import { PALETTE } from '../constants'
@@ -50,7 +51,7 @@ export default function ListsManager({ boardId, open, onClose, lists, onChanged 
       await promise
       await onChanged()
     } catch (e) {
-      alert(e?.response?.data?.detail || t('common.error'))
+      alert(formatApiError(e, t('common.error')))
     }
   }
 
