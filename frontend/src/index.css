@@ -171,12 +171,16 @@ html {
   background-color: #f1f5f9;
 }
 
+/* Тулбар редактора описания задачи должен быть непрозрачным: иначе при
+   прокрутке длинного текста кнопки сливаются с ним в «общую кашу».
+   В wysiwyg-режиме Gravity UI рендерит тулбар как элемент с классом
+   g-md-editor-sticky (position: sticky), поэтому перекрываем именно его. */
 .g-markdown-editor-own-wrapper .g-md-toolbar,
 .g-markdown-editor-own-wrapper .g-md-flex-toolbar,
 .g-markdown-editor-own-wrapper .g-md-wysiwyg-editor__toolbar,
-.g-markdown-editor-own-wrapper .g-md-editor-sticky {
-  /* Непрозрачный белый фон — при прокрутке длинного описания кнопки тулбара
-     не сливаются с текстом. */
+.g-markdown-editor-own-wrapper .g-md-editor-sticky,
+.g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky,
+.g-markdown-editor-own-wrapper .g-md-editor-sticky_sticky-active {
   background-color: #ffffff !important;
 }
 
@@ -184,20 +188,50 @@ html {
    три диагональные штриховые полоски — привычный визуальный маркер «тяни за
    угол», как у нативного textarea. При наведении подсвечивается. */
 .g-md-resize-handle {
+  /* Непрозрачный белый фон + рамка — уголок всегда чётко виден в правом нижнем
+     углу окна описания и не «тонет» в тексте при прокрутке. */
+  background-color: #ffffff;
   background-image: linear-gradient(
     135deg,
     transparent 0 45%,
-    #94a3b8 45% 55%,
+    #64748b 45% 55%,
     transparent 55% 65%,
-    #94a3b8 65% 75%,
+    #64748b 65% 75%,
     transparent 75% 85%,
-    #94a3b8 85% 95%,
+    #64748b 85% 95%,
     transparent 95%
   );
+  border-top: 1px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
   border-bottom-right-radius: 0.375rem;
 }
 .g-md-resize-handle:hover {
-  background-color: rgba(148, 163, 184, 0.2);
+  background-color: #f1f5f9;
+}
+
+/* Уголок drag-resize высоты редактора (правый нижний угол окна описания):
+   три диагональные штриховые полоски — привычный визуальный маркер «тяни за
+   угол», как у нативного textarea. При наведении подсвечивается. */
+.g-md-resize-handle {
+  /* Непрозрачный белый фон + рамка — уголок всегда чётко виден в правом нижнем
+     углу окна описания и не «тонет» в тексте при прокрутке. */
+  background-color: #ffffff;
+  background-image: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    #64748b 45% 55%,
+    transparent 55% 65%,
+    #64748b 65% 75%,
+    transparent 75% 85%,
+    #64748b 85% 95%,
+    transparent 95%
+  );
+  border-top: 1px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
+  border-bottom-right-radius: 0.375rem;
+}
+.g-md-resize-handle:hover {
+  background-color: #f1f5f9;
 }
 
 /* Tailwind preflight убирает маркеры у ul/ol глобально. Внутри

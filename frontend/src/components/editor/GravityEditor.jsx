@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ThemeProvider, ToasterProvider } from '@gravity-ui/uikit'
 import { toaster as sharedToaster } from '@gravity-ui/uikit/toaster-singleton'
 import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-editor'
@@ -84,6 +84,9 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
+  // Controlled высота wrapper'а: стартует с minHeight, меняется drag-resize.
+  const [editorHeight, setEditorHeight] = useState(computedMinHeight)
+
   // Drag-resize высоты редактора за уголок в правом нижнем углу окна описания.
   // Меняем высоту wrapper'а в пределах [minHeight, maxHeight]. Обработчики
   // move/up навешиваются на window на время перетаскивания и снимаются при
@@ -108,7 +111,7 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
         computedMinHeight,
         Math.min(computedMaxHeight, dragState.current.startH + dy),
       )
-      wrapperRef.current.style.height = next + 'px'
+      setEditorHeight(next)
     }
     const onUp = () => {
       dragState.current = null
@@ -142,8 +145,8 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
     <ToasterProvider toaster={sharedToaster}>
       <div
         ref={wrapperRef}
-        className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
-        style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, position: 'relative' }}
+        className="g-markdown-editor-own-wrapper relative border border-slate-300 rounded-lg bg-white overflow-hidden"
+        style={{ height: editorHeight, minHeight: computedMinHeight, maxHeight: computedMaxHeight }}
       >
         {/* Уголок изменения высоты: правый нижний угол окна описания. */}
         <div
