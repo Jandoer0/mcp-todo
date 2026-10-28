@@ -716,6 +716,7 @@
     "bulletList": "Bullet list",
     "numberedList": "Numbered list",
     "checklist": "Checklist",
-    "quote": "Quote"
+    "quote": "Quote",
+    "resizeHint": "Drag the corner to resize the description field"
   }
 }

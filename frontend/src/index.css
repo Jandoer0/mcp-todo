@@ -134,3 +134,64 @@ html {
   background-clip: padding-box;
 }
 
+/* --- OmniTask: редактор описания задачи (@mdxeditor/editor) ---
+   Layout полностью наш: wrapper фиксированной высоты (flex-колонка),
+   тулбар MDXEditor прижат к верху и НЕ участвует в прокрутке,
+   область редактирования скроллится сама — полоса прокрутки видна. */
+
+/* Корень MDXEditor: растягиваем на всю высоту wrapper'а колонкой. */
+.omni-md-wrapper .mdxeditor-root-contenteditable,
+.omni-md-wrapper > div:first-child {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Область редактирования: собственный вертикальный скролл. */
+.omni-md-wrapper .mdxeditor-root-contenteditable > div,
+.omni-md-wrapper [contenteditable] {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Тулбар: непрозрачный белый фон, не уезжает при прокрутке. */
+.omni-md-wrapper .mdxeditor-toolbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #d1d5db;
+  flex-shrink: 0;
+}
+
+/* Типографика внутри поля ввода — как в нашем UI. */
+.omni-md-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #1e293b;
+  padding: 0.5rem 0.75rem;
+}
+.omni-md-content:focus {
+  outline: none;
+}
+
+/* Уголок drag-resize (правый нижний угол окна описания): три диагональные
+   штриховые полоски — привычный маркер «тяни за угол», как у textarea. */
+.omni-md-resize {
+  background-color: #ffffff;
+  background-image: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    #64748b 45% 55%,
+    transparent 55% 65%,
+    #64748b 65% 75%,
+    transparent 75% 85%,
+    #64748b 85% 95%,
+    transparent 95%
+  );
+  border-top: 1px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
+  border-bottom-right-radius: 0.375rem;
+}
+.omni-md-resize:hover {
+  background-color: #f1f5f9;
+}
