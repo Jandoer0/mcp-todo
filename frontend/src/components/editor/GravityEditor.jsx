@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { ThemeProvider, ToasterProvider } from '@gravity-ui/uikit'
 import { toaster as sharedToaster } from '@gravity-ui/uikit/toaster-singleton'
 import { useMarkdownEditor, MarkdownEditorView } from '@gravity-ui/markdown-editor'
@@ -40,10 +40,9 @@ removedActionNamesSet.forEach((actionName) => {
 toolbarsPreset.orders[ToolbarName.wysiwygSelection] = []
 
 /**
- * Markdown-редактор @gravity-ui/markdown-editor. Wrapper с явными
- * minHeight/maxHeight растягивается/сжимается в этих пределах (drag-resize
- * ручка внизу), тулбар имеет непрозрачный фон. Конкретные значения задаёт
- * вызывающая форма (TaskForm: 150..450px, CyclicTaskForm: то же).
+ * Markdown-редактор @gravity-ui/markdown-editor. Отличается от TaskForm: получает
+ // minHeight/maxHeight — высота окна ввода описания «растягивается» (ограничена
+ // maxHeight). minHeight/minHeight (ТЗ): окно не меньше 120px, не больше 400px.
  */
 export function GravityEditor({ initialValue = '', onChange, minHeight = 120, maxHeight = 400 }) {
 
@@ -85,11 +84,11 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
   const computedMinHeight = typeof minHeight === 'number' ? minHeight : 120
   const computedMaxHeight = typeof maxHeight === 'number' ? maxHeight : 400
 
-  // Drag-resize высоты редактора за уголок в правом нижнем углу.
-  // Меняем высоту wrapper'а (у него minHeight/maxHeight) в этих пределах;
-  // toolbar остаётся жёстко сверху, скроллится только текст внутри.
-  // Обработчики move/up навешиваются на window во время перетаскивания и
-  // снимаются на pointerup — так drag не «залипает» и работает мышью и пальцем.
+  // Drag-resize высоты редактора за уголок в правом нижнем углу окна описания.
+  // Меняем высоту wrapper'а в пределах [minHeight, maxHeight]. Тулбар при этом
+  // остаётся прижатым к верху (как в исходной вёрстке), скроллится текст ниже.
+  // Обработчики move/up навешиваются на window на время перетаскивания и
+  // снимаются на pointerup — drag не «залипает», работает мышью и пальцем.
   const resizeRef = useRef(null)
   const dragState = useRef(null) // { startY, startH } | null
 
@@ -145,11 +144,9 @@ const commandMenuActions = toolbarsPreset.items.wCommandMenu
       <div
         ref={wrapperRef}
         className="g-markdown-editor-own-wrapper border border-slate-300 rounded-lg bg-white overflow-hidden"
-        style={{ height: computedMinHeight, minHeight: computedMinHeight, maxHeight: computedMaxHeight, display: 'flex', flexDirection: 'column' }}
+        style={{ minHeight: computedMinHeight, maxHeight: computedMaxHeight, position: 'relative' }}
       >
-        {/* Ручка изменения высоты: уголок в правом нижнем углу.
-            Перетаскивание меняет высоту wrapper редактора в пределах
-            minHeight/maxHeight. */}
+        {/* Уголок изменения высоты: правый нижний угол окна описания. */}
         <div
           ref={resizeRef}
           onMouseDown={startResize}
