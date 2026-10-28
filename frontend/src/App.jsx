@@ -449,6 +449,10 @@ export default function App() {
         setEditingBoard(activeBoard)
         setBoardFormOpen(true)
       }}
+      onCreateBoard={() => {
+        setEditingBoard(null)
+        setBoardFormOpen(true)
+      }}
       onPlanner={() => setPlannerOpen(true)}
       onFilterChange={setActiveFilter}
       maxBoards={profile?.max_boards}
