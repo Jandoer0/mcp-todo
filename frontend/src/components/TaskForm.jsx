@@ -5,7 +5,7 @@ import TagInput from './TagInput'
 import TaskLinkInput from './TaskLinkInput'
 import Modal from './Modal'
 import DateTimePicker from './DateTimePicker'
-import { GravityEditor } from './editor/GravityEditor'
+import MarkdownEditor from './editor/MarkdownEditor'
 import { fmtInstant } from '../utils/datetime'
 import { numberLocale } from '../utils/format'
 import { MONTH_SHORT_KEYS } from '../utils/locale'
@@ -404,7 +404,7 @@ export default function TaskForm({ open, onClose, onSubmit, task, tasks = [], li
           </div>
           <div className="md:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('task.description')}</label>
-            <GravityEditor
+            <MarkdownEditor
               initialValue={form.description || ''}
               onChange={(markdown) => setEditorMarkdown(markdown)}
               minHeight={150}

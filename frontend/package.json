@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gravity-ui/markdown-editor": "^15.48.2",
     "axios": "^1.7.7",
     "i18next": "^26.5.11",
     "react": "^18.3.1",

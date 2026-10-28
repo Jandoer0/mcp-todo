@@ -701,5 +701,21 @@
     "legendActual": "actual — real payments from history",
     "legendActualTitle": "Completed iterations of recurring payments — actual amounts",
     "includeCompleted": "Include completed"
+  },
+  "editor": {
+    "placeholder": "Task description (Markdown)…",
+    "text": "text",
+    "bold": "Bold",
+    "italic": "Italic",
+    "strike": "Strikethrough",
+    "code": "Inline code",
+    "codeBlock": "Code block",
+    "link": "Link",
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "bulletList": "Bullet list",
+    "numberedList": "Numbered list",
+    "checklist": "Checklist",
+    "quote": "Quote"
   }
 }

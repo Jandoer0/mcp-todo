@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import Modal from './Modal'
 import TagInput from './TagInput'
 import DateTimePicker from './DateTimePicker'
-import { GravityEditor } from './editor/GravityEditor'
+import MarkdownEditor from './editor/MarkdownEditor'
 import { currenciesApi, tasksApi } from '../api/client'
 import { useSettings } from '../i18n/settings.jsx'
 import { formatDate } from '../utils/locale'
@@ -127,7 +127,7 @@ export default function CyclicTaskForm({ open, task = null, lists = [], tags = [
         </div>
         <div className="md:col-span-2">
           <label className="field-label">{t('cyclic.description')}</label>
-          <GravityEditor
+          <MarkdownEditor
             initialValue={form.description || ''}
             onChange={(markdown) => setEditorMarkdown(markdown)}
             minHeight={150}
