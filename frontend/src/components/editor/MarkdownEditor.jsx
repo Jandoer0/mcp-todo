@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   MDXEditor,
@@ -25,7 +25,9 @@ import '@mdxeditor/editor/style.css'
 // Layout контролируется нами: flex-колонка фиксированной высоты — тулбар
 // shrink-0 с непрозрачным белым фоном поверх области редактирования, которая
 // скроллится сама (полоса прокрутки всегда видна, тулбар не уезжает).
-// Изменение высоты — pointer-drag уголка ↘ внизу справа.
+// Изменение высоты — нативный CSS-ресайз (resize: vertical) самого wrapper'а:
+// уголок выглядит точно так же, как у <textarea> в форме доски (BoardForm),
+// и работает во всех современных браузерах без JS-драга.
 
 // Русские подписи тулбара/диалогов MDXEditor (перевод встроенного EN-дефолта;
 // ключи соответствуют t("…", "default") внутри библиотеки).
@@ -64,8 +66,6 @@ const ruDictionary = {
 export default function MarkdownEditor({ initialValue = '', onChange, minHeight = 150, maxHeight = 450 }) {
   const { t } = useTranslation()
   const editorRef = useRef(null)
-  const wrapperRef = useRef(null)
-  const dragState = useRef(null)
   // Контейнер для попапов/диалогов MDXEditor (Radix Portal). По умолчанию
   // библиотека рендерит их в document.body — под нашей модалкой задачи
   // (z-[120]) и вне её границ. Пробрасываем свой div внутри wrapper'а:
@@ -77,43 +77,11 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
     if (editorRef.current) editorRef.current.setMarkdown(initialValue || '')
   }, [initialValue])
 
-  // Drag-resize высоты редактора за уголок в правом нижнем углу.
-  const startResize = (e) => {
-    if (e.type === 'mousedown' && e.button !== 0) return
-    e.preventDefault()
-    const point = e.touches ? e.touches[0] : e
-    dragState.current = {
-      startY: point.clientY,
-      startH: wrapperRef.current.getBoundingClientRect().height,
-    }
-    const onMove = (ev) => {
-      if (!dragState.current || !wrapperRef.current) return
-      ev.preventDefault()
-      const p = ev.touches ? ev.touches[0] : ev
-      const next = Math.max(
-        minHeight,
-        Math.min(maxHeight, dragState.current.startH + p.clientY - dragState.current.startY),
-      )
-      wrapperRef.current.style.height = next + 'px'
-    }
-    const onUp = () => {
-      dragState.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      window.removeEventListener('touchmove', onMove)
-      window.removeEventListener('touchend', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    window.addEventListener('touchmove', onMove, { passive: false })
-    window.addEventListener('touchend', onUp)
-  }
-
   return (
     <div
-      ref={wrapperRef}
       className="relative border border-slate-300 rounded-lg bg-white flex flex-col overflow-hidden omni-md-wrapper"
-      style={{ height: minHeight, minHeight, maxHeight }}
+      style={{ height: `${minHeight}px`, minHeight: `${minHeight}px`, maxHeight: `${maxHeight}px` }}
+      title={t('editor.resizeHint')}
     >
       {/* Портал попапов/диалогов: внутри wrapper'а, над тулбаром и полем. */}
       <div ref={setOverlayEl} className="omni-md-overlay absolute inset-0 pointer-events-none" />
@@ -164,14 +132,6 @@ export default function MarkdownEditor({ initialValue = '', onChange, minHeight 
             ),
           }),
         ]}
-      />
-      {/* Уголок изменения высоты окна описания (правый нижний угол). */}
-      <div
-        onMouseDown={startResize}
-        onTouchStart={startResize}
-        className="omni-md-resize absolute bottom-0 right-0 z-20 w-5 h-5 cursor-se-resize"
-        title={t('editor.resizeHint')}
-        aria-hidden="true"
       />
     </div>
   )

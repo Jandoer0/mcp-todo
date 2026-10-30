@@ -301,29 +301,11 @@ html {
   font-size: 0.8125rem;
 }
 
-/* Уголок drag-resize (правый нижний угол окна описания): белый фон,
-   контрастные диагональные чёрточки в углу — заметны, но не кричащие.
-   position: absolute относительно wrapper (relative + overflow hidden),
-   скроллится только contenteditable внутри — уголок остаётся на месте. */
-.omni-md-resize {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  z-index: 20;
-  pointer-events: auto;
-  background-color: #f8fafc;
-  background-image: linear-gradient(
-    135deg,
-    transparent 40%,
-    #64748b 40% 52%,
-    transparent 52% 62%,
-    #64748b 62% 74%,
-    transparent 74%
-  );
-  border-top: 1px solid #94a3b8;
-  border-left: 1px solid #94a3b8;
-  border-bottom-right-radius: 0.375rem;
-}
-.omni-md-resize:hover {
-  background-color: #e2e8f0;
+/* Ресайз высоты редактора — нативный CSS (resize: vertical) на самом wrapper'е.
+   Внешний вид уголка полностью совпадает с <textarea> в форме доски (BoardForm):
+   браузер сам рисует стандартный маркер в правом нижнем углу. overflow:hidden
+   уже задан выше — он обязателен, иначе resize игнорируется. Минимум/максимум
+   задаются инлайновыми стилями компонента (minHeight/maxHeight). */
+.omni-md-wrapper {
+  resize: vertical;
 }
