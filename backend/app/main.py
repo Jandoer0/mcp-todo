@@ -700,10 +700,16 @@ def ensure_admin(db) -> None:
     """Guarantee at least one admin exists.
 
     - If ADMIN_USERNAME is provided, that account is created (if missing) and
-      promoted to admin.
-    - Otherwise the first registered user is promoted when no admin exists yet.
-    This lets the admin panel be reachable even on a fresh or pre-existing DB
-    that has no admin (registration only ever creates 'user' accounts).
+      promoted to admin. This is the OPERATOR'S canonical way to bootstrap the
+      first admin on a fresh server — set it in the container env before the
+      very first start so there is never a window where nobody can reach the
+      admin panel.
+    - Otherwise the first registered user is promoted when no admin exists yet
+      (fallback for deployments that forgot to pin ADMIN_USERNAME; harmless on
+      a single-operator box, but racy if two humans register simultaneously on
+      a brand-new public instance — prefer the explicit env route).
+    Registration itself NEVER grants admin (see routers/auth.register): the
+    payload's role field is ignored, so this function is the only door.
     """
     from .auth import get_password_hash
     from .models import User
